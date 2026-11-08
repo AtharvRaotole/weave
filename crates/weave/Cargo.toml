@@ -1,0 +1,16 @@
+[package]
+name = "weave"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Parallel runtime for a small Python-like language aimed at agent tool calls"
+
+[dependencies]
+futures = "0.3"
+ruff_python_ast = "0.0.18"
+ruff_python_parser = "0.0.18"
+ruff_text_size = "0.0.18"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }

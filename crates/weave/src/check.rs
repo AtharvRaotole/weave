@@ -1,0 +1,303 @@
+use std::collections::HashSet;
+
+use crate::analysis::is_builtin;
+use crate::ast::{Expr, ExprKind, Stmt, StmtKind, Target};
+use crate::error::Diagnostic;
+use crate::tools::ToolRegistry;
+
+pub fn check_program(stmts: &[Stmt], tools: &ToolRegistry) -> Vec<Diagnostic> {
+    let mut defined = HashSet::new();
+    check_block(stmts, tools, &mut defined)
+}
+
+/// Check `stmts` against names already assigned. Updates `defined` with names
+/// assigned on every path.
+pub fn check_block(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<String>) -> Vec<Diagnostic> {
+    let mut diags = Vec::new();
+    for stmt in stmts {
+        match &stmt.kind {
+            StmtKind::Assign { targets, value } => {
+                diags.extend(check_expr(value, tools, defined));
+                for target in targets {
+                    diags.extend(check_target(target, tools, defined, false));
+                    bind_target(target, defined);
+                }
+            }
+            StmtKind::AugAssign { target, op, value } => {
+                diags.extend(check_target(target, tools, defined, true));
+                diags.extend(check_expr(value, tools, defined));
+                bind_target(target, defined);
+                let _ = op;
+            }
+            StmtKind::Expr(expr) => diags.extend(check_expr(expr, tools, defined)),
+            StmtKind::If { test, body, orelse } => {
+                diags.extend(check_expr(test, tools, defined));
+                let mut then_defined = defined.clone();
+                let mut else_defined = defined.clone();
+                diags.extend(check_block(body, tools, &mut then_defined));
+                diags.extend(check_block(orelse, tools, &mut else_defined));
+                *defined = then_defined
+                    .intersection(&else_defined)
+                    .cloned()
+                    .collect();
+            }
+            StmtKind::For { target, iter, body } => {
+                diags.extend(check_expr(iter, tools, defined));
+                let mut inner = defined.clone();
+                diags.extend(check_target(target, tools, &inner, false));
+                bind_target(target, &mut inner);
+                diags.extend(check_block(body, tools, &mut inner));
+                // Names assigned only inside the loop are unbound when the iterable is empty.
+            }
+            StmtKind::Pass => {}
+        }
+    }
+    diags
+}
+
+fn check_target(target: &Target, tools: &ToolRegistry, defined: &HashSet<String>, aug: bool) -> Vec<Diagnostic> {
+    match target {
+        Target::Name { line, col, name } => {
+            if aug && !defined.contains(name) {
+                vec![Diagnostic::static_err(
+                    *line,
+                    *col,
+                    format!("name `{name}` is used before assignment"),
+                )]
+            } else {
+                Vec::new()
+            }
+        }
+        Target::Subscript { line, col, base, index } => {
+            let mut diags = check_expr(base, tools, defined);
+            diags.extend(check_expr(index, tools, defined));
+            if !matches!(base.kind, ExprKind::Name(_)) {
+                diags.push(Diagnostic::static_err(
+                    *line,
+                    *col,
+                    "subscript assignment only supports a name, like `items[i] = value`",
+                ));
+            }
+            diags
+        }
+        Target::Unpack { targets, .. } => {
+            let mut diags = Vec::new();
+            for target in targets {
+                diags.extend(check_target(target, tools, defined, aug));
+            }
+            diags
+        }
+    }
+}
+
+fn bind_target(target: &Target, defined: &mut HashSet<String>) {
+    match target {
+        Target::Name { name, .. } => {
+            defined.insert(name.clone());
+        }
+        Target::Subscript { base, .. } => {
+            if let ExprKind::Name(name) = &base.kind {
+                defined.insert(name.clone());
+            }
+        }
+        Target::Unpack { targets, .. } => {
+            for target in targets {
+                bind_target(target, defined);
+            }
+        }
+    }
+}
+
+fn check_expr(expr: &Expr, tools: &ToolRegistry, defined: &HashSet<String>) -> Vec<Diagnostic> {
+    let mut diags = Vec::new();
+    match &expr.kind {
+        ExprKind::Name(name) => {
+            if !defined.contains(name) && !is_builtin(name) {
+                diags.push(Diagnostic::static_err(
+                    expr.line,
+                    expr.col,
+                    format!("name `{name}` is used before assignment"),
+                ));
+            }
+        }
+        ExprKind::Call { func, args, keywords } => {
+            diags.extend(check_call(expr.line, expr.col, func, args, keywords, tools, defined));
+        }
+        ExprKind::Attribute { value, .. } => diags.extend(check_expr(value, tools, defined)),
+        ExprKind::List(xs) | ExprKind::Tuple(xs) => {
+            for item in xs {
+                diags.extend(check_expr(item, tools, defined));
+            }
+        }
+        ExprKind::Dict(items) => {
+            for (key, value) in items {
+                diags.extend(check_expr(key, tools, defined));
+                diags.extend(check_expr(value, tools, defined));
+            }
+        }
+        ExprKind::BinOp { left, right, .. } => {
+            diags.extend(check_expr(left, tools, defined));
+            diags.extend(check_expr(right, tools, defined));
+        }
+        ExprKind::Unary { operand, .. } => diags.extend(check_expr(operand, tools, defined)),
+        ExprKind::BoolOp { values, .. } => {
+            for value in values {
+                diags.extend(check_expr(value, tools, defined));
+            }
+        }
+        ExprKind::Compare { left, comparators, .. } => {
+            diags.extend(check_expr(left, tools, defined));
+            for item in comparators {
+                diags.extend(check_expr(item, tools, defined));
+            }
+        }
+        ExprKind::Subscript { value, index } => {
+            diags.extend(check_expr(value, tools, defined));
+            diags.extend(check_expr(index, tools, defined));
+        }
+        ExprKind::Slice { lower, upper, step } => {
+            for part in [lower, upper, step].into_iter().flatten() {
+                diags.extend(check_expr(part, tools, defined));
+            }
+        }
+        ExprKind::FString(segs) => {
+            for seg in segs {
+                if let crate::ast::FSeg::Interp { expr, .. } = seg {
+                    diags.extend(check_expr(expr, tools, defined));
+                }
+            }
+        }
+        ExprKind::IfExp { test, body, orelse } => {
+            diags.extend(check_expr(test, tools, defined));
+            diags.extend(check_expr(body, tools, defined));
+            diags.extend(check_expr(orelse, tools, defined));
+        }
+        ExprKind::None | ExprKind::Bool(_) | ExprKind::Int(_) | ExprKind::Float(_) | ExprKind::Str(_) => {}
+    }
+    diags
+}
+
+fn check_call(
+    line: usize,
+    col: usize,
+    func: &Expr,
+    args: &[Expr],
+    keywords: &[crate::ast::Keyword],
+    tools: &ToolRegistry,
+    defined: &HashSet<String>,
+) -> Vec<Diagnostic> {
+    let mut diags = Vec::new();
+    for arg in args {
+        diags.extend(check_expr(arg, tools, defined));
+    }
+    for kw in keywords {
+        diags.extend(check_expr(&kw.value, tools, defined));
+        if kw.name.is_none() {
+            diags.push(Diagnostic::static_err(
+                kw.line,
+                1,
+                "keyword splatting is not supported; pass keywords by name",
+            ));
+        }
+    }
+    match &func.kind {
+        ExprKind::Name(name) => {
+            if is_builtin(name) {
+                diags.extend(check_builtin(line, col, name, args.len(), keywords));
+            } else if let Some(tool) = tools.get(name) {
+                if let Some(arity) = tool.spec.arity {
+                    if args.len() != arity {
+                        diags.push(Diagnostic::static_err(
+                            line,
+                            col,
+                            format!("tool `{name}` takes {arity} argument(s), got {}", args.len()),
+                        ));
+                    }
+                }
+                if !keywords.is_empty() && !tool.spec.accepts_kwargs {
+                    diags.push(Diagnostic::static_err(
+                        line,
+                        col,
+                        format!("tool `{name}` does not take keyword arguments"),
+                    ));
+                }
+            } else if defined.contains(name) {
+                diags.push(Diagnostic::static_err(
+                    line,
+                    col,
+                    format!("`{name}` is a value, not a tool; call a registered tool by its name"),
+                ));
+            } else {
+                let mut message = format!("unknown tool `{name}`");
+                if let Some(suggestion) = suggest(name, tools) {
+                    message.push_str(&format!("; did you mean `{suggestion}`?"));
+                }
+                diags.push(Diagnostic::static_err(line, col, message));
+            }
+        }
+        ExprKind::Attribute { value, .. } => diags.extend(check_expr(value, tools, defined)),
+        _ => {
+            diags.push(Diagnostic::static_err(
+                line,
+                col,
+                "only tool names, builtins, and methods can be called",
+            ));
+        }
+    }
+    diags
+}
+
+fn check_builtin(line: usize, col: usize, name: &str, argc: usize, keywords: &[crate::ast::Keyword]) -> Vec<Diagnostic> {
+    let mut diags = Vec::new();
+    let ok = match name {
+        "print" => true,
+        "len" | "str" | "int" | "float" | "bool" | "abs" => argc == 1,
+        "range" => (1..=3).contains(&argc),
+        _ => true,
+    };
+    if !ok {
+        diags.push(Diagnostic::static_err(
+            line,
+            col,
+            format!("builtin `{name}` got {argc} argument(s)"),
+        ));
+    }
+    if name != "print" && !keywords.is_empty() {
+        diags.push(Diagnostic::static_err(
+            line,
+            col,
+            format!("builtin `{name}` does not take keyword arguments"),
+        ));
+    }
+    diags
+}
+
+fn suggest(name: &str, tools: &ToolRegistry) -> Option<String> {
+    let mut best: Option<(usize, String)> = None;
+    for cand in tools.names() {
+        let dist = edit_distance(name, cand);
+        if dist > 0 && dist <= 2 && best.as_ref().map(|(d, _)| dist < *d).unwrap_or(true) {
+            best = Some((dist, cand.to_string()));
+        }
+    }
+    best.map(|(_, name)| name)
+}
+
+fn edit_distance(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
+    let b: Vec<char> = b.chars().collect();
+    if a.len() > 32 || b.len() > 32 {
+        return usize::MAX;
+    }
+    let mut prev: Vec<usize> = (0..=b.len()).collect();
+    let mut cur = vec![0; b.len() + 1];
+    for (i, ca) in a.iter().enumerate() {
+        cur[0] = i + 1;
+        for (j, cb) in b.iter().enumerate() {
+            let cost = if ca == cb { 0 } else { 1 };
+            cur[j + 1] = (prev[j + 1] + 1).min(cur[j] + 1).min(prev[j] + cost);
+        }
+        std::mem::swap(&mut prev, &mut cur);
+    }
+    prev[b.len()]
+}
