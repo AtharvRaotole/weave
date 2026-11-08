@@ -2038,12 +2038,9 @@ async fn invoke_cooperative(
         }
     };
     tokio::select! {
-        result = rx => {
-            owned.0.take();
-            match result {
-                Ok(value) => value,
-                Err(_) => Err(format!("tool `{tool_name}` panicked")),
-            }
+        result = rx => match result {
+            Ok(value) => value,
+            Err(_) => Err(format!("tool `{tool_name}` panicked")),
         },
         _ = timeout_sleep => {
             source.cancel();
@@ -2098,9 +2095,12 @@ async fn invoke_isolated(
         }
     };
     tokio::select! {
-        result = rx => match result {
-            Ok(value) => value,
-            Err(_) => Err(format!("tool `{tool_name}` panicked")),
+        result = rx => {
+            owned.0.take();
+            match result {
+                Ok(value) => value,
+                Err(_) => Err(format!("tool `{tool_name}` panicked")),
+            }
         },
         _ = timeout_sleep => {
             Err(format!("timed out after {}ms", limit.unwrap_or_default().as_millis()))
