@@ -16,10 +16,12 @@ class Probe:
     events: list[tuple[float, float]] = field(default_factory=list)
 
     def wrap(self, fn):
-        def inner(*args, **kwargs):
+        # Positional only. A **kwargs parameter would make Weave pass a cancel
+        # token into a tool that does not poll one.
+        def inner(*args):
             started = time.perf_counter()
             try:
-                return fn(*args, **kwargs)
+                return fn(*args)
             finally:
                 self.events.append((started, time.perf_counter()))
 
