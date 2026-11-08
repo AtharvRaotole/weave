@@ -6,6 +6,10 @@ All notable changes to Weave. The format follows
 
 ## [Unreleased]
 
+### Audit follow-up
+- W13: preserve completed bindings through failing nested branches, loops and
+  handlers; add independent CPython differential exception/write-log coverage.
+
 ### Audit remediation (experimental source only)
 - Preserve PR10 README improvements; remove unequal-endpoint speedup framing.
 - Gate writes on prior computation success; execute exception regions in order.

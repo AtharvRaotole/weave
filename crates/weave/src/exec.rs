@@ -849,36 +849,104 @@ async fn run_caught_block(
     branch_prior: Vec<ValFut>,
     branch_path: Vec<usize>,
 ) -> Result<Arc<HashMap<String, Value>>, (WeaveError, HashMap<String, ValFut>)> {
-    for stmt in stmts {
-        let before = child.clone();
-        let (roots, assigned) = {
-            let mut guard = arc.lock().expect("launch lock");
-            let saved = BarrierSnap::capture(&guard);
-            guard.last_mutation = branch_mut.clone();
-            guard.last_observable = branch_obs.clone();
-            guard.print_barrier = branch_print.clone();
-            guard.prior = branch_prior.clone();
-            guard.path = branch_path.clone();
-            let roots = launch_block(&mut guard, arc, std::slice::from_ref(stmt), &mut child, false);
-            let names = assigned_names(std::slice::from_ref(stmt));
-            let assigned = capture_assigned(&names, &child);
-            saved.install(&mut guard);
-            (roots, assigned)
-        };
-        spawn_pending(arc);
-        if let Err(err) = await_roots(roots).await {
-            return Err((err, before));
-        }
-        match collect_assigned(assigned).await {
-            Ok(values) => for (name, value) in values.iter() {
-                child.insert(name.clone(), ready(value.clone()));
-            },
-            Err(err) => return Err((err, before)),
-        }
+    let barriers = BarrierSnap {
+        last_mutation: branch_mut, last_observable: branch_obs,
+        print_barrier: branch_print, prior: branch_prior, path: branch_path,
+    };
+    if let Err(err) = run_ordered_block(arc, stmts, &mut child, barriers).await {
+        return Err((err, child));
     }
     collect_assigned(capture_assigned(written, &child)).await.map_err(|err| (err, child))
-
 }
+
+/// Exception regions preserve every completed statement, including statements
+/// inside a failing compound block. Shared state is local to this region; no
+/// global journal races with independent parallel branches.
+fn run_ordered_block<'a>(
+    arc: &'a Arc<Mutex<Launch>>,
+    stmts: &'a [Stmt],
+    child: &'a mut HashMap<String, ValFut>,
+    barriers: BarrierSnap,
+) -> futures::future::BoxFuture<'a, Result<(), WeaveError>> {
+    Box::pin(async move {
+        for stmt in stmts {
+            if matches!(stmt.kind, StmtKind::If { .. } | StmtKind::For { .. } | StmtKind::Try { .. }) {
+                let g = arc.lock().expect("launch lock");
+                charge(&g, 1, stmt.line, stmt.col)?;
+            }
+            match &stmt.kind {
+                StmtKind::If { test, body, orelse } => {
+                    let value = ordered_expr(arc, test, child, &barriers).await?;
+                    let chosen = if value::truthy(&value) { body } else { orelse };
+                    run_ordered_block(arc, chosen, child, barriers.clone()).await?;
+                }
+                StmtKind::For { target, iter, body } => {
+                    let value = ordered_expr(arc, iter, child, &barriers).await?;
+                    let items = iter_items(stmt.line, stmt.col, value)?;
+                    for (iteration, item) in items.into_iter().enumerate() {
+                        {
+                            let g = arc.lock().expect("launch lock");
+                            charge(&g, 1, stmt.line, stmt.col)?;
+                        }
+                        bind_ready(target, item, child);
+                        let mut nested = barriers.clone();
+                        nested.path.extend([stmt.line, stmt.col, iteration]);
+                        run_ordered_block(arc, body, child, nested).await?;
+                    }
+                }
+                StmtKind::Try { body, handler } => {
+                    if let Err(err) = run_ordered_block(arc, body, child, barriers.clone()).await {
+                        if !catch_error(&err, handler) { return Err(err); }
+                        if let Some(name) = &handler.name {
+                            child.insert(name.clone(), ready(Value::str(err.summary())));
+                        }
+                        run_ordered_block(arc, &handler.body, child, barriers.clone()).await?;
+                    }
+                }
+                _ => {
+                    let before = child.clone();
+                    let (roots, assigned) = {
+                        let mut guard = arc.lock().expect("launch lock");
+                        let saved = BarrierSnap::capture(&guard);
+                        barriers.install(&mut guard);
+                        let roots = launch_block(&mut guard, arc, std::slice::from_ref(stmt), child, false);
+                        let assigned = capture_assigned(&assigned_names(std::slice::from_ref(stmt)), child);
+                        saved.install(&mut guard);
+                        (roots, assigned)
+                    };
+                    spawn_pending(arc);
+                    if let Err(err) = await_roots(roots).await {
+                        *child = before;
+                        return Err(err);
+                    }
+                    match collect_assigned(assigned).await {
+                        Ok(values) => for (name, value) in values.iter() {
+                            child.insert(name.clone(), ready(value.clone()));
+                        },
+                        Err(err) => { *child = before; return Err(err); }
+                    }
+                }
+            }
+        }
+        Ok(())
+    })
+}
+
+fn ordered_expr(
+    arc: &Arc<Mutex<Launch>>, expr: &Expr, child: &HashMap<String, ValFut>, barriers: &BarrierSnap,
+) -> ValFut {
+    let fut = {
+        let mut g = arc.lock().expect("launch lock");
+        let saved = BarrierSnap::capture(&g);
+        barriers.install(&mut g);
+        let fut = schedule_expr(expr, &mut g, arc, child);
+        saved.install(&mut g);
+        fut
+    };
+    spawn_pending(arc);
+    fut
+}
+
 
 fn schedule_for(
     line: usize,

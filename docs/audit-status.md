@@ -30,13 +30,13 @@ complete property over arbitrary scripts, hosts, protocols, or operating systems
 | W10 | Structured-only direct tool returned empty text | **Fixed tested structured/text cases.** Direct calls preserve original envelope, script calls prefer structured JSON. Unsupported non-text-only script content raises explicit error, not successful empty text. No claim to decode arbitrary multimodal data or validate all outputSchema constraints. |
 | W11 | `echo(x="ok")` rejected by positional arity/keyword checks | **Fixed tested Python signatures.** Derive keyword acceptance from inspectable signature, count positional+keyword arity, Python binds mixed/duplicate/unknown arguments before function entry. Injected cancel is not script-controlled. Opaque signatures remain conservative; async Python tools still unsupported. |
 | W12 | Null/int/list/object source escaped as AttributeError | **Fixed.** Non-string source returns repairable `error:`; malformed JSON/top-level shapes covered offline. |
-| W13 | Completed try assignment lost: `0,0` instead of `1,1` | **Partially fixed; nested case deferred.** Simple completed statements preserve bindings (`1,1`) under later caught failure. **Still known:** assignment inside a failing compound `if`/loop statement may revert to its pre-statement snapshot. Example below remains `0,0`, not Python's `1,1`. Do not assume arbitrary Python exception-state equivalence. |
+| W13 | Completed try assignment lost: `0,0` instead of `1,1` | **Fixed targeted nested state cases in source.** Ordered recursive exception-region execution retains completed assignments in failing branches/loops and nested handlers. Exact counterexample now prints `1,1`. Rust regression plus 504 independently executed CPython differential programs compare output, bindings and write logs across 1008 batch/stream runs and replays. This is bounded differential evidence, not arbitrary Python equivalence. |
 | W14 | SDK heartbeat blocked **151.46 ms** by 150 ms tool | **Event-loop blocking fixed; cancellation is soft.** SDK wrapper offloads to thread; local probe now ~5–7 ms heartbeat gaps. Cancelling await does not kill sync host work in that thread. Use process-isolated tools for local termination, without promising remote cancellation. |
 | W15 | Unpickleable function consumed last idle slot (0 left) | **Fixed.** Serialize before capacity acquisition; original probe now retains 1 slot. Next good call and killed-worker replacement good call both asserted. Pool close tracks queued/active jobs. |
 | W16 | `python -m weave typo` returned zero silently | **Fixed.** Nonzero exit and usage diagnostic asserted. |
 | W17 | Unicode find returned byte offset 2; slice empty | **Fixed targeted find/slice case.** Convert byte index to character index; `éx`.find(`x`) = 1 and slice = `x`. Does not assert full CPython string-method compatibility. |
 
-## Explicit remaining counterexample (W13)
+## Retained W13 counterexample (now fixed)
 
 ```python
 x = 0
@@ -49,9 +49,8 @@ except ToolError:
 print(x)
 ```
 
-Current source prints `0\n0\n`. Correct Python-style completed-binding semantics
-would print `1\n1\n`. Fixing this needs per-control-region partial-state
-propagation rather than hiding it by weakening acceptance assertions.
+Baseline source printed `0\n0\n`. Corrected source and independent CPython
+both print `1\n1\n`; the original evidence is preserved unchanged.
 
 ## Other scope boundaries
 
