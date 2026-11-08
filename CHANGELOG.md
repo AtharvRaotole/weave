@@ -4,10 +4,13 @@ All notable changes to Weave. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] - 0.1.0
+## [Unreleased]
 
-First public version. `v0.1.0-rc1` and `v0.1.0-rc2` were release-candidate
-tags used to check the wheel builds; nothing has been published.
+## [0.1.0] - 2026-11-08
+
+First public version, released on GitHub with prebuilt wheels. It is not on
+PyPI. `v0.1.0-rc1` and `v0.1.0-rc2` were release-candidate tags used to check
+the wheel builds.
 
 ### Language
 - A Python subset parsed with `ruff_python_parser`: assignment (including
@@ -63,7 +66,12 @@ tags used to check the wheel builds; nothing has been published.
 - `bench/real_tools_eval.py`: 16 tasks against the real filesystem, fetch,
   git, and memory MCP servers, with write tasks checked on real state, run in
   Weave and native function-calling modes. Every measured run is in
-  `bench/results/` and in the README.
+  `bench/results/` and in `docs/benchmarks.md`.
 - Release workflow: wheels for Linux x86_64/aarch64, macOS arm64/x86_64, and
-  Windows x64 on CPython 3.9–3.13, plus an sdist. The workflow uploads
-  artifacts only.
+  Windows x64 on CPython 3.9–3.13, plus an sdist. An opt-in PyPI
+  trusted-publishing job stays off unless `PYPI_PUBLISH` is set.
+
+### Documentation
+- README rewritten around a measured benchmark chart and a how-it-works
+  diagram, with the long eval write-up in `docs/benchmarks.md`.
+- `CONTRIBUTING.md`, `SECURITY.md`, and `docs/releasing.md`.
