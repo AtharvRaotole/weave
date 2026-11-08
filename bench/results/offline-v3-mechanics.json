@@ -1,0 +1,2243 @@
+{
+  "kind": "offline_mechanics",
+  "measured_model_performance": false,
+  "synthetic_clock": true,
+  "response_origin": "hand-authored scripted decisions, not recorded live model responses",
+  "source_dirty": true,
+  "protocol_sources_hash": "8123bf82bf2469cf2c4acd04043bb8df812f30c259701947018a30fecf3285f3",
+  "split_manifest": {
+    "development": [
+      "dev_sum",
+      "dev_fallback",
+      "dev_receipt"
+    ],
+    "held_out_candidate": [
+      "hold_inventory",
+      "hold_journal",
+      "hold_noop"
+    ],
+    "manifest_hash": "ed46282c8b95efd1c28227e8fcc19759de629afae6faab81af392b84f37de117",
+    "statistically_independent": false,
+    "secret_or_unseen": false
+  },
+  "summary": {
+    "kind": "offline_mechanics",
+    "measured_model_performance": false,
+    "runs": 6,
+    "passed": 6,
+    "first_pass": 6,
+    "state_mismatch_runs": 0,
+    "write_log_mismatch_runs": 0,
+    "unexpected_write_runs": 0,
+    "failures": {},
+    "p50_all_wall_s": 2.0,
+    "p95_all_wall_s": 3,
+    "known_tokens": {
+      "input_tokens": 98,
+      "output_tokens": 42,
+      "cached_input_tokens": 28
+    },
+    "unknown_usage_attempts": 0,
+    "token_totals_complete": true
+  },
+  "rows": [
+    {
+      "methodology_version": 3,
+      "kind": "offline_mechanics",
+      "measured_model_performance": false,
+      "endpoint": "provider_final_answer_and_actual_state",
+      "task": "dev_sum",
+      "split": "development",
+      "family": "parallel_sum",
+      "mode": "weave",
+      "status": "passed",
+      "passed": true,
+      "first_pass": true,
+      "first_answer_pass": true,
+      "execution_errors": 0,
+      "wall_s": 2,
+      "retry_wait_s": 0,
+      "rate_limit_wait_s": 0,
+      "model_turns": 2,
+      "answer_submissions": 1,
+      "provider_attempts": [
+        {
+          "turn": 1,
+          "retry": 0,
+          "request_hash": "01561aa17994bd4fce4fc3f9ec94f55c05939bf5539cf3afa64e881aa6e6d500",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        },
+        {
+          "turn": 2,
+          "retry": 0,
+          "request_hash": "69775645abba617183200bdc86ac8726c542b7c0dec105ec4478b05e91a4e62b",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        }
+      ],
+      "known_tokens": {
+        "input_tokens": 14,
+        "output_tokens": 6,
+        "cached_input_tokens": 4
+      },
+      "unknown_usage_attempts": 0,
+      "token_totals_complete": true,
+      "config": {
+        "provider": "deterministic-fake",
+        "model_revision": "fake-revision-001",
+        "api_version": "offline-v1",
+        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "server_versions": {
+          "local-filesystem-fixture": "protocol-v3.1"
+        },
+        "generation": {
+          "temperature": 0,
+          "max_output_tokens": 256,
+          "reasoning": "none"
+        },
+        "resolved_model_revision": "fake-revision-001",
+        "native_parallel": 4,
+        "max_turns": 10,
+        "max_answers": 3,
+        "provider_retries": 2,
+        "timeout_s": 30,
+        "seed": 73,
+        "cache_policy": "disabled"
+      },
+      "context_hash": "a73213b908e86a8101b3b99fae814db71f82646c9205d032b1183f8d89f6af83",
+      "schema_hash": "cc8fa6774d15ca8d5ad74f4ccb3dbd82bf79cc9285aae02e9867e396c594deca",
+      "initial_state_hash": "b4b6557d95e1969dc7022b617fd25498cdd7c4e7c02bcb414e85991c3891ced4",
+      "final_state_hash": "b4b6557d95e1969dc7022b617fd25498cdd7c4e7c02bcb414e85991c3891ced4",
+      "writes": [],
+      "state_matches": true,
+      "write_log_matches": true,
+      "unexpected_write": false,
+      "feedback": [
+        {
+          "observations": [
+            {
+              "name": "read_file",
+              "arguments": {
+                "path": "a.txt"
+              },
+              "result": "11",
+              "error": null
+            },
+            {
+              "name": "read_file",
+              "arguments": {
+                "path": "b.txt"
+              },
+              "result": "20",
+              "error": null
+            }
+          ],
+          "execution_error": null
+        }
+      ],
+      "requests": [
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [],
+          "interface": "script or answer",
+          "mode": "weave",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read a.txt and b.txt; answer their integer sum.",
+            "task_id": "dev_sum"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        },
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [
+            {
+              "decision": {
+                "script": "a=read_file(path=\"a.txt\")\nb=read_file(path=\"b.txt\")\nprint(int(a)+int(b))\n"
+              }
+            },
+            {
+              "feedback": {
+                "execution_error": null,
+                "observations": [
+                  {
+                    "arguments": {
+                      "path": "a.txt"
+                    },
+                    "error": null,
+                    "name": "read_file",
+                    "result": "11"
+                  },
+                  {
+                    "arguments": {
+                      "path": "b.txt"
+                    },
+                    "error": null,
+                    "name": "read_file",
+                    "result": "20"
+                  }
+                ]
+              }
+            }
+          ],
+          "interface": "script or answer",
+          "mode": "weave",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read a.txt and b.txt; answer their integer sum.",
+            "task_id": "dev_sum"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "methodology_version": 3,
+      "kind": "offline_mechanics",
+      "measured_model_performance": false,
+      "endpoint": "provider_final_answer_and_actual_state",
+      "task": "dev_sum",
+      "split": "development",
+      "family": "parallel_sum",
+      "mode": "native",
+      "status": "passed",
+      "passed": true,
+      "first_pass": true,
+      "first_answer_pass": true,
+      "execution_errors": 0,
+      "wall_s": 2,
+      "retry_wait_s": 0,
+      "rate_limit_wait_s": 0,
+      "model_turns": 2,
+      "answer_submissions": 1,
+      "provider_attempts": [
+        {
+          "turn": 1,
+          "retry": 0,
+          "request_hash": "ff807131e0530fc95cabeaa663a0e3855c446afe53f9e9f6cd85d3bf869568c7",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        },
+        {
+          "turn": 2,
+          "retry": 0,
+          "request_hash": "ce441e8fd24ff1a84d1c2101a9cc048f455b68ea93fd94b3a143b943f369ce89",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        }
+      ],
+      "known_tokens": {
+        "input_tokens": 14,
+        "output_tokens": 6,
+        "cached_input_tokens": 4
+      },
+      "unknown_usage_attempts": 0,
+      "token_totals_complete": true,
+      "config": {
+        "provider": "deterministic-fake",
+        "model_revision": "fake-revision-001",
+        "api_version": "offline-v1",
+        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "server_versions": {
+          "local-filesystem-fixture": "protocol-v3.1"
+        },
+        "generation": {
+          "temperature": 0,
+          "max_output_tokens": 256,
+          "reasoning": "none"
+        },
+        "resolved_model_revision": "fake-revision-001",
+        "native_parallel": 4,
+        "max_turns": 10,
+        "max_answers": 3,
+        "provider_retries": 2,
+        "timeout_s": 30,
+        "seed": 73,
+        "cache_policy": "disabled"
+      },
+      "context_hash": "a73213b908e86a8101b3b99fae814db71f82646c9205d032b1183f8d89f6af83",
+      "schema_hash": "cc8fa6774d15ca8d5ad74f4ccb3dbd82bf79cc9285aae02e9867e396c594deca",
+      "initial_state_hash": "b4b6557d95e1969dc7022b617fd25498cdd7c4e7c02bcb414e85991c3891ced4",
+      "final_state_hash": "b4b6557d95e1969dc7022b617fd25498cdd7c4e7c02bcb414e85991c3891ced4",
+      "writes": [],
+      "state_matches": true,
+      "write_log_matches": true,
+      "unexpected_write": false,
+      "feedback": [
+        {
+          "observations": [
+            {
+              "name": "read_file",
+              "arguments": {
+                "path": "a.txt"
+              },
+              "result": "11",
+              "error": null
+            },
+            {
+              "name": "read_file",
+              "arguments": {
+                "path": "b.txt"
+              },
+              "result": "20",
+              "error": null
+            }
+          ],
+          "execution_error": null
+        }
+      ],
+      "requests": [
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [],
+          "interface": "calls or answer",
+          "mode": "native",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read a.txt and b.txt; answer their integer sum.",
+            "task_id": "dev_sum"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        },
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [
+            {
+              "decision": {
+                "calls": [
+                  {
+                    "arguments": {
+                      "path": "a.txt"
+                    },
+                    "name": "read_file"
+                  },
+                  {
+                    "arguments": {
+                      "path": "b.txt"
+                    },
+                    "name": "read_file"
+                  }
+                ]
+              }
+            },
+            {
+              "feedback": {
+                "execution_error": null,
+                "observations": [
+                  {
+                    "arguments": {
+                      "path": "a.txt"
+                    },
+                    "error": null,
+                    "name": "read_file",
+                    "result": "11"
+                  },
+                  {
+                    "arguments": {
+                      "path": "b.txt"
+                    },
+                    "error": null,
+                    "name": "read_file",
+                    "result": "20"
+                  }
+                ]
+              }
+            }
+          ],
+          "interface": "calls or answer",
+          "mode": "native",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read a.txt and b.txt; answer their integer sum.",
+            "task_id": "dev_sum"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "methodology_version": 3,
+      "kind": "offline_mechanics",
+      "measured_model_performance": false,
+      "endpoint": "provider_final_answer_and_actual_state",
+      "task": "dev_fallback",
+      "split": "development",
+      "family": "missing_fallback",
+      "mode": "native",
+      "status": "passed",
+      "passed": true,
+      "first_pass": true,
+      "first_answer_pass": true,
+      "execution_errors": 0,
+      "wall_s": 3,
+      "retry_wait_s": 0,
+      "rate_limit_wait_s": 0,
+      "model_turns": 3,
+      "answer_submissions": 1,
+      "provider_attempts": [
+        {
+          "turn": 1,
+          "retry": 0,
+          "request_hash": "8840014694c148af4c2f0b2c406be5195585f71aaf5d8b9e0a43eb9ffa984f60",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        },
+        {
+          "turn": 2,
+          "retry": 0,
+          "request_hash": "900531f1151a74d46e6d95ccccc0f87ecbf75ade6e7a297882899f022a79ee88",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        },
+        {
+          "turn": 3,
+          "retry": 0,
+          "request_hash": "39d6654554efa7e678f39dfe301701651d70aef67fd635d10b3b87cc00358bb0",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        }
+      ],
+      "known_tokens": {
+        "input_tokens": 21,
+        "output_tokens": 9,
+        "cached_input_tokens": 6
+      },
+      "unknown_usage_attempts": 0,
+      "token_totals_complete": true,
+      "config": {
+        "provider": "deterministic-fake",
+        "model_revision": "fake-revision-001",
+        "api_version": "offline-v1",
+        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "server_versions": {
+          "local-filesystem-fixture": "protocol-v3.1"
+        },
+        "generation": {
+          "temperature": 0,
+          "max_output_tokens": 256,
+          "reasoning": "none"
+        },
+        "resolved_model_revision": "fake-revision-001",
+        "native_parallel": 4,
+        "max_turns": 10,
+        "max_answers": 3,
+        "provider_retries": 2,
+        "timeout_s": 30,
+        "seed": 73,
+        "cache_policy": "disabled"
+      },
+      "context_hash": "3d7e0df060221e7de7c46b0ae33734625b8c44fb33ecfa72f13b94798fb5a2e8",
+      "schema_hash": "cc8fa6774d15ca8d5ad74f4ccb3dbd82bf79cc9285aae02e9867e396c594deca",
+      "initial_state_hash": "1ec5a8da8398a7235b8ca5e230ef96d4b72fa5a93c2806a1269947a5c09d0972",
+      "final_state_hash": "1ec5a8da8398a7235b8ca5e230ef96d4b72fa5a93c2806a1269947a5c09d0972",
+      "writes": [],
+      "state_matches": true,
+      "write_log_matches": true,
+      "unexpected_write": false,
+      "feedback": [
+        {
+          "observations": [
+            {
+              "name": "read_file",
+              "arguments": {
+                "path": "missing.txt"
+              },
+              "result": null,
+              "error": {
+                "kind": "FileNotFoundError",
+                "message": "tool request failed"
+              }
+            }
+          ],
+          "execution_error": null
+        },
+        {
+          "observations": [
+            {
+              "name": "read_file",
+              "arguments": {
+                "path": "backup.txt"
+              },
+              "result": "safe-backup",
+              "error": null
+            }
+          ],
+          "execution_error": null
+        }
+      ],
+      "requests": [
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [],
+          "interface": "calls or answer",
+          "mode": "native",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read missing.txt; on failure read backup.txt. Answer its content.",
+            "task_id": "dev_fallback"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        },
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [
+            {
+              "decision": {
+                "calls": [
+                  {
+                    "arguments": {
+                      "path": "missing.txt"
+                    },
+                    "name": "read_file"
+                  }
+                ]
+              }
+            },
+            {
+              "feedback": {
+                "execution_error": null,
+                "observations": [
+                  {
+                    "arguments": {
+                      "path": "missing.txt"
+                    },
+                    "error": {
+                      "kind": "FileNotFoundError",
+                      "message": "tool request failed"
+                    },
+                    "name": "read_file",
+                    "result": null
+                  }
+                ]
+              }
+            }
+          ],
+          "interface": "calls or answer",
+          "mode": "native",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read missing.txt; on failure read backup.txt. Answer its content.",
+            "task_id": "dev_fallback"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        },
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [
+            {
+              "decision": {
+                "calls": [
+                  {
+                    "arguments": {
+                      "path": "missing.txt"
+                    },
+                    "name": "read_file"
+                  }
+                ]
+              }
+            },
+            {
+              "feedback": {
+                "execution_error": null,
+                "observations": [
+                  {
+                    "arguments": {
+                      "path": "missing.txt"
+                    },
+                    "error": {
+                      "kind": "FileNotFoundError",
+                      "message": "tool request failed"
+                    },
+                    "name": "read_file",
+                    "result": null
+                  }
+                ]
+              }
+            },
+            {
+              "decision": {
+                "calls": [
+                  {
+                    "arguments": {
+                      "path": "backup.txt"
+                    },
+                    "name": "read_file"
+                  }
+                ]
+              }
+            },
+            {
+              "feedback": {
+                "execution_error": null,
+                "observations": [
+                  {
+                    "arguments": {
+                      "path": "backup.txt"
+                    },
+                    "error": null,
+                    "name": "read_file",
+                    "result": "safe-backup"
+                  }
+                ]
+              }
+            }
+          ],
+          "interface": "calls or answer",
+          "mode": "native",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read missing.txt; on failure read backup.txt. Answer its content.",
+            "task_id": "dev_fallback"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "methodology_version": 3,
+      "kind": "offline_mechanics",
+      "measured_model_performance": false,
+      "endpoint": "provider_final_answer_and_actual_state",
+      "task": "dev_fallback",
+      "split": "development",
+      "family": "missing_fallback",
+      "mode": "weave",
+      "status": "passed",
+      "passed": true,
+      "first_pass": true,
+      "first_answer_pass": true,
+      "execution_errors": 0,
+      "wall_s": 2,
+      "retry_wait_s": 0,
+      "rate_limit_wait_s": 0,
+      "model_turns": 2,
+      "answer_submissions": 1,
+      "provider_attempts": [
+        {
+          "turn": 1,
+          "retry": 0,
+          "request_hash": "0b9d2ac36ab18a93ce06000c48a29f84a2974e892bb1526080f68ef71b92ea06",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        },
+        {
+          "turn": 2,
+          "retry": 0,
+          "request_hash": "9cb6e5925db674884735d743a5c591d763e5f24140772539cd7d218a15609608",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        }
+      ],
+      "known_tokens": {
+        "input_tokens": 14,
+        "output_tokens": 6,
+        "cached_input_tokens": 4
+      },
+      "unknown_usage_attempts": 0,
+      "token_totals_complete": true,
+      "config": {
+        "provider": "deterministic-fake",
+        "model_revision": "fake-revision-001",
+        "api_version": "offline-v1",
+        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "server_versions": {
+          "local-filesystem-fixture": "protocol-v3.1"
+        },
+        "generation": {
+          "temperature": 0,
+          "max_output_tokens": 256,
+          "reasoning": "none"
+        },
+        "resolved_model_revision": "fake-revision-001",
+        "native_parallel": 4,
+        "max_turns": 10,
+        "max_answers": 3,
+        "provider_retries": 2,
+        "timeout_s": 30,
+        "seed": 73,
+        "cache_policy": "disabled"
+      },
+      "context_hash": "3d7e0df060221e7de7c46b0ae33734625b8c44fb33ecfa72f13b94798fb5a2e8",
+      "schema_hash": "cc8fa6774d15ca8d5ad74f4ccb3dbd82bf79cc9285aae02e9867e396c594deca",
+      "initial_state_hash": "1ec5a8da8398a7235b8ca5e230ef96d4b72fa5a93c2806a1269947a5c09d0972",
+      "final_state_hash": "1ec5a8da8398a7235b8ca5e230ef96d4b72fa5a93c2806a1269947a5c09d0972",
+      "writes": [],
+      "state_matches": true,
+      "write_log_matches": true,
+      "unexpected_write": false,
+      "feedback": [
+        {
+          "observations": [
+            {
+              "name": "read_file",
+              "arguments": {
+                "path": "backup.txt"
+              },
+              "result": "safe-backup",
+              "error": null
+            },
+            {
+              "name": "read_file",
+              "arguments": {
+                "path": "missing.txt"
+              },
+              "result": null,
+              "error": {
+                "kind": "FileNotFoundError",
+                "message": "tool request failed"
+              }
+            }
+          ],
+          "execution_error": null
+        }
+      ],
+      "requests": [
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [],
+          "interface": "script or answer",
+          "mode": "weave",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read missing.txt; on failure read backup.txt. Answer its content.",
+            "task_id": "dev_fallback"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        },
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [
+            {
+              "decision": {
+                "script": "try:\n    x=read_file(path=\"missing.txt\")\nexcept ToolError:\n    x=read_file(path=\"backup.txt\")\n"
+              }
+            },
+            {
+              "feedback": {
+                "execution_error": null,
+                "observations": [
+                  {
+                    "arguments": {
+                      "path": "backup.txt"
+                    },
+                    "error": null,
+                    "name": "read_file",
+                    "result": "safe-backup"
+                  },
+                  {
+                    "arguments": {
+                      "path": "missing.txt"
+                    },
+                    "error": {
+                      "kind": "FileNotFoundError",
+                      "message": "tool request failed"
+                    },
+                    "name": "read_file",
+                    "result": null
+                  }
+                ]
+              }
+            }
+          ],
+          "interface": "script or answer",
+          "mode": "weave",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read missing.txt; on failure read backup.txt. Answer its content.",
+            "task_id": "dev_fallback"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "methodology_version": 3,
+      "kind": "offline_mechanics",
+      "measured_model_performance": false,
+      "endpoint": "provider_final_answer_and_actual_state",
+      "task": "dev_receipt",
+      "split": "development",
+      "family": "receipt_write",
+      "mode": "weave",
+      "status": "passed",
+      "passed": true,
+      "first_pass": true,
+      "first_answer_pass": true,
+      "execution_errors": 0,
+      "wall_s": 2,
+      "retry_wait_s": 0,
+      "rate_limit_wait_s": 0,
+      "model_turns": 2,
+      "answer_submissions": 1,
+      "provider_attempts": [
+        {
+          "turn": 1,
+          "retry": 0,
+          "request_hash": "6e069dba79eb01caa832c28113857877e76f03df66a2a58d515246c6a7de3d69",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        },
+        {
+          "turn": 2,
+          "retry": 0,
+          "request_hash": "adbfa5046e0d8b46eb8f9205147b8c4ae78dabdfbd5d3db19456997fa8913834",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        }
+      ],
+      "known_tokens": {
+        "input_tokens": 14,
+        "output_tokens": 6,
+        "cached_input_tokens": 4
+      },
+      "unknown_usage_attempts": 0,
+      "token_totals_complete": true,
+      "config": {
+        "provider": "deterministic-fake",
+        "model_revision": "fake-revision-001",
+        "api_version": "offline-v1",
+        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "server_versions": {
+          "local-filesystem-fixture": "protocol-v3.1"
+        },
+        "generation": {
+          "temperature": 0,
+          "max_output_tokens": 256,
+          "reasoning": "none"
+        },
+        "resolved_model_revision": "fake-revision-001",
+        "native_parallel": 4,
+        "max_turns": 10,
+        "max_answers": 3,
+        "provider_retries": 2,
+        "timeout_s": 30,
+        "seed": 73,
+        "cache_policy": "disabled"
+      },
+      "context_hash": "565654394912d143c04ddfdc9523f2ee2523620c65bf85fc509b1dce3adaddd0",
+      "schema_hash": "cc8fa6774d15ca8d5ad74f4ccb3dbd82bf79cc9285aae02e9867e396c594deca",
+      "initial_state_hash": "a560bcf05bbe43678f98c1739612676b2853e1f56c1ea92eae4c3d541238f72e",
+      "final_state_hash": "bcc98cb92e4a9ead25b1466de409a390de1bd5f57e41493bbb9a0d62c31e282e",
+      "writes": [
+        [
+          "receipt.txt",
+          "RECEIVED blue"
+        ]
+      ],
+      "state_matches": true,
+      "write_log_matches": true,
+      "unexpected_write": false,
+      "feedback": [
+        {
+          "observations": [
+            {
+              "name": "read_file",
+              "arguments": {
+                "path": "item.txt"
+              },
+              "result": "blue",
+              "error": null
+            },
+            {
+              "name": "write_file",
+              "arguments": {
+                "path": "receipt.txt",
+                "text": "RECEIVED blue"
+              },
+              "result": null,
+              "error": null
+            }
+          ],
+          "execution_error": null
+        }
+      ],
+      "requests": [
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [],
+          "interface": "script or answer",
+          "mode": "weave",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read item.txt; write receipt.txt with exactly RECEIVED followed by a space and the item. Answer recorded.",
+            "task_id": "dev_receipt"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        },
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [
+            {
+              "decision": {
+                "script": "x=read_file(path=\"item.txt\")\nwrite_file(path=\"receipt.txt\",text=\"RECEIVED \"+x)\n"
+              }
+            },
+            {
+              "feedback": {
+                "execution_error": null,
+                "observations": [
+                  {
+                    "arguments": {
+                      "path": "item.txt"
+                    },
+                    "error": null,
+                    "name": "read_file",
+                    "result": "blue"
+                  },
+                  {
+                    "arguments": {
+                      "path": "receipt.txt",
+                      "text": "RECEIVED blue"
+                    },
+                    "error": null,
+                    "name": "write_file",
+                    "result": null
+                  }
+                ]
+              }
+            }
+          ],
+          "interface": "script or answer",
+          "mode": "weave",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read item.txt; write receipt.txt with exactly RECEIVED followed by a space and the item. Answer recorded.",
+            "task_id": "dev_receipt"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "methodology_version": 3,
+      "kind": "offline_mechanics",
+      "measured_model_performance": false,
+      "endpoint": "provider_final_answer_and_actual_state",
+      "task": "dev_receipt",
+      "split": "development",
+      "family": "receipt_write",
+      "mode": "native",
+      "status": "passed",
+      "passed": true,
+      "first_pass": true,
+      "first_answer_pass": true,
+      "execution_errors": 0,
+      "wall_s": 3,
+      "retry_wait_s": 0,
+      "rate_limit_wait_s": 0,
+      "model_turns": 3,
+      "answer_submissions": 1,
+      "provider_attempts": [
+        {
+          "turn": 1,
+          "retry": 0,
+          "request_hash": "ece0b09d47ca1d77f565cca5ba817826dee27f7cf7933e3b5c0f3f4855434bb1",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        },
+        {
+          "turn": 2,
+          "retry": 0,
+          "request_hash": "d5c2dc1516f07f30770f2abc077c25c414ec3fe5ee24d41c71665c764cef10a4",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        },
+        {
+          "turn": 3,
+          "retry": 0,
+          "request_hash": "88a93d485accb39798d98cbd92b882f01405d0f7d99370b118c7ccdb85abd3dc",
+          "wait_s": 0,
+          "usage": {
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "cached_input_tokens": 2
+          },
+          "outcome": "ok",
+          "elapsed_s": 1
+        }
+      ],
+      "known_tokens": {
+        "input_tokens": 21,
+        "output_tokens": 9,
+        "cached_input_tokens": 6
+      },
+      "unknown_usage_attempts": 0,
+      "token_totals_complete": true,
+      "config": {
+        "provider": "deterministic-fake",
+        "model_revision": "fake-revision-001",
+        "api_version": "offline-v1",
+        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "server_versions": {
+          "local-filesystem-fixture": "protocol-v3.1"
+        },
+        "generation": {
+          "temperature": 0,
+          "max_output_tokens": 256,
+          "reasoning": "none"
+        },
+        "resolved_model_revision": "fake-revision-001",
+        "native_parallel": 4,
+        "max_turns": 10,
+        "max_answers": 3,
+        "provider_retries": 2,
+        "timeout_s": 30,
+        "seed": 73,
+        "cache_policy": "disabled"
+      },
+      "context_hash": "565654394912d143c04ddfdc9523f2ee2523620c65bf85fc509b1dce3adaddd0",
+      "schema_hash": "cc8fa6774d15ca8d5ad74f4ccb3dbd82bf79cc9285aae02e9867e396c594deca",
+      "initial_state_hash": "a560bcf05bbe43678f98c1739612676b2853e1f56c1ea92eae4c3d541238f72e",
+      "final_state_hash": "bcc98cb92e4a9ead25b1466de409a390de1bd5f57e41493bbb9a0d62c31e282e",
+      "writes": [
+        [
+          "receipt.txt",
+          "RECEIVED blue"
+        ]
+      ],
+      "state_matches": true,
+      "write_log_matches": true,
+      "unexpected_write": false,
+      "feedback": [
+        {
+          "observations": [
+            {
+              "name": "read_file",
+              "arguments": {
+                "path": "item.txt"
+              },
+              "result": "blue",
+              "error": null
+            }
+          ],
+          "execution_error": null
+        },
+        {
+          "observations": [
+            {
+              "name": "write_file",
+              "arguments": {
+                "path": "receipt.txt",
+                "text": "RECEIVED blue"
+              },
+              "result": null,
+              "error": null
+            }
+          ],
+          "execution_error": null
+        }
+      ],
+      "requests": [
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [],
+          "interface": "calls or answer",
+          "mode": "native",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read item.txt; write receipt.txt with exactly RECEIVED followed by a space and the item. Answer recorded.",
+            "task_id": "dev_receipt"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        },
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [
+            {
+              "decision": {
+                "calls": [
+                  {
+                    "arguments": {
+                      "path": "item.txt"
+                    },
+                    "name": "read_file"
+                  }
+                ]
+              }
+            },
+            {
+              "feedback": {
+                "execution_error": null,
+                "observations": [
+                  {
+                    "arguments": {
+                      "path": "item.txt"
+                    },
+                    "error": null,
+                    "name": "read_file",
+                    "result": "blue"
+                  }
+                ]
+              }
+            }
+          ],
+          "interface": "calls or answer",
+          "mode": "native",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read item.txt; write receipt.txt with exactly RECEIVED followed by a space and the item. Answer recorded.",
+            "task_id": "dev_receipt"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        },
+        {
+          "generation": {
+            "max_output_tokens": 256,
+            "reasoning": "none",
+            "temperature": 0
+          },
+          "history": [
+            {
+              "decision": {
+                "calls": [
+                  {
+                    "arguments": {
+                      "path": "item.txt"
+                    },
+                    "name": "read_file"
+                  }
+                ]
+              }
+            },
+            {
+              "feedback": {
+                "execution_error": null,
+                "observations": [
+                  {
+                    "arguments": {
+                      "path": "item.txt"
+                    },
+                    "error": null,
+                    "name": "read_file",
+                    "result": "blue"
+                  }
+                ]
+              }
+            },
+            {
+              "decision": {
+                "calls": [
+                  {
+                    "arguments": {
+                      "path": "receipt.txt",
+                      "text": "RECEIVED blue"
+                    },
+                    "name": "write_file"
+                  }
+                ]
+              }
+            },
+            {
+              "feedback": {
+                "execution_error": null,
+                "observations": [
+                  {
+                    "arguments": {
+                      "path": "receipt.txt",
+                      "text": "RECEIVED blue"
+                    },
+                    "error": null,
+                    "name": "write_file",
+                    "result": null
+                  }
+                ]
+              }
+            }
+          ],
+          "interface": "calls or answer",
+          "mode": "native",
+          "seed": 73,
+          "system": "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations.",
+          "target": {
+            "api_version": "offline-v1",
+            "model_revision": "fake-revision-001",
+            "provider": "deterministic-fake"
+          },
+          "task": {
+            "instruction": "Read item.txt; write receipt.txt with exactly RECEIVED followed by a space and the item. Answer recorded.",
+            "task_id": "dev_receipt"
+          },
+          "tools": [
+            {
+              "description": "Read a UTF-8 file.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "name": "read_file",
+              "outputSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "description": "Replace a UTF-8 file (irreversible, never auto-retried).",
+              "effect": "irreversible",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "name": "write_file",
+              "outputSchema": {
+                "type": "null"
+              }
+            },
+            {
+              "description": "List all file paths.",
+              "effect": "read",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              },
+              "name": "list_files",
+              "outputSchema": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "interpretation": "Harness mechanics only. No model success-rate, speedup, cost or generalization evidence. Corrected live runs pending."
+}

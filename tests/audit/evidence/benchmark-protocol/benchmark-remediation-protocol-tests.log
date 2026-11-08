@@ -1,0 +1,38 @@
+test_answer_repairs_get_equal_feedback_and_budget_no_oracle_leak (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_answer_repairs_get_equal_feedback_and_budget_no_oracle_leak) ... ok
+test_backend_call_budget_is_fatal_and_never_hidden_as_a_pass (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_backend_call_budget_is_fatal_and_never_hidden_as_a_pass) ... ok
+test_backend_concurrency_cap_is_equal_for_weave_and_native (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_backend_concurrency_cap_is_equal_for_weave_and_native) ... ok
+test_development_heldout_partition_and_unfamiliar_schemas (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_development_heldout_partition_and_unfamiliar_schemas) ... ok
+test_failure_after_consumed_tokens_does_not_reset_row (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_failure_after_consumed_tokens_does_not_reset_row) ... ok
+test_failure_timeout_budget_and_malformed_rows_retained (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_failure_timeout_budget_and_malformed_rows_retained) ... ok
+test_final_answer_not_stdout_is_the_endpoint (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_final_answer_not_stdout_is_the_endpoint) ... ok
+test_first_pass_does_not_hide_failed_script_repair (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_first_pass_does_not_hide_failed_script_repair) ... ok
+test_fixture_error_keeps_failure_row (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_fixture_error_keeps_failure_row) ... ok
+test_fresh_isolated_state_every_replica_and_mode (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_fresh_isolated_state_every_replica_and_mode) ... ok
+test_frozen_manifest_changes_with_oracle_or_schema (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_frozen_manifest_changes_with_oracle_or_schema) ... ok
+test_independent_read_result_context_is_canonical_both_modes (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_independent_read_result_context_is_canonical_both_modes) ... ok
+test_invalid_invocation_feedback_and_repair_budget_equal (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_invalid_invocation_feedback_and_repair_budget_equal) ... ok
+test_legacy_live_entrypoint_fails_closed (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_legacy_live_entrypoint_fails_closed) ... ok
+test_live_provider_rejected_before_any_request (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_live_provider_rejected_before_any_request) ... ok
+test_malformed_usage_and_decision_are_not_success (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_malformed_usage_and_decision_are_not_success) ... ok
+test_negative_case_does_not_encode_weave_as_winner (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_negative_case_does_not_encode_weave_as_winner) ... ok
+test_p95_includes_failed_slow_tail (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_p95_includes_failed_slow_tail) ... ok
+test_parallel_reads_barrier_around_write_and_stable_result_order (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_parallel_reads_barrier_around_write_and_stable_result_order) ... ok
+test_parallel_width_is_bounded_without_wall_clock_speed_claim (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_parallel_width_is_bounded_without_wall_clock_speed_claim) ... ok
+test_provider_transport_retry_timing_and_all_known_usage (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_provider_transport_retry_timing_and_all_known_usage) ... ok
+test_real_file_write_validation_not_claimed_answer (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_real_file_write_validation_not_claimed_answer) ... ok
+test_same_schemas_common_context_and_result_bytes (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_same_schemas_common_context_and_result_bytes) ... ok
+test_same_tool_error_feedback_and_fallback_data (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_same_tool_error_feedback_and_fallback_data) ... ok
+test_source_model_server_generation_config_pins_and_drift (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_source_model_server_generation_config_pins_and_drift) ... ok
+test_structured_list_result_bytes_equal_and_no_extra_parameter (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_structured_list_result_bytes_equal_and_no_extra_parameter) ... ok
+test_timeout_after_write_retains_actual_effect_without_retrying_it (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_timeout_after_write_retains_actual_effect_without_retrying_it) ... ok
+test_timeout_wait_is_inclusive_and_cannot_dispatch_write (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_timeout_wait_is_inclusive_and_cannot_dispatch_write) ... ok
+test_transient_wait_is_separate_from_rate_limit_wait (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_transient_wait_is_separate_from_rate_limit_wait) ... ok
+test_unexpected_write_and_path_escape_fail (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_unexpected_write_and_path_escape_fail) ... ok
+test_unknown_failure_usage_is_not_zero_or_silently_complete (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_unknown_failure_usage_is_not_zero_or_silently_complete) ... ok
+test_write_outcomes_reported_separately_from_missing_write (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_write_outcomes_reported_separately_from_missing_write) ... ok
+
+----------------------------------------------------------------------
+Ran 32 tests in 0.137s
+
+OK
+Historical v2 live driver retired: controlled v3 mechanics are offline-only; corrected live runs remain pending.

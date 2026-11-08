@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased benchmark protocol remediation
+- Add deterministic offline controlled-comparison tests for endpoints, full-context
+  parity, native parallel reads/equal backend caps, real state/write validation,
+  configuration pins and retry-inclusive failure/usage accounting.
+- Separate public development/candidate-held-out tasks without independence claims;
+  retire the legacy v2 real-tools live CLI. Corrected live runs remain pending.
+
 ## Unreleased safety follow-up
 - Responsive MCP request-ID cancellation with best-effort upstream forwarding,
   EOF cleanup, bounded admission and duplicate active-ID rejection.
