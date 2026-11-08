@@ -1,0 +1,297 @@
+{
+  "discovery_and_results": {
+    "responses": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "tools": [
+            {
+              "name": "weave_check",
+              "description": "Statically check a Weave script. Returns one short error per line, or 'ok'.",
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "tools": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "effect": {
+                          "type": "string",
+                          "enum": [
+                            "pure",
+                            "read",
+                            "reversible",
+                            "irreversible"
+                          ]
+                        },
+                        "arity": {
+                          "type": "integer"
+                        },
+                        "behavior": {
+                          "type": "string",
+                          "enum": [
+                            "echo",
+                            "const"
+                          ]
+                        },
+                        "result": {
+                          "type": "object",
+                          "description": "Tagged Weave value used when behavior is const"
+                        },
+                        "delay_ms": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "source"
+                ]
+              }
+            },
+            {
+              "name": "weave_run",
+              "description": "Run a Weave script. Pure and read calls run in parallel; irreversible calls wait until the script is complete. Omit tools to use the server config (scripted tools and upstream MCP tools).\nTools callable from the script:\na_same(), effect read. same\na_secret(), effect read. secret\na_structured(), effect read. structured\na_read-file(), effect read. read-file\na_slow_write(), effect irreversible. slow_write",
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "tools": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "effect": {
+                          "type": "string",
+                          "enum": [
+                            "pure",
+                            "read",
+                            "reversible",
+                            "irreversible"
+                          ]
+                        },
+                        "arity": {
+                          "type": "integer"
+                        },
+                        "behavior": {
+                          "type": "string",
+                          "enum": [
+                            "echo",
+                            "const"
+                          ]
+                        },
+                        "result": {
+                          "type": "object",
+                          "description": "Tagged Weave value used when behavior is const"
+                        },
+                        "delay_ms": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "source"
+                ]
+              }
+            },
+            {
+              "name": "weave_replay",
+              "description": "Replay a Weave script from a JSON trace without calling tools. Output matches the recorded run.",
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "trace": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "source",
+                  "trace"
+                ]
+              }
+            },
+            {
+              "name": "a_same",
+              "description": "same",
+              "inputSchema": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            {
+              "name": "a_secret",
+              "description": "secret",
+              "inputSchema": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            {
+              "name": "a_structured",
+              "description": "structured",
+              "inputSchema": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            {
+              "name": "a_read-file",
+              "description": "read-file",
+              "inputSchema": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            {
+              "name": "a_slow_write",
+              "description": "slow_write",
+              "inputSchema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          ]
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\n  \"stdout\": \"summary only\\n\",\n  \"prints\": [\n    \"summary only\\n\"\n  ],\n  \"bindings\": {\n    \"raw\": {\n      \"t\": \"str\",\n      \"v\": \"AUDIT_SYNTHETIC_PRIVATE_VALUE\"\n    }\n  },\n  \"trace\": {\n    \"version\": 1,\n    \"events\": [\n      {\n        \"seq\": 0,\n        \"line\": 1,\n        \"tool\": \"a_secret\",\n        \"effect\": \"read\",\n        \"args\": [],\n        \"kwargs\": {},\n        \"result\": {\n          \"t\": \"str\",\n          \"v\": \"AUDIT_SYNTHETIC_PRIVATE_VALUE\"\n        },\n        \"done\": 0\n      }\n    ]\n  }\n}"
+            }
+          ],
+          "isError": false
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": ""
+            }
+          ],
+          "isError": false
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "L1:C7: name `a_read` is used before assignment hint: assign `a_read` on an earlier line, on every branch that reaches here\nL1:C14: unknown tool `file` hint: register the tool on the engine before running the script"
+            }
+          ],
+          "isError": true
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "L1:C7: unknown tool `a_second_page` hint: register the tool on the engine before running the script"
+            }
+          ],
+          "isError": true
+        }
+      }
+    ],
+    "elapsed_s": 0.02335293800024374,
+    "exit": 0,
+    "stderr": ""
+  },
+  "duplicate_routing": {
+    "responses": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "A"
+            }
+          ],
+          "isError": false
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\n  \"stdout\": \"B\\n\",\n  \"prints\": [\n    \"B\\n\"\n  ],\n  \"bindings\": {},\n  \"trace\": {\n    \"version\": 1,\n    \"events\": [\n      {\n        \"seq\": 0,\n        \"line\": 1,\n        \"tool\": \"same\",\n        \"effect\": \"read\",\n        \"args\": [],\n        \"kwargs\": {},\n        \"result\": {\n          \"t\": \"str\",\n          \"v\": \"B\"\n        },\n        \"done\": 0\n      }\n    ]\n  }\n}"
+            }
+          ],
+          "isError": false
+        }
+      }
+    ],
+    "elapsed_s": 0.036809244000323815,
+    "exit": 0,
+    "stderr": ""
+  },
+  "cancel": {
+    "responses": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\n  \"stdout\": \"done\\n\",\n  \"prints\": [\n    \"done\\n\"\n  ],\n  \"bindings\": {},\n  \"trace\": {\n    \"version\": 1,\n    \"events\": [\n      {\n        \"seq\": 0,\n        \"line\": 1,\n        \"tool\": \"a_slow_write\",\n        \"effect\": \"irreversible\",\n        \"args\": [],\n        \"kwargs\": {},\n        \"result\": {\n          \"t\": \"str\",\n          \"v\": \"A\"\n        },\n        \"done\": 0\n      }\n    ]\n  }\n}"
+            }
+          ],
+          "isError": false
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {}
+      }
+    ],
+    "elapsed_s": 0.3704668290010886,
+    "exit": 0,
+    "stderr": "",
+    "write_completed": true
+  }
+}

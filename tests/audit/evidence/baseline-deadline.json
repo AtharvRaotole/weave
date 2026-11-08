@@ -1,0 +1,16 @@
+[
+  {
+    "mode": "saturation",
+    "watchdog_timeout": false,
+    "exit": 0,
+    "stdout": "{\"mode\": \"saturation\", \"elapsed_s\": 0.3504944929991325, \"status\": \"time limit of 100ms exceeded; do less work per script\"}\n{\"markers\": [\"deadline-marker-1\"]}\n",
+    "stderr": ""
+  },
+  {
+    "mode": "pickle",
+    "watchdog_timeout": false,
+    "exit": 0,
+    "stdout": "{\"mode\": \"pickle\", \"error\": \"AttributeError\", \"idle_slots_after_rejected_call\": 0, \"expected_slots\": 1}\n",
+    "stderr": ""
+  }
+]

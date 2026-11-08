@@ -1,0 +1,204 @@
+{
+  "literal_limit": {
+    "returned": 4096
+  },
+  "tool_result_limit": {
+    "returned": 4096
+  },
+  "output_budget": {
+    "returned": 660
+  },
+  "malformed_source": {
+    "None": {
+      "error": "AttributeError",
+      "message": "'NoneType' object has no attribute 'endswith'"
+    },
+    "42": {
+      "error": "AttributeError",
+      "message": "'int' object has no attribute 'endswith'"
+    },
+    "[]": {
+      "error": "AttributeError",
+      "message": "'list' object has no attribute 'endswith'"
+    },
+    "{}": {
+      "error": "AttributeError",
+      "message": "'dict' object has no attribute 'endswith'"
+    }
+  },
+  "duplicate_read_replay": {
+    "mismatches": 12,
+    "runs": [
+      {
+        "original": "10637585082695 10637585141226",
+        "replay": "10637585141226 10637585082695",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637601750113 10637601823327",
+        "replay": "10637601823327 10637601750113",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637618055127 10637618106879",
+        "replay": "10637618106879 10637618055127",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637634695726 10637634740944",
+        "replay": "10637634740944 10637634695726",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637650949440 10637650997093",
+        "replay": "10637650997093 10637650949440",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637667330226 10637667406516",
+        "replay": "10637667406516 10637667330226",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637683548976 10637683665877",
+        "replay": "10637683665877 10637683548976",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637699672702 10637699780947",
+        "replay": "10637699780947 10637699672702",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637715740664 10637715767830",
+        "replay": "10637715767830 10637715740664",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637731822420 10637731849615",
+        "replay": "10637731849615 10637731822420",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637747968157 10637748021502",
+        "replay": "10637748021502 10637747968157",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10637764033440 10637764080357",
+        "replay": "10637764080357 10637764033440",
+        "calls_after_replay": 2
+      }
+    ]
+  },
+  "write_after_exception": [
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": [
+        "written"
+      ]
+    }
+  ],
+  "try_environment": {
+    "returned": "0\n0\n"
+  },
+  "keyword_arity": {
+    "error": "ValueError",
+    "message": "L1:C7: tool `echo` takes 1 argument(s), got 0 hint: pass 1 positional argument(s) to `echo`\nL1:C7: tool `echo` does not take keyword arguments"
+  },
+  "unicode_find": "2\n\n",
+  "async_python_tool": {
+    "error": "ValueError",
+    "message": "L1:C7: tool `async_tool` failed: TypeError: cannot convert coroutine to a Weave value hint: catch it with `except ToolError` or fix the call"
+  }
+}
