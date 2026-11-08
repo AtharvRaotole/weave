@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weave runtime</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="language.html">Language</a>
+      <a href="runtime.html">Runtime</a>
+      <a href="cli.html">CLI</a>
+      <a href="mcp.html">MCP</a>
+    </nav>
+    <h1>Runtime</h1>
+  </header>
+  <main>
+    <h2>Effects</h2>
+    <p>Untagged tools are irreversible. Pure and read calls start when their inputs are ready. Reversible calls wait for earlier observable work. Irreversible calls also wait until the whole script has arrived.</p>
+    <h2>Timeouts</h2>
+    <ul>
+      <li>Async host tools are futures. Timeout and cancel drop the future.</li>
+      <li>Cooperative tools, including Python functions with a <code>cancel</code> parameter or <code>**kwargs</code>, receive a <code>CancelToken</code>. Weave stops waiting. It does not kill the thread.</li>
+      <li>Plain sync tools only abandon the wait. The thread is not signalled.</li>
+      <li><code>Engine(worker_pool=N)</code> plus <code>hard_deadline=True</code> runs a sync Python tool in a spawn worker. Timeout and cancel <code>SIGKILL</code> that worker and start a replacement.</li>
+    </ul>
+    <p>A killed worker does not run <code>finally</code>. Work that already left the process is not undone. The function and its values must be pickleable, so define tools at module scope and keep <code>Engine(...)</code> inside <code>if __name__ == "__main__"</code>. Closures are not sendable. One call occupies one worker; extra calls wait for a free slot.</p>
+    <h2>Speculative pre-execution</h2>
+    <p>Optional, and only for pure and read tools. A predictor proposes calls before the script is ready. Weave runs them and stores each result under the tool name plus the canonical arguments. When the script makes the same call, it uses the cached result. Reversible, irreversible, async, and duplicate predictions are rejected and not called. A prediction the script never uses is wasted work. This is the tool cache from Nichols et al., arXiv 2512.15834. It does not keep an inference engine resident.</p>
+    <p>The speculative call is not ordered with writes the script has not performed yet. Predict only calls whose arguments are already known and whose result does not depend on an earlier write.</p>
+    <pre>cache = engine.speculate_with(predictor, hint)
+result = engine.run(source, speculation=cache)
+result.spec_hits, result.spec_misses, result.spec_wasted</pre>
+  </main>
+</body>
+</html>

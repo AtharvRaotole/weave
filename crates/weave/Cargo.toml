@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Parallel runtime for a small Python-like language aimed at agent tool calls"
+readme = "../../README.md"
 
 [dependencies]
 futures = "0.3"

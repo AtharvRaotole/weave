@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weave CLI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="language.html">Language</a>
+      <a href="runtime.html">Runtime</a>
+      <a href="cli.html">CLI</a>
+      <a href="mcp.html">MCP</a>
+    </nav>
+    <h1>CLI</h1>
+  </header>
+  <main>
+    <p><code>pip install</code> installs the <code>weave</code> command. <code>cargo run -p weave-cli --</code> is the same four commands for echo and const tools, without Python.</p>
+    <pre>weave check FILE [--tool name=weather,effect=read,arity=1]
+weave run FILE [--tool name=weather,effect=read,behavior=echo] [--trace-out trace.json]
+weave replay FILE --trace trace.json [--tool ...]
+weave trace trace.json</pre>
+    <p><code>behavior=echo</code> returns the single positional argument. <code>behavior=const</code> returns the <code>result</code> string. Effects are <code>pure</code>, <code>read</code>, <code>reversible</code>, and <code>irreversible</code>.</p>
+    <p><code>trace</code> prints one row per recorded call: sequence, line, tool, effect, arguments, result, and error.</p>
+  </main>
+</body>
+</html>

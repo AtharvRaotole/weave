@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weave language</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="language.html">Language</a>
+      <a href="runtime.html">Runtime</a>
+      <a href="cli.html">CLI</a>
+      <a href="mcp.html">MCP</a>
+    </nav>
+    <h1>Language</h1>
+  </header>
+  <main>
+    <p>Scripts are a subset of Python, parsed with <code>ruff_python_parser</code>. There is no import system. Host tools are registered by the runtime.</p>
+    <ul>
+      <li>assignment, unpacking, and augmented assignment</li>
+      <li>calls, including keyword arguments on <code>print</code></li>
+      <li><code>if</code> / <code>elif</code> / <code>else</code> and conditional expressions</li>
+      <li><code>for</code> over a list or string</li>
+      <li>lists, dicts, f-strings, comparisons, boolean operators, and arithmetic</li>
+      <li>subscripts and common string, list, and dict methods</li>
+      <li>builtins <code>len</code>, <code>range</code>, <code>sum</code>, <code>min</code>, <code>max</code>, <code>sorted</code>, <code>reversed</code>, <code>enumerate</code>, <code>zip</code>, <code>any</code>, <code>all</code>, and <code>list</code></li>
+      <li><code>try</code> / <code>except ToolError</code> and a bare <code>except</code></li>
+    </ul>
+    <p>Not supported, each with a one-line error and a fix hint: <code>import</code>, <code>def</code>, <code>class</code>, <code>while</code>, <code>with</code>, <code>lambda</code>, comprehensions, and <code>await</code>.</p>
+    <p>A bare <code>except</code> catches tool failures and ordinary runtime errors. <code>except ToolError</code> catches only tool failures. Cancellation is not caught.</p>
+  </main>
+</body>
+</html>

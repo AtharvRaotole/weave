@@ -1,9 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["crates/weave", "crates/weave-py", "crates/weave-mcp"]
+members = ["crates/weave", "crates/weave-py", "crates/weave-mcp", "crates/weave-cli"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 rust-version = "1.97"
+authors = ["Atharv Raotole <100996694+AtharvRaotole@users.noreply.github.com>"]
+repository = "https://github.com/AtharvRaotole/weave"
+homepage = "https://github.com/AtharvRaotole/weave"
+keywords = ["agents", "llm", "scheduler", "python"]
+categories = ["development-tools", "asynchronous"]

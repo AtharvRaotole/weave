@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Minimal MCP server for checking, running, and replaying Weave scripts"
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "MCP server for checking, running, and replaying Weave scripts"
+readme = "../../README.md"
 
 [lib]
 name = "weave_mcp"
