@@ -90,6 +90,7 @@ struct Launch {
     last_mutation: ValFut,
     last_observable: ValFut,
     print_barrier: ValFut,
+    prior: Vec<ValFut>,
     env: HashMap<String, ValFut>,
     roots: Vec<ValFut>,
     pending_spawn: Vec<ValFut>,
@@ -130,10 +131,12 @@ fn checked(line: usize, col: usize, max_size: usize, value: Value) -> Result<Val
     Ok(value)
 }
 
+#[derive(Clone)]
 struct BarrierSnap {
     last_mutation: ValFut,
     last_observable: ValFut,
     print_barrier: ValFut,
+    prior: Vec<ValFut>,
 }
 
 impl BarrierSnap {
@@ -142,6 +145,7 @@ impl BarrierSnap {
             last_mutation: g.last_mutation.clone(),
             last_observable: g.last_observable.clone(),
             print_barrier: g.print_barrier.clone(),
+            prior: g.prior.clone(),
         }
     }
 
@@ -149,6 +153,7 @@ impl BarrierSnap {
         g.last_mutation = self.last_mutation.clone();
         g.last_observable = self.last_observable.clone();
         g.print_barrier = self.print_barrier.clone();
+        g.prior = self.prior.clone();
     }
 }
 
@@ -338,6 +343,7 @@ impl Engine {
             last_mutation: ready(Value::Null),
             last_observable: ready(Value::Null),
             print_barrier: ready(Value::Null),
+            prior: Vec::new(),
             env: HashMap::new(),
             roots: Vec::new(),
             pending_spawn: Vec::new(),
@@ -680,6 +686,9 @@ fn launch_block(
                 track(g, root, record_root);
             }
         }
+        if let Some(root) = roots.last() {
+            g.prior.push(root.clone());
+        }
     }
     roots
 }
@@ -702,6 +711,7 @@ fn schedule_if(
     let branch_mut = g.last_mutation.clone();
     let branch_obs = g.last_observable.clone();
     let branch_print = g.print_barrier.clone();
+    let branch_prior = g.prior.clone();
     let body = body.to_vec();
     let orelse = orelse.to_vec();
     let arc_c = arc.clone();
@@ -715,6 +725,7 @@ fn schedule_if(
             g.last_mutation = branch_mut;
             g.last_observable = branch_obs;
             g.print_barrier = branch_print;
+            g.prior = branch_prior;
             let mut child = snap;
             let roots = launch_block(&mut g, &arc_c, &branch, &mut child, false);
             let assigned = capture_assigned(&written_task, &child);
@@ -746,6 +757,7 @@ fn schedule_try(
     let branch_mut = g.last_mutation.clone();
     let branch_obs = g.last_observable.clone();
     let branch_print = g.print_barrier.clone();
+    let branch_prior = g.prior.clone();
     let body = body.to_vec();
     let handler = handler.clone();
     let arc_c = arc.clone();
@@ -759,12 +771,12 @@ fn schedule_try(
             branch_mut.clone(),
             branch_obs.clone(),
             branch_print.clone(),
+            branch_prior.clone(),
         )
         .await;
         match tried {
             Ok(map) => Ok(map),
-            Err(err) if catch_error(&err, &handler) => {
-                let mut handler_env = snap;
+            Err((err, mut handler_env)) if catch_error(&err, &handler) => {
                 if let Some(name) = &handler.name {
                     handler_env.insert(name.clone(), ready(Value::str(err.summary())));
                 }
@@ -776,10 +788,11 @@ fn schedule_try(
                     branch_mut,
                     branch_obs,
                     branch_print,
+                    branch_prior,
                 )
-                .await
+                .await.map_err(|(err, _)| err)
             }
-            Err(err) => Err(err),
+            Err((err, _)) => Err(err),
         }
     });
     install_placeholders(line, col, &written, &map_fut, env);
@@ -802,21 +815,36 @@ async fn run_caught_block(
     branch_mut: ValFut,
     branch_obs: ValFut,
     branch_print: ValFut,
-) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
-    let (roots, assigned) = {
-        let mut guard = arc.lock().expect("launch lock");
-        let saved = BarrierSnap::capture(&guard);
-        guard.last_mutation = branch_mut;
-        guard.last_observable = branch_obs;
-        guard.print_barrier = branch_print;
-        let roots = launch_block(&mut guard, arc, stmts, &mut child, false);
-        let assigned = capture_assigned(written, &child);
-        saved.install(&mut guard);
-        (roots, assigned)
-    };
-    spawn_pending(arc);
-    await_roots(roots).await?;
-    collect_assigned(assigned).await
+    branch_prior: Vec<ValFut>,
+) -> Result<Arc<HashMap<String, Value>>, (WeaveError, HashMap<String, ValFut>)> {
+    for stmt in stmts {
+        let before = child.clone();
+        let (roots, assigned) = {
+            let mut guard = arc.lock().expect("launch lock");
+            let saved = BarrierSnap::capture(&guard);
+            guard.last_mutation = branch_mut.clone();
+            guard.last_observable = branch_obs.clone();
+            guard.print_barrier = branch_print.clone();
+            guard.prior = branch_prior.clone();
+            let roots = launch_block(&mut guard, arc, std::slice::from_ref(stmt), &mut child, false);
+            let names = assigned_names(std::slice::from_ref(stmt));
+            let assigned = capture_assigned(&names, &child);
+            saved.install(&mut guard);
+            (roots, assigned)
+        };
+        spawn_pending(arc);
+        if let Err(err) = await_roots(roots).await {
+            return Err((err, before));
+        }
+        match collect_assigned(assigned).await {
+            Ok(values) => for (name, value) in values.iter() {
+                child.insert(name.clone(), ready(value.clone()));
+            },
+            Err(err) => return Err((err, before)),
+        }
+    }
+    collect_assigned(capture_assigned(written, &child)).await.map_err(|err| (err, child))
+
 }
 
 fn schedule_for(
@@ -846,6 +874,7 @@ fn schedule_for(
     let branch_mut = g.last_mutation.clone();
     let branch_obs = g.last_observable.clone();
     let branch_print = g.print_barrier.clone();
+    let branch_prior = g.prior.clone();
     let body = body.to_vec();
     let target = target.clone();
     let arc_c = arc.clone();
@@ -858,9 +887,9 @@ fn schedule_for(
         let iter_v = iter_fut.await?;
         let items = iter_items(line, col, iter_v)?;
         if parallel {
-            run_parallel_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, &arc_c).await
+            run_parallel_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, branch_prior, &arc_c).await
         } else {
-            run_sequential_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, &arc_c).await
+            run_sequential_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, branch_prior, &arc_c).await
         }
     });
     install_placeholders(line, col, &written, &map_fut, env);
@@ -942,6 +971,7 @@ async fn run_parallel_for(
     branch_mut: ValFut,
     branch_obs: ValFut,
     branch_print: ValFut,
+    branch_prior: Vec<ValFut>,
     arc: &Arc<Mutex<Launch>>,
 ) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
     let planned = {
@@ -951,6 +981,7 @@ async fn run_parallel_for(
         g.last_mutation = branch_mut;
         g.last_observable = branch_obs;
         g.print_barrier = branch_print;
+            g.prior = branch_prior;
         let mut planned = Vec::new();
         // Inside an iteration, a written name starts unbound. The analysis
         // guarantees a parallel body never reads it before assigning it, so
@@ -1003,11 +1034,13 @@ async fn run_sequential_for(
     branch_mut: ValFut,
     branch_obs: ValFut,
     branch_print: ValFut,
+    branch_prior: Vec<ValFut>,
     arc: &Arc<Mutex<Launch>>,
 ) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
     let mut local_mut = branch_mut;
     let mut local_obs = branch_obs;
     let mut local_print = branch_print;
+    let mut local_prior = branch_prior;
     let mut carried: HashMap<String, Value> = HashMap::new();
     {
         let g = arc.lock().expect("launch lock");
@@ -1020,6 +1053,7 @@ async fn run_sequential_for(
             g.last_mutation = local_mut.clone();
             g.last_observable = local_obs.clone();
             g.print_barrier = local_print.clone();
+            g.prior = local_prior.clone();
             let mut child = snap.clone();
             for (name, value) in &carried {
                 child.insert(name.clone(), ready(value.clone()));
@@ -1030,6 +1064,7 @@ async fn run_sequential_for(
             local_mut = g.last_mutation.clone();
             local_obs = g.last_observable.clone();
             local_print = g.print_barrier.clone();
+            local_prior = g.prior.clone();
             saved.install(&mut g);
             (roots, assigned)
         };
@@ -1233,6 +1268,12 @@ fn base_name(expr: &Expr) -> Option<String> {
 }
 
 fn schedule_expr(expr: &Expr, g: &mut Launch, arc: &Arc<Mutex<Launch>>, env: &HashMap<String, ValFut>) -> ValFut {
+    let fut = schedule_expr_inner(expr, g, arc, env);
+    g.prior.push(fut.clone());
+    fut
+}
+
+fn schedule_expr_inner(expr: &Expr, g: &mut Launch, arc: &Arc<Mutex<Launch>>, env: &HashMap<String, ValFut>) -> ValFut {
     let line = expr.line;
     let col = expr.col;
     match &expr.kind {
@@ -1303,12 +1344,17 @@ fn schedule_expr(expr: &Expr, g: &mut Launch, arc: &Arc<Mutex<Launch>>, env: &Ha
             let body = body.as_ref().clone();
             let orelse = orelse.as_ref().clone();
             let arc_c = arc.clone();
+            let barriers = BarrierSnap::capture(g);
             share(async move {
                 let cond = test_fut.await?;
                 let chosen = if value::truthy(&cond) { body } else { orelse };
                 let fut = {
                     let mut g = arc_c.lock().expect("launch lock");
-                    schedule_expr(&chosen, &mut g, &arc_c, &env_snap)
+                    let saved = BarrierSnap::capture(&g);
+                    barriers.install(&mut g);
+                    let fut = schedule_expr(&chosen, &mut g, &arc_c, &env_snap);
+                    saved.install(&mut g);
+                    fut
                 };
                 fut.await
             })
@@ -1374,6 +1420,7 @@ fn schedule_bool(
     let rest = values[1..].to_vec();
     let env_snap = env.clone();
     let arc_c = arc.clone();
+    let barriers = BarrierSnap::capture(g);
     share(async move {
         let mut last = first.await?;
         for expr in rest {
@@ -1386,7 +1433,11 @@ fn schedule_bool(
             }
             let fut = {
                 let mut g = arc_c.lock().expect("launch lock");
-                schedule_expr(&expr, &mut g, &arc_c, &env_snap)
+                let saved = BarrierSnap::capture(&g);
+                barriers.clone().install(&mut g);
+                let fut = schedule_expr(&expr, &mut g, &arc_c, &env_snap);
+                saved.install(&mut g);
+                fut
             };
             last = fut.await?;
         }
@@ -1410,12 +1461,17 @@ fn schedule_compare(
     let comparators = comparators.to_vec();
     let env_snap = env.clone();
     let arc_c = arc.clone();
+    let barriers = BarrierSnap::capture(g);
     share(async move {
         let mut prev = left_fut.await?;
         for (op, expr) in ops.into_iter().zip(comparators) {
             let fut = {
                 let mut g = arc_c.lock().expect("launch lock");
-                schedule_expr(&expr, &mut g, &arc_c, &env_snap)
+                let saved = BarrierSnap::capture(&g);
+                barriers.clone().install(&mut g);
+                let fut = schedule_expr(&expr, &mut g, &arc_c, &env_snap);
+                saved.install(&mut g);
+                fut
             };
             let next = fut.await?;
             let ok = value::compare(to_cmp(op), &prev, &next).map_err(|msg| WeaveError::runtime(line, col, msg))?;
@@ -1573,6 +1629,7 @@ fn schedule_tool(
     let tool_name = name.to_string();
     let seq = g.seq.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     let mutation = g.last_mutation.clone();
+    let prior = g.prior.clone();
     let observable = g.last_observable.clone();
     let complete_rx = g.complete_rx.clone();
     let mut cancel_rx = g.cancel_rx.clone();
@@ -1592,10 +1649,12 @@ fn schedule_tool(
                     mutation.await?;
                 }
                 Effect::Reversible => {
+                    await_roots(prior).await?;
                     observable.await?;
                 }
                 Effect::Irreversible => {
                     wait_complete(complete_rx, &mut cancel_rx).await?;
+                    await_roots(prior).await?;
                     observable.await?;
                 }
             }

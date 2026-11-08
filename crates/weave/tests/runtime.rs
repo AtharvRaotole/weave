@@ -809,3 +809,29 @@ fn audited_value_ingress_and_unicode_find() {
     let out = Engine::new().run("print(\"éx\".find(\"x\"))\nprint(\"éx\"[\"éx\".find(\"x\"):])\n").unwrap();
     assert_eq!(out.stdout(), "1\nx\n");
 }
+
+#[test]
+fn failure_boundaries_skip_later_writes_and_keep_completed_bindings() {
+    use std::sync::{Arc, Mutex};
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let log = writes.clone();
+    let mut e = Engine::new();
+    e.register("write", ToolSpec::effect(Effect::Irreversible), move |_, _| {
+        log.lock().unwrap().push(1); Ok(Value::Null)
+    });
+    e.register("fail", ToolSpec::effect(Effect::Read), |_, _| Err("expected".into()));
+    for src in [
+        "try:\n    x = 1 / 0\n    write()\nexcept:\n    print(\"caught\")\n",
+        "try:\n    if True:\n        x = 1 / 0\n        write()\nexcept:\n    print(\"caught\")\n",
+        "try:\n    for i in [1, 2]:\n        x = 1 / 0\n        write()\nexcept:\n    print(\"caught\")\n",
+        "try:\n    write(1 / 0)\nexcept:\n    print(\"caught\")\n",
+        "try:\n    fail()\n    write()\nexcept ToolError:\n    print(\"caught\")\n",
+    ] {
+        assert_eq!(e.run(src).unwrap().stdout(), "caught\n", "{src}");
+        assert!(writes.lock().unwrap().is_empty(), "{src}");
+    }
+    assert!(e.run("x = 1 / 0\nwrite()\n").is_err());
+    assert!(writes.lock().unwrap().is_empty());
+    let r = e.run("x=0\ntry:\n    x=1\n    fail()\nexcept ToolError:\n    print(x)\nprint(x)\n").unwrap();
+    assert_eq!(r.stdout(), "1\n1\n");
+}
