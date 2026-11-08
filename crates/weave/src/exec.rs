@@ -83,10 +83,12 @@ struct Launch {
     mode: RunMode,
     trace: Arc<Mutex<TraceBuilder>>,
     prints: Arc<Mutex<Vec<String>>>,
+    output_bytes: Arc<std::sync::atomic::AtomicUsize>,
     seq: Arc<std::sync::atomic::AtomicU64>,
     complete_tx: watch::Sender<bool>,
     complete_rx: watch::Receiver<bool>,
     cancel_rx: watch::Receiver<bool>,
+    cancel_tx: watch::Sender<bool>,
     last_mutation: ValFut,
     last_observable: ValFut,
     print_barrier: ValFut,
@@ -256,6 +258,9 @@ impl Engine {
     }
 
     pub fn check(&self, source: &str) -> Vec<Diagnostic> {
+        if source.len() > self.limits.max_source_bytes {
+            return vec![Diagnostic::static_err(0, 0, "aggregate source byte budget exceeded")];
+        }
         match parse_detailed(source, 0) {
             Ok(parsed) => {
                 let mut diags = parsed.errors;
@@ -344,16 +349,19 @@ impl Engine {
         let (result_tx, result_rx) = std::sync::mpsc::sync_channel(1);
         let (complete_tx, complete_rx) = watch::channel(false);
         let (cancel_tx, cancel_rx) = watch::channel(false);
+        let trace = Arc::new(Mutex::new(TraceBuilder::bounded(self.limits.max_trace_bytes)));
         let launch = Launch {
             handle: runtime.handle().clone(),
             tools: Arc::new(self.tools.clone()),
             mode,
-            trace: Arc::new(Mutex::new(TraceBuilder::default())),
+            trace: trace.clone(),
             prints: Arc::new(Mutex::new(Vec::new())),
+            output_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             seq: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             complete_tx,
             complete_rx,
             cancel_rx,
+            cancel_tx: cancel_tx.clone(),
             last_mutation: ready(Value::Null),
             last_observable: ready(Value::Null),
             print_barrier: ready(Value::Null),
@@ -374,6 +382,9 @@ impl Engine {
             result_rx,
             buffer: String::new(),
             source: String::new(),
+            trace_budget: trace,
+            max_source_bytes: self.limits.max_source_bytes,
+            max_trace_bytes: self.limits.max_trace_bytes,
             manifest: self.manifest(),
             line_offset: 0,
             defined: HashSet::new(),
@@ -395,6 +406,9 @@ pub struct Session {
     result_rx: std::sync::mpsc::Receiver<Result<RunResult, WeaveError>>,
     buffer: String,
     source: String,
+    trace_budget: Arc<Mutex<TraceBuilder>>,
+    max_source_bytes: usize,
+    max_trace_bytes: usize,
     manifest: BTreeMap<String, String>,
     line_offset: usize,
     defined: HashSet<String>,
@@ -456,7 +470,17 @@ impl Session {
         if let Some(err) = &self.failed {
             return Err(err.clone());
         }
+        if chunk.len() > self.max_source_bytes.saturating_sub(self.source.len()) {
+            let err = WeaveError::budget("aggregate source byte budget exceeded");
+            self.failed = Some(err.clone());
+            self.cancel();
+            return Err(err);
+        }
         self.source.push_str(chunk);
+        let mut envelope = Trace::empty();
+        envelope.source = self.source.clone(); envelope.manifest = self.manifest.clone();
+        let reserve = self.trace_budget.lock().expect("trace").reserve_envelope(crate::trace::json_size(&envelope)?);
+        if let Err(err) = reserve { self.failed = Some(err.clone()); self.cancel(); return Err(err); }
         self.buffer.push_str(chunk);
         let end = complete_prefix_end(&self.buffer);
         if end == 0 {
@@ -522,6 +546,9 @@ impl Session {
             Ok(Ok(mut result)) => {
                 result.trace.source = self.source.clone();
                 result.trace.manifest = self.manifest.clone();
+                if crate::trace::json_size(&result.trace)? > self.max_trace_bytes {
+                    return Err(WeaveError::runtime(0, 0, "aggregate trace byte budget exceeded (including source/manifest)"));
+                }
                 Ok(result)
             }
             Ok(Err(err)) => Err(err),
@@ -1707,6 +1734,9 @@ fn schedule_print(
 ) -> ValFut {
     let prev = g.print_barrier.clone();
     let prints = g.prints.clone();
+    let output_bytes = g.output_bytes.clone();
+    let max_output_bytes = g.limits.max_output_bytes;
+    let cancel = g.cancel_tx.clone();
     let fut = share(async move {
         let args_fut = join_values(arg_futs);
         let kwargs_fut = join_kwargs(kw_futs);
@@ -1714,7 +1744,14 @@ fn schedule_print(
         let args = args?;
         let kwargs = kwargs?;
         let text = format_print(&args, &kwargs).map_err(|msg| WeaveError::runtime(line, col, msg))?;
-        prints.lock().expect("prints").push(text);
+        let mut prints = prints.lock().expect("prints");
+        let used = output_bytes.load(std::sync::atomic::Ordering::Relaxed);
+        if text.len() > max_output_bytes.saturating_sub(used) {
+            let _ = cancel.send(true);
+            return Err(WeaveError::budget("aggregate output byte budget exceeded"));
+        }
+        output_bytes.store(used + text.len(), std::sync::atomic::Ordering::Relaxed);
+        prints.push(text);
         Ok(Value::Null)
     });
     g.print_barrier = fut.clone();
@@ -1748,6 +1785,7 @@ fn schedule_tool(
     let mut cancel_rx = g.cancel_rx.clone();
     let mode = g.mode.clone();
     let trace = g.trace.clone();
+    let cancel = g.cancel_tx.clone();
     let handle = g.handle.clone();
     let speculation = g.speculation.clone();
     let max_value_size = g.limits.max_value_size;
@@ -1815,7 +1853,7 @@ fn schedule_tool(
             Err(err) => (Value::Null, Some(err.summary())),
         };
         let failure = error.clone().map(|message| tool_failure(line, col, message, &args, &kwargs));
-        trace.lock().expect("trace").record(TraceEvent {
+        let recorded = trace.lock().expect("trace").record(TraceEvent {
             seq,
             line,
             invocation,
@@ -1827,6 +1865,7 @@ fn schedule_tool(
             error: error.clone(),
             done: 0,
         }, done);
+        if let Err(err) = recorded { let _ = cancel.send(true); return Err(err); }
         match failure {
             Some(err) => Err(err),
             None => Ok(result),

@@ -112,6 +112,12 @@ impl WeaveError {
         }
     }
 
+    pub fn budget(message: impl Into<String>) -> Self {
+        let mut d = Diagnostic::cancelled(0, 0);
+        d.message = message.into(); d.hint = None;
+        Self::one(d)
+    }
+
     pub fn runtime(line: usize, col: usize, message: impl Into<String>) -> Self {
         Self::one(Diagnostic::runtime(line, col, message))
     }

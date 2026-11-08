@@ -34,6 +34,12 @@ pub const HARD_MAX_VALUE_SIZE: usize = 256 * 1024 * 1024;
 pub struct Limits {
     /// Statements plus loop iterations per run. Default 1,000,000.
     pub max_steps: u64,
+    /// Aggregate UTF-8 source bytes per session, before parsing.
+    pub max_source_bytes: usize,
+    /// Aggregate emitted stdout UTF-8 bytes per run.
+    pub max_output_bytes: usize,
+    /// Compact JSON trace bytes (events plus final source/manifest envelope).
+    pub max_trace_bytes: usize,
     /// Largest value a script may build (bytes for strings, elements for
     /// containers). Default 16 MiB. Clamped to [`HARD_MAX_VALUE_SIZE`].
     pub max_value_size: usize,
@@ -47,6 +53,9 @@ impl Default for Limits {
     fn default() -> Self {
         Self {
             max_steps: 1_000_000,
+            max_source_bytes: 1024 * 1024,
+            max_output_bytes: 1024 * 1024,
+            max_trace_bytes: 4 * 1024 * 1024,
             max_value_size: 16 * 1024 * 1024,
             max_wall_time: std::time::Duration::from_secs(30),
         }

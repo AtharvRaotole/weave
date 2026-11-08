@@ -3,7 +3,7 @@
 //! MCP stdio transport specifies.
 
 use std::collections::{BTreeMap, HashMap};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufReader};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Sender};
@@ -161,9 +161,8 @@ impl Upstream {
         let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
         let reader_pending = pending.clone();
         std::thread::spawn(move || {
-            for line in BufReader::new(stdout).lines() {
-                let Ok(line) = line else { break };
-                let Ok(message) = serde_json::from_str::<Json>(line.trim()) else { continue };
+            let mut reader = BufReader::new(stdout);
+            while let Ok(Some((message, _))) = crate::framing::read_message(&mut reader) {
                 let Some(id) = message.get("id").and_then(|v| v.as_u64()) else { continue };
                 if message.get("method").is_some() {
                     continue; // server-to-client requests are not supported
@@ -218,9 +217,8 @@ impl Upstream {
 
     fn send(&self, message: &Json) -> Result<(), String> {
         let mut stdin = self.stdin.lock().unwrap();
-        let mut line = serde_json::to_string(message).map_err(|err| err.to_string())?;
-        line.push('\n');
-        stdin.write_all(line.as_bytes()).and_then(|_| stdin.flush()).map_err(|err| format!("upstream `{}`: {err}", self.config.name))
+        crate::framing::write_message(&mut *stdin, message, crate::framing::Framing::Lines)
+            .map_err(|err| format!("upstream `{}`: {err}", self.config.name))
     }
 
     fn notify(&self, method: &str) -> Result<(), String> {

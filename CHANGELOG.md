@@ -6,6 +6,11 @@ All notable changes to Weave. The format follows
 
 ## [Unreleased]
 
+### Aggregate budget follow-up
+- Add configurable aggregate UTF-8 source/stdout and compact-JSON trace budgets.
+- Bound proxy and upstream MCP frames and headers before unbounded buffering.
+- Breaches are fatal, not silently truncated; these are not process memory caps.
+
 ### Audit follow-up
 - W13: preserve completed bindings through failing nested branches, loops and
   handlers; add independent CPython differential exception/write-log coverage.
