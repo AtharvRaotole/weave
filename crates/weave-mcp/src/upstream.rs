@@ -331,7 +331,7 @@ pub fn shape_result(shape: Option<ResultShape>, text: String) -> Result<Value, S
     match shape {
         None => Ok(Value::Str(text)),
         Some(ResultShape::Lines) => Ok(Value::List(
-            text.lines().filter(|line| !line.trim().is_empty()).map(|line| Value::str(line)).collect(),
+            text.lines().filter(|line| !line.trim().is_empty()).map(Value::str).collect(),
         )),
         Some(ResultShape::Json) => serde_json::from_str::<Json>(&text)
             .map(|json| from_plain_json(&json))
