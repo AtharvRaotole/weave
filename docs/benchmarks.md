@@ -1,3 +1,10 @@
+# Historical benchmarks — unequal endpoints
+
+**Do not interpret the historical Weave/native timings as apples-to-apples speedups.**
+Weave stopped at script stdout; native included a final model answer and ran calls
+serially within a turn. New methodology must use final-answer endpoints for both
+and bounded concurrent native reads. No corrected live measurements exist yet.
+
 # Benchmarks
 
 Every number on this page comes from a JSON file in [`bench/results/`](../bench/results/). The README chart is drawn from two of them by [`bench/make_charts.py`](../bench/make_charts.py). Times in tables are UTC, as recorded in the files.

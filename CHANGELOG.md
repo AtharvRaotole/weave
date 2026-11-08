@@ -6,6 +6,11 @@ All notable changes to Weave. The format follows
 
 ## [Unreleased]
 
+### Documentation
+- Reorganize the README around installation, a runnable workflow, agent and MCP
+  integration, and execution boundaries. Clarify package naming, release wheels,
+  benchmark completion boundaries, and known v0.1.0 limitations.
+
 ## [0.1.0] - 2026-11-08
 
 First public version, released on GitHub with prebuilt wheels. It is not on

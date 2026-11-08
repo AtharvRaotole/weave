@@ -59,8 +59,8 @@ def benchmark_svg() -> str:
         "<style>.h{font-size:15px;font-weight:600;fill:#111827}.m{font-size:13px;fill:#374151}.v{font-size:12px;fill:#111827}.n{font-size:11px;fill:#6b7280}</style>",
         f'<rect width="{width}" height="{height}" fill="#ffffff"/>',
     ]
-    parts += bars("Median wall time per task (lower is better)", "median_s", " s", data, 30, 420 / max_s)
-    parts += bars("Mean model turns per task (lower is better)", "mean_turns", "", data, 210, 420 / max_t)
+    parts += bars("Historical unequal endpoints (not a runtime speedup)", "median_s", " s", data, 30, 420 / max_s)
+    parts += bars("Historical model turns (native includes final answer)", "mean_turns", "", data, 210, 420 / max_t)
     lx = 24
     for _, label, color in MODES:
         parts.append(f'<rect x="{lx}" y="{height - 36}" width="12" height="12" rx="2" fill="{color}"/>')
