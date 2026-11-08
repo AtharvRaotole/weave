@@ -55,6 +55,9 @@ enum S {
     Log(E),
     If(E, Vec<S>, Vec<S>),
     For(i64, Vec<S>),
+    /// `if e > 3: break` / `if e > 3: continue`; only generated inside loops.
+    BreakIf(E),
+    ContinueIf(E),
     Pass,
 }
 
@@ -62,6 +65,7 @@ struct Gen {
     rng: Rng,
     vars: Vec<String>,
     next_var: usize,
+    loop_depth: u32,
 }
 
 impl Gen {
@@ -83,6 +87,10 @@ impl Gen {
     }
 
     fn stmt(&mut self, top: bool, depth: u32) -> S {
+        if self.loop_depth > 0 && self.rng.chance(20) {
+            let test = self.expr(1);
+            return if self.rng.chance(50) { S::BreakIf(test) } else { S::ContinueIf(test) };
+        }
         match self.rng.below(if depth == 0 { 6 } else { 8 }) {
             0 | 1 => {
                 // New variables only at top level so every use is defined.
@@ -116,7 +124,10 @@ impl Gen {
             }
             _ => {
                 let n = self.rng.below(4) as i64;
-                S::For(n, self.block(depth - 1))
+                self.loop_depth += 1;
+                let body = self.block(depth - 1);
+                self.loop_depth -= 1;
+                S::For(n, body)
             }
         }
     }
@@ -168,9 +179,18 @@ fn render(stmts: &[S], indent: usize, out: &mut String) {
                 out.push_str(&format!("{pad}for i in range({n}):\n"));
                 render(body, indent + 1, out);
             }
+            S::BreakIf(t) => out.push_str(&format!("{pad}if {} > 3:\n{pad}    break\n", render_e(t))),
+            S::ContinueIf(t) => out.push_str(&format!("{pad}if {} > 3:\n{pad}    continue\n", render_e(t))),
             S::Pass => out.push_str(&format!("{pad}pass\n")),
         }
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Flow {
+    Next,
+    Break,
+    Continue,
 }
 
 /// Independent tree-walking oracle with Python semantics (left-to-right
@@ -218,7 +238,7 @@ impl Oracle {
         }
     }
 
-    fn run(&mut self, stmts: &[S]) {
+    fn run(&mut self, stmts: &[S]) -> Flow {
         for s in stmts {
             match s {
                 S::Assign(n, e) => {
@@ -244,21 +264,33 @@ impl Oracle {
                     self.call("log", vec![Value::Int(v)], len);
                 }
                 S::If(t, body, orelse) => {
-                    if self.eval(t) > 3 {
-                        self.run(body);
-                    } else {
-                        self.run(orelse);
+                    let flow = if self.eval(t) > 3 { self.run(body) } else { self.run(orelse) };
+                    if flow != Flow::Next {
+                        return flow;
                     }
                 }
                 S::For(n, body) => {
                     for i in 0..*n {
                         self.vars.insert("i".into(), i);
-                        self.run(body);
+                        if self.run(body) == Flow::Break {
+                            break;
+                        }
+                    }
+                }
+                S::BreakIf(t) => {
+                    if self.eval(t) > 3 {
+                        return Flow::Break;
+                    }
+                }
+                S::ContinueIf(t) => {
+                    if self.eval(t) > 3 {
+                        return Flow::Continue;
                     }
                 }
                 S::Pass => {}
             }
         }
+        Flow::Next
     }
 }
 
@@ -267,6 +299,7 @@ fn build(seed: u64) -> Vec<S> {
         rng: Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1),
         vars: Vec::new(),
         next_var: 0,
+        loop_depth: 0,
     };
     let n = 2 + gen.rng.below(8);
     let mut stmts: Vec<S> = (0..n).map(|_| gen.stmt(true, 2)).collect();
@@ -512,4 +545,12 @@ fn generator_produces_writes_after_reads() {
         })
         .count();
     assert!(hits > 20, "only {hits} programs read then write the same key");
+}
+
+#[test]
+fn generator_produces_break_and_continue() {
+    let programs: Vec<String> = (0..300).map(program).collect();
+    let breaks = programs.iter().filter(|p| p.contains("break")).count();
+    let continues = programs.iter().filter(|p| p.contains("continue")).count();
+    assert!(breaks >= 20 && continues >= 20, "breaks={breaks} continues={continues}");
 }
