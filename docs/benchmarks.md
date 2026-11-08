@@ -267,6 +267,6 @@ needs a few hundred. The only completed record is a 4-run smoke test,
 [`real-20261108T182543Z.json`](../bench/results/real-20261108T182543Z.json):
 `sum_notes` and `mem_relate`, one repeat each. All four runs passed. Weave took
 1 model turn per task; native took 2 and 3. That is too few runs to compare
-the two, so no Gemini numbers appear in the README. A second attempt passed 9
-runs and then hit the daily limit partway through. Its process was stopped
-before it wrote a results file, so it is not counted here.
+the two, so no Gemini numbers appear in the README. A second attempt ran 10 runs: 8 passed, and the
+last 2 (both native) failed only because the daily limit was hit. It was
+stopped before it wrote a results file, so it is not counted here.
