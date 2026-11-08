@@ -50,6 +50,9 @@ MODES = tuple(os.environ.get("WEAVE_EVAL_MODES", "weave,json_tool_calls,native_t
 PRICES = {
     "gpt-5.4-mini": (0.75, 0.075, 4.50),
     "gpt-6.1-sol": (2.00, 0.10, 10.00),
+    # https://ai.google.dev/gemini-api/docs/pricing, paid tier, checked 2026-11-08.
+    # Output includes thinking tokens.
+    "gemini-2.5-flash": (0.30, 0.03, 2.50),
 }
 # The same reasoning effort is used in every mode. Chat Completions rejects
 # function tools while gpt-6.1-sol reasons, so native tool calling uses the
@@ -59,6 +62,8 @@ MODEL_PARAMS = {
 }
 BUDGET_USD = float(os.environ.get("WEAVE_EVAL_BUDGET", "2.0"))
 SPENT = {"usd": 0.0}
+# Seconds spent waiting out HTTP 429s, so evals can subtract them from wall time.
+WAITED = {"s": 0.0}
 
 
 class BudgetExceeded(RuntimeError):
@@ -110,19 +115,29 @@ def _post(url: str, payload: dict, headers: dict) -> dict:
         headers=headers,
         method="POST",
     )
-    for attempt in range(3):
+    for attempt in range(8):
         try:
             with urllib.request.urlopen(request, timeout=90) as response:
                 return json.loads(response.read().decode())
         except urllib.error.HTTPError as exc:
-            if exc.code < 500 and exc.code != 429:
+            if exc.code == 429:
+                detail = exc.read().decode(errors="replace")
+                if "per day" in detail or "PerDay" in detail:
+                    raise BudgetExceeded("provider daily request quota exhausted (HTTP 429)") from None
+            if exc.code == 429 and attempt < 7:
+                # Rate limits are waited out; the wait is excluded from wall time.
+                delay = float(exc.headers.get("Retry-After") or 10 * (attempt + 1))
+                time.sleep(delay)
+                WAITED["s"] += delay
+                continue
+            if exc.code < 500:
                 detail = exc.read().decode(errors="replace")[:300]
                 raise ValueError(f"HTTP {exc.code}: {detail}") from None
-            if attempt == 2:
+            if attempt >= 2:
                 raise
         except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
             # Transport failures are retried; they say nothing about the model.
-            if attempt == 2:
+            if attempt >= 2:
                 raise
         time.sleep(2 * (attempt + 1))
     raise RuntimeError("unreachable")
@@ -183,7 +198,6 @@ def complete(provider: str, model: str, messages: list[dict]) -> tuple[str, dict
         )
         usage = body.get("usage") or {}
         return text, _usage(usage.get("input_tokens"), usage.get("output_tokens"))
-    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     system = "\n\n".join(item["content"] for item in messages if item["role"] == "system")
     contents = []
     for item in messages:
@@ -191,15 +205,25 @@ def complete(provider: str, model: str, messages: list[dict]) -> tuple[str, dict
             continue
         role = "user" if item["role"] == "user" else "model"
         contents.append({"role": role, "parts": [{"text": item["content"]}]})
+    body = gemini_generate(model, {"systemInstruction": {"parts": [{"text": system}]}, "contents": contents})
+    parts = body["candidates"][0]["content"].get("parts") or []
+    text = "".join(part.get("text", "") for part in parts if not part.get("thought"))
+    return text, body["_usage"]
+
+
+def gemini_generate(model: str, payload: dict) -> dict:
+    """One generateContent call. Output tokens include thinking tokens, as billed."""
+    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     body = _post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
-        {"systemInstruction": {"parts": [{"text": system}]}, "contents": contents},
-        {"Content-Type": "application/json"},
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        payload,
+        {"Content-Type": "application/json", "x-goog-api-key": key},
     )
-    parts = body["candidates"][0]["content"]["parts"]
-    text = "".join(part.get("text", "") for part in parts)
     usage = body.get("usageMetadata") or {}
-    return text, _usage(usage.get("promptTokenCount"), usage.get("candidatesTokenCount"))
+    out = (usage.get("candidatesTokenCount") or 0) + (usage.get("thoughtsTokenCount") or 0)
+    body["_usage"] = _usage(usage.get("promptTokenCount"), out, usage.get("cachedContentTokenCount") or 0)
+    _charge(model, body["_usage"])
+    return body
 
 
 def _strip_fence(text: str) -> str:

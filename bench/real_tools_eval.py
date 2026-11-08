@@ -288,7 +288,7 @@ def run_weave(model: str, task: RealTask, client: McpClient, tools: list[dict], 
     attempt = turns = 0
     started = time.perf_counter()
     while attempt < MAX_ATTEMPTS:
-        text, usage = llm_eval.complete("openai", model, messages)
+        text, usage = llm_eval.complete("gemini" if model.startswith("gemini") else "openai", model, messages)
         turns += 1
         attempt += 1
         usage_in += usage["input_tokens"] or 0
@@ -312,6 +312,8 @@ def run_weave(model: str, task: RealTask, client: McpClient, tools: list[dict], 
 
 
 def run_native(model: str, task: RealTask, client: McpClient, tools: list[dict], root: Path) -> dict:
+    if model.startswith("gemini"):
+        return run_native_gemini(model, task, client, tools, root)
     fn_tools = []
     for tool in tools:
         if tool["name"].startswith("weave_"):
@@ -347,9 +349,50 @@ def run_native(model: str, task: RealTask, client: McpClient, tools: list[dict],
             "output_tokens": usage_out, "wall_s": time.perf_counter() - started, "error": error}
 
 
+def run_native_gemini(model: str, task: RealTask, client: McpClient, tools: list[dict], root: Path) -> dict:
+    """Native Gemini function calling (generateContent), same loop as the OpenAI one."""
+    decls = []
+    for tool in tools:
+        if tool["name"].startswith("weave_"):
+            continue
+        schema = {k: v for k, v in tool["inputSchema"].items() if k != "$schema"}
+        decls.append({"name": tool["name"], "description": tool["description"], "parametersJsonSchema": schema})
+    contents: list = [{"role": "user", "parts": [{"text": f"All files are under {root}; pass absolute paths.\nTask: {task.instruction}"}]}]
+    system = {"parts": [{"text": "Use the tools to complete the task. When done, reply with only the final answer."}]}
+    usage_in = usage_out = turns = calls = 0
+    answer, error = None, None
+    started = time.perf_counter()
+    while turns < MAX_TURNS:
+        turns += 1
+        body = llm_eval.gemini_generate(model, {"systemInstruction": system, "contents": contents,
+                                                "tools": [{"functionDeclarations": decls}]})
+        usage_in += body["_usage"]["input_tokens"] or 0
+        usage_out += body["_usage"]["output_tokens"] or 0
+        content = body["candidates"][0].get("content") or {"role": "model", "parts": []}
+        parts = content.get("parts") or []
+        fcalls = [p["functionCall"] for p in parts if "functionCall" in p]
+        if not fcalls:
+            answer = "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()
+            break
+        contents.append(content)
+        responses = []
+        for call in fcalls:
+            text, is_error = client.call(call["name"], call.get("args") or {})
+            calls += 1
+            responses.append({"functionResponse": {"name": call["name"], "response": {"result": ("ERROR: " if is_error else "") + text}}})
+        contents.append({"role": "user", "parts": responses})
+    else:
+        error = f"no final answer after {MAX_TURNS} turns"
+    passed = answer is not None and graded(task, answer, root)
+    if answer is not None and not passed:
+        error = f"answer {answer[:200]!r}"
+    return {"passed": passed, "attempts": 1, "model_turns": turns, "tool_calls": calls, "input_tokens": usage_in,
+            "output_tokens": usage_out, "wall_s": time.perf_counter() - started, "error": error}
+
+
 def main() -> int:
-    if not os.environ.get("OPENAI_API_KEY"):
-        print("set OPENAI_API_KEY")
+    if not (os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY")):
+        print("set OPENAI_API_KEY or GEMINI_API_KEY")
         return 0
     models = os.environ.get("OPENAI_MODELS", "gpt-5.4-mini").split(",")
     repeats = int(os.environ.get("WEAVE_EVAL_REPEATS", "3"))
@@ -370,8 +413,11 @@ def main() -> int:
                         try:
                             tools = client.request("tools/list")["tools"]
                             runner = run_weave if mode == "weave" else run_native
+                            waited = llm_eval.WAITED["s"]
                             try:
                                 row = runner(model, task, client, tools, root)
+                                row["rate_limit_wait_s"] = llm_eval.WAITED["s"] - waited
+                                row["wall_s"] -= row["rate_limit_wait_s"]
                             except (ValueError, KeyError, json.JSONDecodeError) as exc:
                                 row = {"passed": False, "attempts": 1, "model_turns": 0, "input_tokens": 0,
                                        "output_tokens": 0, "wall_s": 0.0, "error": f"harness: {exc}"}
@@ -393,7 +439,7 @@ def main() -> int:
                         "input_tokens": sum(r["input_tokens"] for r in group),
                         "output_tokens": sum(r["output_tokens"] for r in group)})
     payload = {"kind": "real_tools", "measured": True, "machine": machine_info(), "models": models,
-               "servers": ["@modelcontextprotocol/server-filesystem", "mcp-server-fetch"],
+               "servers": ["@modelcontextprotocol/server-filesystem", "mcp-server-fetch", "mcp-server-git", "@modelcontextprotocol/server-memory"],
                "repeats": repeats, "variant": sorted(VARIANT), "summary": summary, "rows": rows, "prices_per_1m": llm_eval.PRICES,
                "estimated_cost_usd": round(llm_eval.SPENT["usd"], 4), "stopped_early": stopped}
     out = ROOT / "bench" / "results"

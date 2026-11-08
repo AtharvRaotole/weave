@@ -252,3 +252,21 @@ An optional predictor pre-runs pure and read calls and stores each result under 
 
 Hit rate is `hits / (hits + misses)` over the pure and read calls the program made. Every repeat was correct. Machine: Linux 6.12.113+ x86_64, 4 CPUs, Python 3.12.3, hostname `cursor`.
 
+
+## Gemini (attempted, not completed)
+
+`bench/real_tools_eval.py` can now run Gemini models (`OPENAI_MODELS=gemini-2.5-flash`
+with `GEMINI_API_KEY`). Weave mode uses `generateContent`; native mode uses Gemini
+function calling with each tool's JSON schema. Output tokens include thinking
+tokens, priced at $0.30 / $2.50 per 1M input / output (paid tier). HTTP 429 waits
+are subtracted from wall time and recorded per row as `rate_limit_wait_s`.
+
+A 3-repeat run on 2026-11-08 could not finish: the API key is on the free
+tier, which allows 20 `gemini-2.5-flash` requests per day, and the full eval
+needs a few hundred. The only completed record is a 4-run smoke test,
+[`real-20261108T182543Z.json`](../bench/results/real-20261108T182543Z.json):
+`sum_notes` and `mem_relate`, one repeat each. All four runs passed. Weave took
+1 model turn per task; native took 2 and 3. That is too few runs to compare
+the two, so no Gemini numbers appear in the README. A second attempt passed 9
+runs and then hit the daily limit partway through. Its process was stopped
+before it wrote a results file, so it is not counted here.
