@@ -23,6 +23,8 @@ pub struct ScriptedTool {
     pub behavior: String,
     pub result: Option<Value>,
     pub delay_ms: u64,
+    pub reads: Option<weave::Footprint>,
+    pub writes: Option<weave::Footprint>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -337,6 +339,8 @@ fn parse_scripted(tool: &Json) -> Result<ScriptedTool, String> {
     if behavior != "echo" && behavior != "const" {
         return Err(format!("unknown tool behavior `{behavior}`; use echo or const"));
     }
+    let reads = footprint_field(tool, "reads").map_err(|err| format!("tool `{name}`: {err}"))?;
+    let writes = footprint_field(tool, "writes").map_err(|err| format!("tool `{name}`: {err}"))?;
     Ok(ScriptedTool {
         name,
         description: tool
@@ -349,6 +353,8 @@ fn parse_scripted(tool: &Json) -> Result<ScriptedTool, String> {
         behavior,
         result,
         delay_ms: tool.get("delay_ms").and_then(|v| v.as_u64()).unwrap_or(0),
+        reads,
+        writes,
     })
 }
 
@@ -356,6 +362,12 @@ fn register_parsed(engine: &mut Engine, tool: &ScriptedTool) -> Result<(), Strin
     let mut spec = ToolSpec::effect(tool.effect);
     if let Some(arity) = tool.arity {
         spec = spec.with_arity(arity);
+    }
+    if let Some(reads) = &tool.reads {
+        spec = spec.with_reads(reads.clone());
+    }
+    if let Some(writes) = &tool.writes {
+        spec = spec.with_writes(writes.clone());
     }
     let behavior = tool.behavior.clone();
     let delay_ms = tool.delay_ms;
@@ -469,6 +481,19 @@ fn footprint_field(tool: &Json, key: &str) -> Result<Option<weave::Footprint>, S
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn parsed_config_reads_footprints() {
+        let tool = parse_scripted(&json!({
+            "name": "get_user", "effect": "read",
+            "reads": ["user:{0}"], "writes": "*"
+        }))
+        .unwrap();
+        assert_eq!(tool.reads, Some(weave::Footprint::parse("user:{0}")));
+        assert_eq!(tool.writes, Some(weave::Footprint::All));
+        let bad = parse_scripted(&json!({"name": "x", "reads": 3})).unwrap_err();
+        assert!(bad.contains("`reads` must be"), "{bad}");
+    }
 
     #[test]
     fn lists_and_runs_an_echo_tool() {
