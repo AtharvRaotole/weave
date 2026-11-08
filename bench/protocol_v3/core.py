@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 import hashlib
 import json
+import keyword
 from pathlib import Path
 import re
 import tempfile
@@ -127,6 +128,19 @@ class Task:
 
 
 def manifest(task):
+    aliases = task.aliases
+    if (
+        set(aliases) != {"read_file", "write_file", "list_files"}
+        or len(set(aliases.values())) != 3
+    ):
+        raise ValueError("tool alias collision or incomplete mapping")
+    if any(
+        not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name)
+        or keyword.iskeyword(name)
+        or name in ("print", "len", "range")
+        for name in aliases.values()
+    ):
+        raise ValueError("invalid tool alias")
     schemas = {
         "read_file": {"path": {"type": "string"}},
         "write_file": {"path": {"type": "string"}, "text": {"type": "string"}},
@@ -192,11 +206,16 @@ class Provider(Protocol):
     def request(self, request: dict, deadline: float) -> Reply: ...
 
 
+class CallBudgetExceeded(Exception):
+    pass
+
+
 class Fixture:
     def __init__(self, root, task, clock, deadline, width=4):
         self.root, self.task, self.clock, self.deadline = root, task, clock, deadline
         self.events, self.writes, self.lock = [], [], threading.Lock()
         self.capacity = threading.BoundedSemaphore(width)
+        self.exceeded = False
         self.tools = {t["name"]: t for t in manifest(task)}
         self.reverse = {v: k for k, v in task.aliases.items()}
         for path, text in task.files.items():
@@ -230,7 +249,8 @@ class Fixture:
     def _call(self, name, args):
         with self.lock:
             if len(self.events) >= 64:
-                raise ValueError("64-call budget exceeded")
+                self.exceeded = True
+                raise CallBudgetExceeded("64-call budget exceeded")
             event = {"name": name, "arguments": args, "result": None, "error": None}
             self.events.append(event)
         try:
@@ -502,6 +522,9 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
                         if invalid
                         else execute(fixture, mode, decision, config.native_parallel)
                     )
+                    if fixture.exceeded:
+                        status = "resource_limit"
+                        break
                     execution_errors += int(observation["execution_error"] is not None)
                 else:
                     status = "malformed_response"
@@ -511,6 +534,8 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
             if clock.now() >= deadline:
                 status = "timeout"
                 first_pass = first_answer_pass = False
+        except CallBudgetExceeded:
+            status = "resource_limit"
         except TimeoutError:
             status = "timeout"
         except Exception:
@@ -552,6 +577,9 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
             "initial_state_hash": initial_hash,
             "final_state_hash": digest(final_files),
             "writes": writes,
+            "state_matches": final_files == task.final_files,
+            "write_log_matches": writes == list(task.expected_writes),
+            "unexpected_write": writes != list(task.expected_writes)[: len(writes)],
             "feedback": feedback,
             "requests": requests,
             "fixture_root": tmp,
@@ -569,6 +597,9 @@ def summarize(rows):
         "runs": len(rows),
         "passed": sum(r["passed"] for r in rows),
         "first_pass": sum(r["first_pass"] for r in rows),
+        "state_mismatch_runs": sum(not r["state_matches"] for r in rows),
+        "write_log_mismatch_runs": sum(not r["write_log_matches"] for r in rows),
+        "unexpected_write_runs": sum(r["unexpected_write"] for r in rows),
         "failures": {
             s: sum(r["status"] == s for r in rows)
             for s in sorted({r["status"] for r in rows if not r["passed"]})

@@ -1,4 +1,9 @@
-"""Real-tools eval: Weave vs native function calling against real MCP servers.
+"""Historical v2 helpers only: the live CLI is retired (exit 2).
+
+Controlled v3 is offline-only; see docs/benchmark-protocol-v3.md. The old
+invocation/configuration below is historical, not a corrected live protocol.
+
+Real-tools eval: Weave vs native function calling against real MCP servers.
 
 weave-mcp proxies four reference servers (filesystem, fetch, git and memory):
   - @modelcontextprotocol/server-filesystem (npx), rooted at a fresh temp dir
@@ -25,11 +30,8 @@ import json
 import threading
 from concurrent.futures import ThreadPoolExecutor, Future
 import os
-import shutil
-import statistics
 import subprocess
 import sys
-import tempfile
 import time
 from dataclasses import dataclass
 from typing import Callable
@@ -40,7 +42,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from bench import llm_eval  # noqa: E402
-from bench.harness import machine_info, utc_stamp  # noqa: E402
 from bench.prompts import few_shot_messages, repair_message, system_message  # noqa: E402
 
 MAX_ATTEMPTS = 3

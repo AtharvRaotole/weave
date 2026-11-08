@@ -1,17 +1,16 @@
 """No API calls: equivalent endpoint accounting and native concurrency."""
 
 import json
-import os
 from pathlib import Path
 import sys
 import tempfile
-import threading
 import time
+import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from bench import real_tools_eval as ev
+from bench import real_tools_eval as ev  # noqa: E402
 
 
 class Fake:
@@ -73,8 +72,6 @@ print(
 
 # V3 is the controlled offline successor; legacy v2 checks above are only
 # historical function-level regressions, not a credible live evaluation.
-import unittest
-
 suite = unittest.defaultTestLoader.loadTestsFromName(
     "bench.protocol_v3.tests.test_protocol"
 )

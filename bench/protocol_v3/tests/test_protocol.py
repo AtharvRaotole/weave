@@ -518,6 +518,87 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(report["p95_all_wall_s"], 10)
         self.assertEqual(report["failures"], {"timeout": 2})
 
+    def test_write_outcomes_reported_separately_from_missing_write(self):
+        missing = evaluate([{"answer": "recorded"}], task=DEVELOPMENT[2], max_answers=1)
+        wrong = evaluate(
+            [
+                calls(("write_file", {"path": "receipt.txt", "text": "WRONG"})),
+                {"answer": "recorded"},
+            ],
+            "native",
+            DEVELOPMENT[2],
+            max_answers=1,
+        )
+        self.assertFalse(missing["unexpected_write"])
+        self.assertFalse(missing["write_log_matches"])
+        self.assertTrue(wrong["unexpected_write"])
+        self.assertFalse(wrong["state_matches"])
+        report = summarize([missing, wrong])
+        self.assertEqual(report["unexpected_write_runs"], 1)
+        self.assertEqual(report["state_mismatch_runs"], 2)
+
+    def test_timeout_after_write_retains_actual_effect_without_retrying_it(self):
+        row = evaluate(
+            [
+                calls(("write_file", {"path": "receipt.txt", "text": "RECEIVED blue"})),
+                ProviderFailure("timeout"),
+            ],
+            "native",
+            DEVELOPMENT[2],
+        )
+        self.assertEqual(row["status"], "timeout")
+        self.assertEqual(row["writes"], [("receipt.txt", "RECEIVED blue")])
+        self.assertTrue(row["state_matches"])
+        self.assertFalse(row["unexpected_write"])
+        self.assertEqual(row["known_tokens"], TOKENS)
+        self.assertEqual(row["unknown_usage_attempts"], 1)
+
+    def test_frozen_manifest_changes_with_oracle_or_schema(self):
+        before = validate_splits()["manifest_hash"]
+        changed = (replace(DEVELOPMENT[0], answer="changed"), *DEVELOPMENT[1:])
+        self.assertNotEqual(before, validate_splits(changed, HELD_OUT)["manifest_hash"])
+        with self.assertRaises(ValueError):
+            manifest(
+                replace(
+                    DEVELOPMENT[0],
+                    aliases={
+                        "read_file": "same",
+                        "write_file": "same",
+                        "list_files": "other",
+                    },
+                )
+            )
+        with self.assertRaises(ValueError):
+            manifest(
+                replace(
+                    DEVELOPMENT[0],
+                    aliases={
+                        "read_file": "for",
+                        "write_file": "save",
+                        "list_files": "list_all",
+                    },
+                )
+            )
+
+    def test_backend_call_budget_is_fatal_and_never_hidden_as_a_pass(self):
+        weave = evaluate(
+            [
+                {"script": 'for i in range(65):\n    x=read_file(path="a.txt")\n'},
+                {"answer": "31"},
+            ]
+        )
+        native = evaluate(
+            [
+                calls(*[("read_file", {"path": "a.txt"}) for _ in range(64)]),
+                calls(("read_file", {"path": "a.txt"})),
+                {"answer": "31"},
+            ],
+            "native",
+        )
+        for row in (weave, native):
+            self.assertEqual(row["status"], "resource_limit")
+            self.assertFalse(row["passed"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

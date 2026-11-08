@@ -4,7 +4,7 @@ These small related fixtures are NOT statistically independent or genuinely
 secret/unseen. Freeze a reviewed manifest before future live evaluation.
 """
 
-from .core import Task, digest
+from .core import Task, digest, manifest
 
 DEVELOPMENT = (
     Task(
@@ -96,6 +96,14 @@ def validate_splits(dev=DEVELOPMENT, held=HELD_OUT):
                     "family": t.family,
                     "instruction": t.instruction,
                     "fixture_hash": digest(t.files),
+                    "schema_hash": digest(manifest(t)),
+                    "oracle_hash": digest(
+                        {
+                            "answer": t.answer,
+                            "final_files": t.final_files,
+                            "writes": t.expected_writes,
+                        }
+                    ),
                 }
                 for t in (*dev, *held)
             ]
