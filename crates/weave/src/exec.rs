@@ -348,7 +348,7 @@ impl Engine {
         let arc = Arc::new(Mutex::new(launch));
         runtime.spawn(driver(rx, arc, result_tx));
         Session {
-            runtime,
+            runtime: Some(runtime),
             tx,
             result_rx,
             buffer: String::new(),
@@ -367,7 +367,7 @@ impl Engine {
 
 pub struct Session {
     /// Owns the worker threads. Dropping it aborts in-flight tool calls.
-    runtime: tokio::runtime::Runtime,
+    runtime: Option<tokio::runtime::Runtime>,
     tx: tokio::sync::mpsc::UnboundedSender<Msg>,
     result_rx: std::sync::mpsc::Receiver<Result<RunResult, WeaveError>>,
     buffer: String,
@@ -399,7 +399,8 @@ impl Session {
         let limit = self.max_wall_time;
         let cancel = self.cancel_tx.clone();
         let flag = self.timed_out.clone();
-        self.runtime.spawn(async move {
+        let Some(runtime) = &self.runtime else { return };
+        runtime.spawn(async move {
             tokio::time::sleep(limit).await;
             flag.store(true, std::sync::atomic::Ordering::SeqCst);
             let _ = cancel.send(true);
@@ -488,7 +489,7 @@ impl Session {
         // The timer cancels the run at the limit; allow a short grace for
         // cancelled work to unwind before giving up on the driver.
         let elapsed = self.clock.map(|c| c.elapsed()).unwrap_or_default();
-        let wait = self.max_wall_time.saturating_sub(elapsed) + Duration::from_secs(2);
+        let wait = self.max_wall_time.saturating_sub(elapsed) + Duration::from_millis(250);
         let timed_out = || self.timed_out.load(std::sync::atomic::Ordering::SeqCst);
         match self.result_rx.recv_timeout(wait) {
             Ok(Err(_)) if timed_out() => Err(self.time_limit_error()),
@@ -506,7 +507,12 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        let _ = &self.runtime;
+        // Don't block on abandoned sync tool threads (for example after a
+        // timeout or the wall-clock limit). They finish in the background and
+        // their results are dropped.
+        if let Some(runtime) = self.runtime.take() {
+            runtime.shutdown_background();
+        }
     }
 }
 
