@@ -716,7 +716,7 @@ fn schedule_if(
             g.last_observable = branch_obs;
             g.print_barrier = branch_print;
             let mut child = snap;
-            let roots = launch_block(&mut g, &arc_c, &branch, &mut child, true);
+            let roots = launch_block(&mut g, &arc_c, &branch, &mut child, false);
             let assigned = capture_assigned(&written_task, &child);
             saved.install(&mut g);
             (roots, assigned)
@@ -967,7 +967,7 @@ async fn run_parallel_for(
         for item in items {
             let mut child = base.clone();
             bind_ready(target, item.clone(), &mut child);
-            let roots = launch_block(&mut g, arc, body, &mut child, true);
+            let roots = launch_block(&mut g, arc, body, &mut child, false);
             let assigned = capture_assigned(written, &child);
             planned.push((roots, assigned));
         }
@@ -1025,7 +1025,7 @@ async fn run_sequential_for(
                 child.insert(name.clone(), ready(value.clone()));
             }
             bind_ready(target, item.clone(), &mut child);
-            let roots = launch_block(&mut g, arc, body, &mut child, true);
+            let roots = launch_block(&mut g, arc, body, &mut child, false);
             let assigned = capture_assigned(written, &child);
             local_mut = g.last_mutation.clone();
             local_obs = g.last_observable.clone();

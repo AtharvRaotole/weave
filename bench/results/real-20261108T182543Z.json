@@ -1,0 +1,161 @@
+{
+  "kind": "real_tools",
+  "measured": true,
+  "machine": {
+    "python": "3.13.5",
+    "platform": "Linux-6.12.113+-x86_64-with-glibc2.41",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 8,
+    "hostname": "grok-bot-vm-405872838"
+  },
+  "models": [
+    "gemini-2.5-flash"
+  ],
+  "servers": [
+    "@modelcontextprotocol/server-filesystem",
+    "mcp-server-fetch",
+    "mcp-server-git",
+    "@modelcontextprotocol/server-memory"
+  ],
+  "repeats": 1,
+  "variant": [
+    "examples",
+    "structured"
+  ],
+  "summary": [
+    {
+      "model": "gemini-2.5-flash",
+      "task": "mem_relate",
+      "mode": "native_tools",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 2.5667758419995153,
+      "median_model_turns": 3,
+      "input_tokens": 15631,
+      "output_tokens": 255
+    },
+    {
+      "model": "gemini-2.5-flash",
+      "task": "mem_relate",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 1.450496395999835,
+      "median_model_turns": 1,
+      "input_tokens": 3666,
+      "output_tokens": 191
+    },
+    {
+      "model": "gemini-2.5-flash",
+      "task": "sum_notes",
+      "mode": "native_tools",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 2.5501135009999416,
+      "median_model_turns": 2,
+      "input_tokens": 10406,
+      "output_tokens": 373
+    },
+    {
+      "model": "gemini-2.5-flash",
+      "task": "sum_notes",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 1.86810738999975,
+      "median_model_turns": 1,
+      "input_tokens": 3661,
+      "output_tokens": 329
+    }
+  ],
+  "rows": [
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3661,
+      "output_tokens": 329,
+      "wall_s": 1.86810738999975,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gemini-2.5-flash",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 10406,
+      "output_tokens": 373,
+      "wall_s": 2.5501135009999416,
+      "error": null,
+      "model": "gemini-2.5-flash",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3666,
+      "output_tokens": 191,
+      "wall_s": 1.450496395999835,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gemini-2.5-flash",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 15631,
+      "output_tokens": 255,
+      "wall_s": 2.5667758419995153,
+      "error": null,
+      "model": "gemini-2.5-flash",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 0
+    }
+  ],
+  "prices_per_1m": {
+    "gpt-5.4-mini": [
+      0.75,
+      0.075,
+      4.5
+    ],
+    "gpt-6.1-sol": [
+      2.0,
+      0.1,
+      10.0
+    ],
+    "gemini-2.5-flash": [
+      0.3,
+      0.03,
+      2.5
+    ]
+  },
+  "estimated_cost_usd": 0.0092,
+  "stopped_early": null
+}
