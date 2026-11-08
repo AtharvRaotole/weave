@@ -4,11 +4,12 @@
 /// as their inputs are ready. Reversible calls run once earlier observable
 /// work they could conflict with has finished. Irreversible calls also wait
 /// until the whole program has been received.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Effect {
     Pure,
     Read,
     Reversible,
+    #[default]
     Irreversible,
 }
 
@@ -30,11 +31,5 @@ impl Effect {
             Self::Reversible => "reversible",
             Self::Irreversible => "irreversible",
         }
-    }
-}
-
-impl Default for Effect {
-    fn default() -> Self {
-        Self::Irreversible
     }
 }

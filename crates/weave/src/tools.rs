@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::effect::Effect;
 use crate::value::Value;
@@ -14,6 +15,9 @@ pub struct ToolSpec {
     pub effect: Effect,
     pub arity: Option<usize>,
     pub accepts_kwargs: bool,
+    /// Extra attempts after a failure or timeout. Zero means one try.
+    pub retries: u32,
+    pub timeout: Option<Duration>,
 }
 
 impl Default for ToolSpec {
@@ -22,6 +26,8 @@ impl Default for ToolSpec {
             effect: Effect::Irreversible,
             arity: None,
             accepts_kwargs: false,
+            retries: 0,
+            timeout: None,
         }
     }
 }
@@ -36,6 +42,16 @@ impl ToolSpec {
 
     pub fn with_arity(mut self, arity: usize) -> Self {
         self.arity = Some(arity);
+        self
+    }
+
+    pub fn with_retries(mut self, retries: u32) -> Self {
+        self.retries = retries;
+        self
+    }
+
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
         self
     }
 }

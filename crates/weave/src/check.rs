@@ -49,6 +49,16 @@ pub fn check_block(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<S
                 diags.extend(check_block(body, tools, &mut inner));
                 // Names assigned only inside the loop are unbound when the iterable is empty.
             }
+            StmtKind::Try { body, handler } => {
+                let mut try_defined = defined.clone();
+                diags.extend(check_block(body, tools, &mut try_defined));
+                let mut exc_defined = defined.clone();
+                if let Some(name) = &handler.name {
+                    exc_defined.insert(name.clone());
+                }
+                diags.extend(check_block(&handler.body, tools, &mut exc_defined));
+                *defined = try_defined.intersection(&exc_defined).cloned().collect();
+            }
             StmtKind::Pass => {}
         }
     }
@@ -112,12 +122,12 @@ fn check_expr(expr: &Expr, tools: &ToolRegistry, defined: &HashSet<String>) -> V
     let mut diags = Vec::new();
     match &expr.kind {
         ExprKind::Name(name) => {
-            if !defined.contains(name) && !is_builtin(name) {
+                if !defined.contains(name) && !is_builtin(name) {
                 diags.push(Diagnostic::static_err(
                     expr.line,
                     expr.col,
                     format!("name `{name}` is used before assignment"),
-                ));
+                ).with_hint(format!("assign `{name}` on an earlier line, on every branch that reaches here")));
             }
         }
         ExprKind::Call { func, args, keywords } => {
@@ -211,7 +221,7 @@ fn check_call(
                             line,
                             col,
                             format!("tool `{name}` takes {arity} argument(s), got {}", args.len()),
-                        ));
+                        ).with_hint(format!("pass {arity} positional argument(s) to `{name}`")));
                     }
                 }
                 if !keywords.is_empty() && !tool.spec.accepts_kwargs {
@@ -228,11 +238,13 @@ fn check_call(
                     format!("`{name}` is a value, not a tool; call a registered tool by its name"),
                 ));
             } else {
-                let mut message = format!("unknown tool `{name}`");
-                if let Some(suggestion) = suggest(name, tools) {
-                    message.push_str(&format!("; did you mean `{suggestion}`?"));
-                }
-                diags.push(Diagnostic::static_err(line, col, message));
+                let hint = match suggest(name, tools) {
+                    Some(suggestion) => format!("did you mean `{suggestion}`?"),
+                    None => "register the tool on the engine before running the script".into(),
+                };
+                diags.push(
+                    Diagnostic::static_err(line, col, format!("unknown tool `{name}`")).with_hint(hint),
+                );
             }
         }
         ExprKind::Attribute { value, .. } => diags.extend(check_expr(value, tools, defined)),
@@ -251,7 +263,10 @@ fn check_builtin(line: usize, col: usize, name: &str, argc: usize, keywords: &[c
     let mut diags = Vec::new();
     let ok = match name {
         "print" => true,
-        "len" | "str" | "int" | "float" | "bool" | "abs" => argc == 1,
+        "len" | "str" | "int" | "float" | "bool" | "abs" | "sum" | "sorted" | "reversed"
+        | "enumerate" | "any" | "all" | "list" => argc == 1,
+        "min" | "max" => argc == 1 || argc == 2,
+        "zip" => argc == 2,
         "range" => (1..=3).contains(&argc),
         _ => true,
     };
@@ -260,7 +275,7 @@ fn check_builtin(line: usize, col: usize, name: &str, argc: usize, keywords: &[c
             line,
             col,
             format!("builtin `{name}` got {argc} argument(s)"),
-        ));
+        ).with_hint(format!("check the argument count for `{name}`")));
     }
     if name != "print" && !keywords.is_empty() {
         diags.push(Diagnostic::static_err(

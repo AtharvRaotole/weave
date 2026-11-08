@@ -15,9 +15,7 @@ use weave::{Effect, Engine, ToolSpec, Value};
 pub fn handle_message(message: &Json) -> Option<Json> {
     let method = message.get("method").and_then(|m| m.as_str()).unwrap_or("");
     let id = message.get("id").cloned();
-    if id.is_none() {
-        return None;
-    }
+    id.as_ref()?;
     let params = message.get("params").cloned().unwrap_or(json!({}));
     let result = match method {
         "initialize" => Ok(json!({

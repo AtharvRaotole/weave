@@ -21,13 +21,15 @@ impl PyEngine {
     ///
     /// `effect` defaults to `irreversible`. Untagged tools are irreversible.
     /// `arity`, when set, is checked before the script runs.
-    #[pyo3(signature = (name, func, effect=None, arity=None))]
+    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None))]
     fn tool(
         &mut self,
         name: String,
         func: Py<PyAny>,
         effect: Option<String>,
         arity: Option<usize>,
+        timeout_ms: Option<u64>,
+        retries: Option<u32>,
     ) -> PyResult<()> {
         let effect = match effect.as_deref() {
             None => Effect::Irreversible,
@@ -40,6 +42,12 @@ impl PyEngine {
         let mut spec = ToolSpec::effect(effect);
         if let Some(arity) = arity {
             spec = spec.with_arity(arity);
+        }
+        if let Some(retries) = retries {
+            spec = spec.with_retries(retries);
+        }
+        if let Some(timeout_ms) = timeout_ms {
+            spec = spec.with_timeout(std::time::Duration::from_millis(timeout_ms));
         }
         self.inner.register(&name, spec, move |args, kwargs| {
             match Python::try_attach(|py| call_python(py, &func, &args, &kwargs)) {
@@ -86,6 +94,10 @@ impl PySession {
         let chunk = chunk.to_string();
         let inner = &mut self.inner;
         py.detach(|| inner.push(&chunk)).map_err(weave_err)
+    }
+
+    fn cancel(&self) {
+        self.inner.cancel();
     }
 
     fn finish(&mut self, py: Python<'_>) -> PyResult<PyRun> {

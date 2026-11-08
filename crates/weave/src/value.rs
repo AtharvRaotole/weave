@@ -388,13 +388,13 @@ pub fn bit_op(op: &str, a: &Value, b: &Value) -> Result<Value, String> {
         "|" => x | y,
         "^" => x ^ y,
         "<<" => {
-            if y < 0 || y > 63 {
+            if !(0..=63).contains(&y) {
                 return Err("shift is out of range".into());
             }
             x.checked_shl(y as u32).ok_or("shift overflows int")?
         }
         ">>" => {
-            if y < 0 || y > 63 {
+            if !(0..=63).contains(&y) {
                 return Err("shift is out of range".into());
             }
             x.checked_shr(y as u32).ok_or("shift overflows int")?

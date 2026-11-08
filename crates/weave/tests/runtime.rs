@@ -283,3 +283,146 @@ fn reversible_runs_before_program_completes() {
     assert_eq!(result.bindings["x"], Value::int(7));
     assert_eq!(result.trace.events[0].effect, "reversible");
 }
+
+#[test]
+fn errors_include_a_fix_hint() {
+    let mut engine = Engine::new();
+    engine.register("fetch", ToolSpec::effect(Effect::Read).with_arity(1), |_, _| Ok(Value::Null));
+    let text = engine
+        .check("serch(\"x\")\nprint(missing)\n")
+        .into_iter()
+        .map(|d| d.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(text.contains("L1:C1:"), "{text}");
+    assert!(text.contains("hint: did you mean `fetch`?"), "{text}");
+    assert!(text.contains("hint: assign `missing`"), "{text}");
+}
+
+#[test]
+fn try_except_catches_tool_errors_and_replays() {
+    let mut engine = Engine::new();
+    engine.register("fetch", ToolSpec::effect(Effect::Read).with_arity(1), |args, _| {
+        let key = args[0].as_str().unwrap();
+        if key == "missing" {
+            Err("not found".into())
+        } else {
+            Ok(Value::str(key))
+        }
+    });
+    let source = r#"
+try:
+    value = fetch("missing")
+except ToolError as err:
+    value = "fallback"
+    reason = err
+"#;
+    let result = engine.run(source).unwrap();
+    assert_eq!(result.bindings["value"], Value::str("fallback"));
+    assert!(result.bindings["reason"].as_str().unwrap().contains("not found"));
+    let replayed = engine.replay(source, &result.trace).unwrap();
+    assert_eq!(replayed.bindings["value"], result.bindings["value"]);
+    assert_eq!(replayed.bindings["reason"], result.bindings["reason"]);
+}
+
+#[test]
+fn bare_except_catches_runtime_errors() {
+    let engine = Engine::new();
+    let result = engine
+        .run("try:\n    bad = [1][3]\nexcept:\n    bad = 0\n")
+        .unwrap();
+    assert_eq!(result.bindings["bad"], Value::int(0));
+}
+
+#[test]
+fn tool_timeout_and_retry_are_honored() {
+    let mut engine = Engine::new();
+    engine.register(
+        "slow",
+        ToolSpec::effect(Effect::Pure).with_arity(0).with_timeout(Duration::from_millis(30)),
+        |_, _| {
+            thread::sleep(Duration::from_millis(200));
+            Ok(Value::int(1))
+        },
+    );
+    let started = Instant::now();
+    let err = engine.run("slow()\n").unwrap_err();
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed < Duration::from_millis(150) && err.to_string().contains("timed out"),
+        "elapsed={elapsed:?} err={err}"
+    );
+    assert!(err.to_string().contains("hint:"), "{err}");
+
+    let mut engine = Engine::new();
+    let tries = Arc::new(Mutex::new(0u32));
+    let seen = tries.clone();
+    engine.register(
+        "flaky",
+        ToolSpec::effect(Effect::Pure).with_arity(0).with_retries(2),
+        move |_, _| {
+            let mut n = seen.lock().unwrap();
+            *n += 1;
+            if *n < 3 {
+                Err("not yet".into())
+            } else {
+                Ok(Value::int(9))
+            }
+        },
+    );
+    let result = engine.run("x = flaky()\n").unwrap();
+    assert_eq!(result.bindings["x"], Value::int(9));
+    assert_eq!(*tries.lock().unwrap(), 3);
+}
+
+#[test]
+fn cancel_prevents_irreversible_tool() {
+    let mut engine = Engine::new();
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let seen = log.clone();
+    engine.register("send", ToolSpec::default().with_arity(0), move |_, _| {
+        seen.lock().unwrap().push("sent");
+        Ok(Value::Null)
+    });
+    let mut session = engine.session();
+    session.push("send()\n").unwrap();
+    thread::sleep(Duration::from_millis(40));
+    session.cancel();
+    let err = session.finish().unwrap_err();
+    assert!(err.to_string().contains("cancelled"), "{err}");
+    assert!(log.lock().unwrap().is_empty(), "cancelled send still ran");
+}
+
+#[test]
+fn extra_builtins_and_methods() {
+    let engine = Engine::new();
+    let result = engine
+        .run(
+            r#"
+nums = [3, 1, 2]
+ordered = sorted(nums)
+total = sum(nums)
+pairs = list(zip(ordered, reversed(ordered)))
+title = "paris".title()
+found = title.find("is")
+items = {"b": 1, "a": 2}.items()
+"#,
+        )
+        .unwrap();
+    assert_eq!(result.bindings["ordered"], Value::List(vec![Value::int(1), Value::int(2), Value::int(3)]));
+    assert_eq!(result.bindings["total"], Value::int(6));
+    assert_eq!(result.bindings["title"], Value::str("Paris"));
+    assert_eq!(result.bindings["found"], Value::int(3));
+    assert_eq!(
+        result.bindings["pairs"],
+        Value::List(vec![
+            Value::List(vec![Value::int(1), Value::int(3)]),
+            Value::List(vec![Value::int(2), Value::int(2)]),
+            Value::List(vec![Value::int(3), Value::int(1)]),
+        ])
+    );
+    match &result.bindings["items"] {
+        Value::List(rows) => assert_eq!(rows.len(), 2),
+        other => panic!("items was {other}"),
+    }
+}
