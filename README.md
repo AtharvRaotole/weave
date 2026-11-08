@@ -292,6 +292,11 @@ readiness, hard real-time deadline or exactly-once claim is made.
 See [runtime reference](docs/runtime.html) for API details and
 [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
+**Benchmark remediation:** [controlled v3 protocol](docs/benchmark-protocol-v3.md)
+now has deterministic offline mechanics tests, not new model-performance evidence.
+Corrected live runs remain pending. Public candidate held-out fixtures are not
+claimed unseen or statistically independent; no new speedup headline is derived.
+
 ## Documentation and development
 
 The reference pages are static HTML. Serve them from a checkout:

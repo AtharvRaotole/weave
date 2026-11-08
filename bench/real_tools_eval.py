@@ -1,4 +1,9 @@
-"""Real-tools eval: Weave vs native function calling against real MCP servers.
+"""Historical v2 helpers only: the live CLI is retired (exit 2).
+
+Controlled v3 is offline-only; see docs/benchmark-protocol-v3.md. The old
+invocation/configuration below is historical, not a corrected live protocol.
+
+Real-tools eval: Weave vs native function calling against real MCP servers.
 
 weave-mcp proxies four reference servers (filesystem, fetch, git and memory):
   - @modelcontextprotocol/server-filesystem (npx), rooted at a fresh temp dir
@@ -25,11 +30,8 @@ import json
 import threading
 from concurrent.futures import ThreadPoolExecutor, Future
 import os
-import shutil
-import statistics
 import subprocess
 import sys
-import tempfile
 import time
 from dataclasses import dataclass
 from typing import Callable
@@ -40,7 +42,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from bench import llm_eval  # noqa: E402
-from bench.harness import machine_info, utc_stamp  # noqa: E402
 from bench.prompts import few_shot_messages, repair_message, system_message  # noqa: E402
 
 MAX_ATTEMPTS = 3
@@ -457,67 +458,8 @@ def run_native_gemini(model: str, task: RealTask, client: McpClient, tools: list
 
 
 def main() -> int:
-    if not (os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY")):
-        print("set OPENAI_API_KEY or GEMINI_API_KEY")
-        return 0
-    models = os.environ.get("OPENAI_MODELS", "gpt-5.4-mini").split(",")
-    repeats = int(os.environ.get("WEAVE_EVAL_REPEATS", "3"))
-    llm_eval.BUDGET_USD = float(os.environ.get("WEAVE_EVAL_BUDGET", "1.0"))
-    only = os.environ.get("WEAVE_EVAL_TASKS")
-    tasks = [t for t in TASKS if not only or t.id in only.split(",")]
-    rows, stopped = [], None
-    try:
-        for repeat in range(repeats):
-            for model in models:
-                for task in tasks:
-                    for mode in (os.environ.get("WEAVE_EVAL_MODES", "weave,native_tools").split(",")[::(-1 if (repeat + tasks.index(task)) % 2 else 1)]):
-                        tmp = Path(tempfile.mkdtemp(prefix="weave-real-"))
-                        root = tmp / "data"
-                        root.mkdir()
-                        make_fixture(root)
-                        client = start(root)
-                        try:
-                            tools = client.request("tools/list")["tools"]
-                            runner = run_weave if mode == "weave" else run_native
-                            waited = llm_eval.WAITED["s"]
-                            try:
-                                row = runner(model, task, client, tools, root)
-                                row["rate_limit_wait_s"] = llm_eval.WAITED["s"] - waited
-                                row["wall_s"] -= row["rate_limit_wait_s"]
-                            except (ValueError, KeyError, json.JSONDecodeError) as exc:
-                                row = {"passed": False, "attempts": 1, "model_turns": 0, "input_tokens": 0,
-                                       "output_tokens": 0, "wall_s": 0.0, "error": f"harness: {exc}"}
-                        finally:
-                            client.close()
-                            shutil.rmtree(tmp, ignore_errors=True)
-                        row.update({"model": model, "task": task.id, "category": task.category, "mode": mode, "repeat": repeat})
-                        rows.append(row)
-                        print(f"{model} {task.id:<16} {mode:<13} {'PASS' if row['passed'] else 'FAIL'} {row['wall_s']:.2f}s ${llm_eval.SPENT['usd']:.3f}", flush=True)
-    except llm_eval.BudgetExceeded as exc:
-        stopped = str(exc)
-    summary = []
-    for model, task, mode in sorted({(r["model"], r["task"], r["mode"]) for r in rows}):
-        group = [r for r in rows if (r["model"], r["task"], r["mode"]) == (model, task, mode)]
-        summary.append({"model": model, "task": task, "mode": mode, "runs": len(group),
-                        "passed": sum(r["passed"] for r in group),
-                        "median_wall_s": statistics.median(r["wall_s"] for r in group),
-                        "median_model_turns": statistics.median(r["model_turns"] for r in group),
-                        "input_tokens": sum(r["input_tokens"] for r in group),
-                        "output_tokens": sum(r["output_tokens"] for r in group)})
-    payload = {"methodology_version": 2, "endpoint": "final_model_answer_both_modes", "native_parallel": int(os.environ.get("WEAVE_NATIVE_PARALLEL", "4")),
-               "source_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
-               "integration": "custom_script_prompt_over_shipped_MCP; not a complete provider agent SDK loop",
-               "kind": "real_tools", "measured": True, "machine": machine_info(), "models": models,
-               "servers": ["@modelcontextprotocol/server-filesystem", "mcp-server-fetch", "mcp-server-git", "@modelcontextprotocol/server-memory"],
-               "repeats": repeats, "variant": sorted(VARIANT), "summary": summary, "rows": rows, "prices_per_1m": llm_eval.PRICES,
-               "estimated_cost_usd": round(llm_eval.SPENT["usd"], 4), "stopped_early": stopped}
-    out = ROOT / "bench" / "results"
-    text = json.dumps(payload, indent=2) + "\n"
-    path = out / f"real-{utc_stamp()}.json"
-    path.write_text(text)
-    (out / "real-latest.json").write_text(text)
-    print(f"wrote {path.relative_to(ROOT)} cost=${payload['estimated_cost_usd']}")
-    return 0
+    print("Historical v2 live driver retired: controlled v3 mechanics are offline-only; corrected live runs remain pending.")
+    return 2
 
 
 if __name__ == "__main__":

@@ -5,6 +5,18 @@ Weave stopped at script stdout; native included a final model answer and ran cal
 serially within a turn. New methodology must use final-answer endpoints for both
 and bounded concurrent native reads. No corrected live measurements exist yet.
 
+## Current successor: controlled v3 (offline only)
+
+[Exact protocol, tests and remaining live gates](benchmark-protocol-v3.md).
+The controlled harness now tests equal final-answer/state endpoints, canonical
+schemas/results/context, equal concurrency caps, repair feedback, isolated real
+file writes, config pins and retry-inclusive failure accounting with deterministic
+fake provider responses. These are **mechanics tests, not model-performance
+results**. Corrected live runs remain pending; the v2 real-tools CLI is retired.
+Development/candidate-held-out tasks are separated, but public related fixtures
+are not secret/unseen or statistically independent. Historical rows below are
+unchanged unequal-endpoint evidence, not a new comparison.
+
 # Benchmarks
 
 Every number on this page comes from a JSON file in [`bench/results/`](../bench/results/). The README chart is drawn from two of them by [`bench/make_charts.py`](../bench/make_charts.py). Times in tables are UTC, as recorded in the files.
@@ -88,7 +100,7 @@ Weaknesses the eval exposed and fixed:
 
 Spend: the recorded run cost about $0.48 at list prices ($0.75 / $0.075 cached / $4.50 per 1M tokens for `gpt-5.4-mini`, and $2.00 / $0.10 / $10.00 for `gpt-6.1-sol`, checked 2026-11-08). Including the probes and discarded runs, the milestone cost about $1.20.
 
-To run it yourself:
+Historical invocation (not the corrected v3 protocol; do not use for new comparative claims):
 
 ```bash
 export OPENAI_API_KEY=...   # or ANTHROPIC_API_KEY, or GEMINI_API_KEY
