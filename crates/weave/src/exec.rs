@@ -952,8 +952,20 @@ async fn run_parallel_for(
         g.last_observable = branch_obs;
         g.print_barrier = branch_print;
         let mut planned = Vec::new();
+        // Inside an iteration, a written name starts unbound. The analysis
+        // guarantees a parallel body never reads it before assigning it, so
+        // this only matters for names an iteration may not assign at all
+        // (e.g. under an `if`): they stay unbound and the merge below takes
+        // the value from the last iteration that did assign them, as Python
+        // does, instead of the pre-loop value.
+        let mut base = snap.clone();
+        for name in written {
+            if base.contains_key(name) {
+                base.insert(name.clone(), fail(WeaveError::one(Diagnostic::unbound(line, col, name))));
+            }
+        }
         for item in items {
-            let mut child = snap.clone();
+            let mut child = base.clone();
             bind_ready(target, item.clone(), &mut child);
             let roots = launch_block(&mut g, arc, body, &mut child, true);
             let assigned = capture_assigned(written, &child);
