@@ -60,7 +60,7 @@ result.spec_hits, result.spec_misses, result.spec_wasted</pre>
     </ul>
     <pre>engine.set_limits(max_steps=100_000, max_value_size=1_000_000, max_wall_time_ms=5_000)</pre>
     <p>In Rust: <code>engine.set_limits(Limits::default().with_max_steps(100_000).with_max_wall_time(Duration::from_secs(5)))</code>.</p>
-    <p>Not covered: no process-wide memory cap, total-output/trace budget, or source/frame-size budget; conversion and parsing may allocate before checks, and nothing limits what a host tool does once called. Errors from limits are ordinary runtime errors that <code>try/except</code> can catch.</p>
+    <p>Not covered: no process-wide memory cap or in-flight-tool budget. Source/output/compact-trace budgets default to 1/1/4 MiB, MCP frames to 8 MiB; see docs/budgets.md. Conversion, parsing and formatting may allocate before checks, and nothing limits what a host tool does once called. Errors from limits are ordinary runtime errors that <code>try/except</code> can catch.</p>
   </main>
 </body>
 </html>
