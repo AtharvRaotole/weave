@@ -727,3 +727,16 @@ fn split_accepts_sep_and_maxsplit_keywords() {
     let err = engine.run("a = \"x\".strip(chars=\"x\")\n").unwrap_err().to_string();
     assert!(err.contains("does not take keyword arguments"), "{err}");
 }
+
+#[test]
+fn single_character_tool_argument_failure_hints_at_splitlines() {
+    let mut engine = Engine::new();
+    engine.register("read", ToolSpec::effect(Effect::Read).with_arity(1), |args, _kwargs| match args.first() {
+        Some(Value::Str(p)) if p.len() > 1 => Ok(Value::str("ok")),
+        _ => Err("no such file".to_string()),
+    });
+    let err = engine.run("paths = \"/a\\n/b\"\nfor p in paths:\n    print(read(p))\n").unwrap_err().to_string();
+    assert!(err.contains("splitlines"), "{err}");
+    let err = engine.run("print(read(\"\"))\n").unwrap_err().to_string();
+    assert!(!err.contains("splitlines"), "{err}");
+}

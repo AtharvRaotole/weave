@@ -1625,6 +1625,7 @@ fn schedule_tool(
             Ok(value) => (value, None),
             Err(err) => (Value::Null, Some(err.summary())),
         };
+        let failure = error.clone().map(|message| tool_failure(line, col, message, &args, &kwargs));
         trace.lock().expect("trace").record(TraceEvent {
             seq,
             line,
@@ -1636,8 +1637,8 @@ fn schedule_tool(
             error: error.clone(),
             done: 0,
         }, done);
-        match error {
-            Some(message) => Err(WeaveError::tool(line, col, message)),
+        match failure {
+            Some(err) => Err(err),
             None => Ok(result),
         }
     });
@@ -1739,7 +1740,7 @@ fn replay_tool(
     let event = &recorded.events[index];
     let done = Some(event.done);
     if let Some(message) = &event.error {
-        return (Err(WeaveError::tool(line, col, message.clone())), done);
+        return (Err(tool_failure(line, col, message.clone(), args, kwargs)), done);
     }
     (Ok(event.result.clone()), done)
 }
@@ -1801,7 +1802,7 @@ async fn execute_tool(
     if matches!(effect, Effect::Pure | Effect::Read) {
         if let Some(cache) = speculation {
             if let Some(hit) = cache.take(tool_name, args, kwargs).await {
-                return hit.map_err(|message| WeaveError::tool(line, col, message));
+                return hit.map_err(|message| tool_failure(line, col, message, args, kwargs));
             }
             cache.miss();
         }
@@ -1846,7 +1847,7 @@ pub(crate) async fn run_tool_attempts(
     } else {
         format!("tool `{tool_name}` failed: {last}")
     };
-    Err(WeaveError::tool(line, col, hint_message))
+    Err(tool_failure(line, col, hint_message, args, kwargs))
 }
 
 async fn invoke_once(
@@ -2601,4 +2602,27 @@ fn method_keywords(attr: &str, mut args: Vec<Value>, kwargs: BTreeMap<String, Va
         .enumerate()
         .map(|(i, v)| v.unwrap_or_else(|| defaults[i].clone()))
         .collect())
+}
+
+/// A tool failure. When an argument is a single character, the usual cause
+/// is `for x in text` over a text result, so the hint says so.
+fn tool_failure(
+    line: usize,
+    col: usize,
+    message: String,
+    args: &[Value],
+    kwargs: &BTreeMap<String, Value>,
+) -> WeaveError {
+    let mut diagnostic = crate::error::Diagnostic::tool(line, col, message);
+    let single_char = args
+        .iter()
+        .chain(kwargs.values())
+        .any(|v| matches!(v, Value::Str(s) if s.chars().count() == 1));
+    if single_char {
+        diagnostic = diagnostic.with_hint(
+            "an argument is a single character: `for x in text` loops over characters; \
+             loop over text.splitlines() to get lines",
+        );
+    }
+    WeaveError::one(diagnostic)
 }
