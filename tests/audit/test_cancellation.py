@@ -1,5 +1,5 @@
 """Request-ID forwarding, queued-write suppression, EOF and unsafe retry regressions."""
-import json,subprocess,sys,tempfile,time,select
+import json,subprocess,sys,tempfile,time
 from pathlib import Path
 import weave
 ROOT=Path(__file__).resolve().parents[2]
