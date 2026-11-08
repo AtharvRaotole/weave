@@ -88,17 +88,10 @@ impl TraceBuilder {
 
     pub(crate) fn finish(&self) -> Result<Trace, WeaveError> {
         let mut events = Vec::with_capacity(self.events.len());
-        for (i, slot) in self.events.iter().enumerate() {
-            match slot {
-                Some(event) => events.push(event.clone()),
-                None => {
-                    return Err(WeaveError::runtime(
-                        0,
-                        0,
-                        format!("trace is missing call {i}"),
-                    ));
-                }
-            }
+        // A scheduled call can be skipped by an earlier failure. Only actual
+        // invocations belong in the trace; invocation identity is not seq.
+        for event in self.events.iter().flatten() {
+            events.push(event.clone());
         }
         Ok(Trace {
             version: TRACE_VERSION,

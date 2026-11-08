@@ -1309,7 +1309,9 @@ fn base_name(expr: &Expr) -> Option<String> {
 }
 
 fn schedule_expr(expr: &Expr, g: &mut Launch, arc: &Arc<Mutex<Launch>>, env: &HashMap<String, ValFut>) -> ValFut {
-    let fut = schedule_expr_inner(expr, g, arc, env);
+    let inner = schedule_expr_inner(expr, g, arc, env);
+    let (line, col, max) = (expr.line, expr.col, g.limits.max_value_size);
+    let fut = share(async move { checked(line, col, max, inner.await?) });
     g.prior.push(fut.clone());
     fut
 }
