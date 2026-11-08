@@ -1,0 +1,7 @@
+Secure MCP Filesystem Server running on stdio
+Effective allowed directories (from the command line):
+  /tmp/tmphptublr9/data
+Client does not support MCP Roots, using allowed directories set from server args: [ '/tmp/tmphptublr9/data' ]
+Effective allowed directories (from the command line):
+  /tmp/tmphptublr9/data
+real_mcp_upstream_ok tools=19 weave_run_s=0.017

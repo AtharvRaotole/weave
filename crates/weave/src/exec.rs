@@ -459,6 +459,9 @@ impl Session {
 
     /// Stop work that has not started yet. In-flight host calls may still finish.
     /// Cancellation is not caught by `try`.
+    /// Cloneable cancellation source for host transports. Cancellation cannot undo effects.
+    pub fn cancel_source(&self) -> CancelSource { CancelSource::from_sender(self.cancel_tx.clone()) }
+
     pub fn cancel(&self) {
         let _ = self.cancel_tx.send(true);
     }
@@ -1772,7 +1775,7 @@ fn schedule_tool(
     let effect = tool.spec.effect;
     let writes = tool.spec.writes.clone();
     let body = tool.body.clone();
-    let retries = tool.spec.retries;
+    let retries = tool.spec.effective_retries();
     let timeout = tool.spec.timeout;
     let tool_name = name.to_string();
     let mut invocation = g.path.clone();
@@ -1918,14 +1921,6 @@ fn format_print(args: &[Value], kwargs: &BTreeMap<String, Value>) -> Result<Stri
     Ok(format!("{}{end}", parts.join(&sep)))
 }
 
-fn fmt_call(args: &[Value], kwargs: &BTreeMap<String, Value>) -> String {
-    let mut parts: Vec<String> = args.iter().map(value::py_repr).collect();
-    for (k, v) in kwargs {
-        parts.push(format!("{k}={}", value::py_repr(v)));
-    }
-    parts.join(", ")
-}
-
 fn replay_tool(
     line: usize,
     col: usize,
@@ -1948,21 +1943,8 @@ fn replay_tool(
         .map(|(index, _)| index);
     let Some(index) = found else {
         let message = match used.iter().position(|taken| !taken) {
-            Some(next) => {
-                let event = &recorded.events[next];
-                format!(
-                    "replay diverged: expected {}({}), got {}({})",
-                    event.tool,
-                    fmt_call(&event.args, &event.kwargs),
-                    tool_name,
-                    fmt_call(args, kwargs)
-                )
-            }
-            None => format!(
-                "replay diverged: trace has no call {}({})",
-                tool_name,
-                fmt_call(args, kwargs)
-            ),
+            Some(next) => format!("replay diverged: expected tool `{}`, got `{}` or differing call identity/arguments (values omitted)", recorded.events[next].tool, tool_name),
+            None => format!("replay diverged: trace has no matching call for `{tool_name}` (values omitted)"),
         };
         return (Err(WeaveError::runtime(line, col, message)), None);
     };

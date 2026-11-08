@@ -14,8 +14,13 @@ def run(messages, upstreams=None, tools=None):
         cfg = Path(temp)/"config.json"
         cfg.write_text(json.dumps({"upstreams": ups, "tools": tools or []}))
         reqs = [dict(jsonrpc="2.0", id=i, method="tools/call", params={"name":n,"arguments":args}) for i,(n,args) in enumerate(messages)]
-        p = subprocess.run([str(ROOT/"target/debug/weave-mcp"),"--config",str(cfg)], input=''.join(json.dumps(r)+'\n' for r in reqs),text=True,capture_output=True,timeout=8)
-        return p, [json.loads(s) for s in p.stdout.splitlines()]
+        p = subprocess.Popen([str(ROOT/"target/debug/weave-mcp"),"--config",str(cfg)], stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        p.stdin.write(''.join(json.dumps(r)+'\n' for r in reqs)); p.stdin.flush()
+        replies = [json.loads(p.stdout.readline()) for _ in reqs]
+        p.stdin.close(); p.stdin=None
+        _, err = p.communicate(timeout=8)
+        p.stderr = err
+        return p, sorted(replies,key=lambda r:r["id"])
 
 def body(reply):
     return json.loads(reply["result"]["content"][0]["text"])

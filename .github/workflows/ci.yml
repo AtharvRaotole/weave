@@ -48,6 +48,7 @@ jobs:
       - name: offline audit acceptance matrix
         run: |
           python tests/audit/test_adapters.py
+          timeout 35 python tests/audit/test_cancellation.py
           python tests/audit/test_budgets.py
           python tests/audit/test_exceptions.py
           python tests/audit/test_replay.py

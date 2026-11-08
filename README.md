@@ -261,7 +261,7 @@ The audit-fix checkout differs from the v0.1.0 wheel/tag. Read the
 acceptance evidence, partial fixes, and deferred work. No blanket safety claim
 is made. v0.1.0 downloads have **not** been rebuilt.
 
-v0.1.0 is experimental. These boundaries matter when deciding where to use it:
+The **unchanged v0.1.0 downloads** remain experimental with these known defects:
 
 - **Permissions and writes:** host tools control external access. Completing a
   script is not human approval. Errors do not roll back effects, and known
@@ -279,6 +279,15 @@ v0.1.0 is experimental. These boundaries matter when deciding where to use it:
 - **MCP compatibility:** stdio text results are the current focus. Remote HTTP,
   paginated discovery, cancellation forwarding, and full structured/multimodal
   result preservation need further work.
+
+Current source includes targeted error/replay/worker/routing fixes and nested
+exception differential coverage; see the ledger, not the old downloads.
+[Aggregate source/stdout/trace and MCP-frame budgets](docs/budgets.md) are byte
+accounting, **not a process memory cap**. [Cancellation/retry semantics](docs/cancellation-and-retries.md)
+include best-effort upstream forwarding and default no-retry writes unless the
+host explicitly attests real idempotency support. Already-started effects may
+continue; debug/traces and host errors can expose sensitive data. No production
+readiness, hard real-time deadline or exactly-once claim is made.
 
 See [runtime reference](docs/runtime.html) for API details and
 [SECURITY.md](SECURITY.md) for private vulnerability reporting.

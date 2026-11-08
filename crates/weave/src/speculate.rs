@@ -251,7 +251,7 @@ impl SpecCache {
         let args = call.args.clone();
         let kwargs = call.kwargs.clone();
         let timeout = tool.spec.timeout;
-        let retries = tool.spec.retries;
+        let retries = tool.spec.effective_retries();
         let name = call.tool.clone();
         thread::spawn(move || {
             let result = block_on_tool(&name, &body, &args, &kwargs, retries, timeout);

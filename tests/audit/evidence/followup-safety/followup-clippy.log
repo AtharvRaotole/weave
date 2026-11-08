@@ -1,0 +1,5 @@
+    Checking weave v0.1.0 (/workspace/weave/crates/weave)
+    Checking weave-mcp v0.1.0 (/workspace/weave/crates/weave-mcp)
+    Checking weave-cli v0.1.0 (/workspace/weave/crates/weave-cli)
+    Checking weave-py v0.1.0 (/workspace/weave/crates/weave-py)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.59s

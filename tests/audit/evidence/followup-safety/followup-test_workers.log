@@ -1,0 +1,10 @@
+tool_timeout 0 0.05414796999866667
+tool_timeout 1 0.0552447480004048
+tool_timeout 2 0.05985292500008654
+run_deadline 0 0.10514150600101857
+run_deadline 1 0.10453437499927531
+run_deadline 2 0.10431042399977741
+drop_session 0 0.020482459000049857
+drop_session 1 0.02040496500012523
+drop_session 2 0.020432494000488077
+worker queue, deadlines, dropped session, pickle recovery and replacement passed

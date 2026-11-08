@@ -78,6 +78,8 @@ pub struct ToolSpec {
     pub accepts_kwargs: bool,
     /// Extra attempts after a failure or timeout. Zero means one try.
     pub retries: u32,
+    /// Host attests repeated effects use stable deduplication/idempotency. Not an exactly-once guarantee.
+    pub retry_safe: bool,
     pub timeout: Option<Duration>,
     /// Resources this tool reads. Used to decide which speculated results a
     /// write invalidates. Default: every resource.
@@ -157,6 +159,7 @@ impl Default for ToolSpec {
             arity: None,
             accepts_kwargs: false,
             retries: 0,
+            retry_safe: false,
             timeout: None,
             reads: Footprint::All,
             writes: Footprint::All,
@@ -175,6 +178,13 @@ impl ToolSpec {
     pub fn with_arity(mut self, arity: usize) -> Self {
         self.arity = Some(arity);
         self
+    }
+
+    /// Opt in only when the host supplies stable idempotency/deduplication for writes.
+    pub fn with_retry_safe(mut self, safe: bool) -> Self { self.retry_safe = safe; self }
+
+    pub fn effective_retries(&self) -> u32 {
+        if self.effect >= Effect::Reversible && !self.retry_safe { 0 } else { self.retries }
     }
 
     pub fn with_retries(mut self, retries: u32) -> Self {

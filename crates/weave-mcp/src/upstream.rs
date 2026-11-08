@@ -226,17 +226,35 @@ impl Upstream {
     }
 
     pub fn request(&self, method: &str, params: Json) -> Result<Json, String> {
+        self.request_interruptible(method, params, || false)
+    }
+
+    pub fn request_interruptible(&self, method: &str, params: Json, cancelled: impl Fn() -> bool) -> Result<Json, String> {
+        if cancelled() { return Err("request cancelled before dispatch".into()); }
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let (tx, rx) = channel();
         self.pending.lock().unwrap().insert(id, tx);
-        self.send(&json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}))?;
-        let reply = rx.recv_timeout(CALL_TIMEOUT).map_err(|_| {
+        if let Err(err) = self.send(&json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params})) {
             self.pending.lock().unwrap().remove(&id);
-            format!("upstream `{}` did not answer `{method}`", self.config.name)
-        })?;
-        if let Some(error) = reply.get("error") {
-            let message = error.get("message").and_then(|v| v.as_str()).unwrap_or("error");
-            return Err(format!("upstream `{}`: {message}", self.config.name));
+            return Err(err);
+        }
+        let started = std::time::Instant::now();
+        let reply = loop {
+            if cancelled() || started.elapsed() >= CALL_TIMEOUT {
+                self.pending.lock().unwrap().remove(&id);
+                // Best effort only: upstream may ignore it, or have completed a write.
+                let _ = self.send(&json!({"jsonrpc":"2.0", "method":"notifications/cancelled",
+                    "params":{"requestId":id,"reason":"request cancelled or timed out"}}));
+                return Err("upstream request cancelled or timed out; effect completion uncertain".into());
+            }
+            match rx.recv_timeout(Duration::from_millis(10)) {
+                Ok(reply) => break reply,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(_) => return Err("upstream disconnected; effect completion uncertain".into()),
+            }
+        };
+        if reply.get("error").is_some() {
+            return Err(format!("upstream `{}` returned a JSON-RPC error (payload omitted)", self.config.name));
         }
         Ok(reply.get("result").cloned().unwrap_or(Json::Null))
     }
@@ -290,11 +308,11 @@ impl Upstream {
             let spec_tool = tool.clone();
             let mut spec = ToolSpec::effect(tool.effect);
             spec.accepts_kwargs = true;
-            engine.register(&tool.name, spec, move |args, kwargs| {
+            engine.register_cooperative(&tool.name, spec, move |args, kwargs, token| {
                 let arguments = arguments_for(&spec_tool, &args, &kwargs)?;
-                let result = upstream.request("tools/call", json!({"name": spec_tool.upstream_name, "arguments": arguments}))?;
+                let result = upstream.request_interruptible("tools/call", json!({"name": spec_tool.upstream_name, "arguments": arguments}), || token.is_cancelled())?;
                 if result.get("isError").and_then(Json::as_bool) == Some(true) {
-                    return Err(result.to_string());
+                    return Err("upstream tool returned isError (response content omitted; inspect upstream directly)".into());
                 }
                 if spec_tool.shape.is_none() {
                     if let Some(structured) = result.get("structuredContent") {
