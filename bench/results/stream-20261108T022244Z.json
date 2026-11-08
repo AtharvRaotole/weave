@@ -1,0 +1,56 @@
+{
+  "kind": "stream",
+  "measured": true,
+  "gap_s": 0.012,
+  "tool_sleep_s": 0.08,
+  "chunk_chars": 4,
+  "repeats": 3,
+  "machine": {
+    "python": "3.12.3",
+    "platform": "Linux-6.12.113+-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 4,
+    "hostname": "cursor"
+  },
+  "notes": {
+    "streaming": "Tokens are OpenAI-style chunks fed through Session.push as they arrive.",
+    "run_after_complete": "The same gaps elapse first. Engine.run starts only after the full script exists."
+  },
+  "streaming": {
+    "samples": [
+      {
+        "time_to_first_tool_s": 0.04921531699983461,
+        "total_s": 0.16621693799970672
+      },
+      {
+        "time_to_first_tool_s": 0.04931944099962493,
+        "total_s": 0.16597435699986818
+      },
+      {
+        "time_to_first_tool_s": 0.049368188999778795,
+        "total_s": 0.16626523600007204
+      }
+    ],
+    "median_time_to_first_tool_s": 0.04931944099962493,
+    "median_total_s": 0.16621693799970672
+  },
+  "run_after_complete": {
+    "samples": [
+      {
+        "time_to_first_tool_s": 0.1463341879998552,
+        "total_s": 0.22708660199987207
+      },
+      {
+        "time_to_first_tool_s": 0.1464938459998848,
+        "total_s": 0.22757076900006723
+      },
+      {
+        "time_to_first_tool_s": 0.14633434799998213,
+        "total_s": 0.2273276139999325
+      }
+    ],
+    "median_time_to_first_tool_s": 0.14633434799998213,
+    "median_total_s": 0.2273276139999325
+  }
+}
