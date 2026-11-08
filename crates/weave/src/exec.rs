@@ -100,6 +100,8 @@ struct Launch {
 
 /// Count `n` steps against the run's budget.
 fn charge(g: &Launch, n: usize, line: usize, col: usize) -> Result<(), WeaveError> {
+    // Cancellation (including the wall-clock limit) also stops pure compute.
+    ensure_running(line, col, &g.cancel_rx)?;
     charge_steps(&g.steps, g.limits.max_steps, n, line, col)
 }
 
@@ -346,7 +348,7 @@ impl Engine {
         let arc = Arc::new(Mutex::new(launch));
         runtime.spawn(driver(rx, arc, result_tx));
         Session {
-            runtime,
+            runtime: Some(runtime),
             tx,
             result_rx,
             buffer: String::new(),
@@ -356,13 +358,16 @@ impl Engine {
             failed: None,
             finished: false,
             cancel_tx,
+            max_wall_time: self.limits.max_wall_time,
+            clock: None,
+            timed_out: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 }
 
 pub struct Session {
     /// Owns the worker threads. Dropping it aborts in-flight tool calls.
-    runtime: tokio::runtime::Runtime,
+    runtime: Option<tokio::runtime::Runtime>,
     tx: tokio::sync::mpsc::UnboundedSender<Msg>,
     result_rx: std::sync::mpsc::Receiver<Result<RunResult, WeaveError>>,
     buffer: String,
@@ -372,6 +377,10 @@ pub struct Session {
     failed: Option<WeaveError>,
     finished: bool,
     cancel_tx: watch::Sender<bool>,
+    max_wall_time: Duration,
+    /// When execution started (the first statements reached the scheduler).
+    clock: Option<std::time::Instant>,
+    timed_out: Arc<std::sync::atomic::AtomicBool>,
 }
 
 enum Msg {
@@ -380,6 +389,35 @@ enum Msg {
 }
 
 impl Session {
+    /// Start the wall-clock limit the first time code is handed to the
+    /// scheduler. Time spent waiting for a model to stream code doesn't count.
+    fn start_clock(&mut self) {
+        if self.clock.is_some() {
+            return;
+        }
+        self.clock = Some(std::time::Instant::now());
+        let limit = self.max_wall_time;
+        let cancel = self.cancel_tx.clone();
+        let flag = self.timed_out.clone();
+        let Some(runtime) = &self.runtime else { return };
+        runtime.spawn(async move {
+            tokio::time::sleep(limit).await;
+            flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            let _ = cancel.send(true);
+        });
+    }
+
+    fn time_limit_error(&self) -> WeaveError {
+        WeaveError::runtime(
+            0,
+            0,
+            format!(
+                "time limit of {}ms exceeded; do less work per script",
+                self.max_wall_time.as_millis()
+            ),
+        )
+    }
+
     /// Stop work that has not started yet. In-flight host calls may still finish.
     /// Cancellation is not caught by `try`.
     pub fn cancel(&self) {
@@ -416,6 +454,7 @@ impl Session {
         self.defined = defined;
         self.line_offset += prefix.bytes().filter(|b| *b == b'\n').count();
         self.buffer = self.buffer[end..].to_string();
+        self.start_clock();
         self.tx
             .send(Msg::Stmts(stmts))
             .map_err(|_| WeaveError::runtime(0, 0, "session closed"))?;
@@ -438,20 +477,27 @@ impl Session {
             if !diags.is_empty() {
                 return Err(WeaveError::new(diags));
             }
+            self.start_clock();
             self.tx
                 .send(Msg::Stmts(stmts))
                 .map_err(|_| WeaveError::runtime(0, 0, "session closed"))?;
         }
+        self.start_clock();
         self.tx
             .send(Msg::Finish)
             .map_err(|_| WeaveError::runtime(0, 0, "session closed"))?;
-        match self.result_rx.recv_timeout(Duration::from_secs(30)) {
+        // The timer cancels the run at the limit; allow a short grace for
+        // cancelled work to unwind before giving up on the driver.
+        let elapsed = self.clock.map(|c| c.elapsed()).unwrap_or_default();
+        let wait = self.max_wall_time.saturating_sub(elapsed) + Duration::from_millis(250);
+        let timed_out = || self.timed_out.load(std::sync::atomic::Ordering::SeqCst);
+        match self.result_rx.recv_timeout(wait) {
+            Ok(Err(_)) if timed_out() => Err(self.time_limit_error()),
             Ok(result) => result,
-            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => Err(WeaveError::runtime(
-                0,
-                0,
-                "execution timed out after 30s",
-            )),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                let _ = self.cancel_tx.send(true);
+                Err(self.time_limit_error())
+            }
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                 Err(WeaveError::runtime(0, 0, "execution stopped"))
             }
@@ -461,7 +507,12 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        let _ = &self.runtime;
+        // Don't block on abandoned sync tool threads (for example after a
+        // timeout or the wall-clock limit). They finish in the background and
+        // their results are dropped.
+        if let Some(runtime) = self.runtime.take() {
+            runtime.shutdown_background();
+        }
     }
 }
 
@@ -1755,7 +1806,7 @@ async fn execute_tool(
         // Program order: every earlier read has finished (the write waited on
         // them). Drop overlapping cached reads before the write can change
         // what they would return.
-        cache.invalidate(writes);
+        cache.invalidate(&writes.resolve(args, kwargs));
     }
     run_tool_attempts(line, col, tool_name, handle, body, args, kwargs, retries, timeout, cancel).await
 }

@@ -123,6 +123,25 @@ impl Footprint {
         }
     }
 
+    /// Fill `{0}`, `{1}`, … with positional arguments and `{name}` with
+    /// keyword arguments, so `"user:{0}"` called with `"u1"` becomes
+    /// `"user:u1"`. Strings are inserted as-is; other values as their Python repr. If a
+    /// placeholder can't be filled, the result is [`Footprint::All`], which
+    /// overlaps everything, so a bad template can only cost cache hits.
+    pub fn resolve(&self, args: &[Value], kwargs: &BTreeMap<String, Value>) -> Footprint {
+        let Self::Only(names) = self else {
+            return Self::All;
+        };
+        let mut out = Vec::with_capacity(names.len());
+        for name in names {
+            match fill_template(name, args, kwargs) {
+                Some(filled) => out.push(filled),
+                None => return Self::All,
+            }
+        }
+        Self::Only(out)
+    }
+
     pub fn overlaps(&self, other: &Footprint) -> bool {
         match (self, other) {
             (Self::All, _) | (_, Self::All) => true,
@@ -224,4 +243,33 @@ impl ToolRegistry {
     pub fn names(&self) -> impl Iterator<Item = &str> {
         self.tools.keys().map(String::as_str)
     }
+}
+
+fn render_arg(value: &Value) -> String {
+    match value {
+        Value::Str(s) => s.clone(),
+        other => crate::value::py_repr(other),
+    }
+}
+
+fn fill_template(name: &str, args: &[Value], kwargs: &BTreeMap<String, Value>) -> Option<String> {
+    if !name.contains('{') {
+        return Some(name.to_string());
+    }
+    let mut out = String::with_capacity(name.len());
+    let mut rest = name;
+    while let Some(open) = rest.find('{') {
+        out.push_str(&rest[..open]);
+        let after = &rest[open + 1..];
+        let close = after.find('}')?;
+        let key = &after[..close];
+        let value = match key.parse::<usize>() {
+            Ok(index) => args.get(index)?,
+            Err(_) => kwargs.get(key)?,
+        };
+        out.push_str(&render_arg(value));
+        rest = &after[close + 1..];
+    }
+    out.push_str(rest);
+    Some(out)
 }

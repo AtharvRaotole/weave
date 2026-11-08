@@ -11,6 +11,7 @@
 //!   (recursively). Building a value larger than [`Limits::max_value_size`]
 //!   fails before the large allocation where the size is predictable
 //!   (`*` repetition, `replace`, `join`) and right after it otherwise.
+//! - **Wall time.** A run is cancelled once [`Limits::max_wall_time`] passes.
 //! - **Nesting depth.** Source nesting (brackets, blocks, expression trees)
 //!   and value nesting are capped at [`MAX_DEPTH`], so neither the parser,
 //!   the scheduler, nor value printing can overflow the stack.
@@ -36,6 +37,10 @@ pub struct Limits {
     /// Largest value a script may build (bytes for strings, elements for
     /// containers). Default 16 MiB. Clamped to [`HARD_MAX_VALUE_SIZE`].
     pub max_value_size: usize,
+    /// Wall-clock budget for a run, from the moment code reaches the
+    /// scheduler. At the limit the run is cancelled (in-flight async and
+    /// isolated tools are stopped) and fails. Default 30 s.
+    pub max_wall_time: std::time::Duration,
 }
 
 impl Default for Limits {
@@ -43,6 +48,7 @@ impl Default for Limits {
         Self {
             max_steps: 1_000_000,
             max_value_size: 16 * 1024 * 1024,
+            max_wall_time: std::time::Duration::from_secs(30),
         }
     }
 }
@@ -50,6 +56,11 @@ impl Default for Limits {
 impl Limits {
     pub fn with_max_steps(mut self, steps: u64) -> Self {
         self.max_steps = steps;
+        self
+    }
+
+    pub fn with_max_wall_time(mut self, limit: std::time::Duration) -> Self {
+        self.max_wall_time = limit;
         self
     }
 

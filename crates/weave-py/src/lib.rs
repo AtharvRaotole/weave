@@ -75,10 +75,10 @@ impl PyEngine {
         };
         let mut spec = ToolSpec::effect(effect);
         if let Some(reads) = reads {
-            spec = spec.with_reads(Footprint::parse(&reads.join(",")));
+            spec = spec.with_reads(footprint_from(py, &func, reads));
         }
         if let Some(writes) = writes {
-            spec = spec.with_writes(Footprint::parse(&writes.join(",")));
+            spec = spec.with_writes(footprint_from(py, &func, writes));
         }
         if let Some(arity) = arity {
             spec = spec.with_arity(arity);
@@ -129,14 +129,17 @@ impl PyEngine {
     /// Set resource limits for later runs. `max_steps` counts statements and
     /// loop iterations; `max_value_size` counts string bytes and container
     /// elements. Omitted values keep their current setting.
-    #[pyo3(signature = (max_steps=None, max_value_size=None))]
-    fn set_limits(&mut self, max_steps: Option<u64>, max_value_size: Option<usize>) {
+    #[pyo3(signature = (max_steps=None, max_value_size=None, max_wall_time_ms=None))]
+    fn set_limits(&mut self, max_steps: Option<u64>, max_value_size: Option<usize>, max_wall_time_ms: Option<u64>) {
         let mut limits = self.inner.limits();
         if let Some(steps) = max_steps {
             limits = limits.with_max_steps(steps);
         }
         if let Some(size) = max_value_size {
             limits = limits.with_max_value_size(size);
+        }
+        if let Some(ms) = max_wall_time_ms {
+            limits = limits.with_max_wall_time(std::time::Duration::from_millis(ms));
         }
         self.inner.set_limits(limits);
     }
@@ -193,7 +196,7 @@ impl PyEngine {
     }
 
     /// Decorator that registers the function on this engine.
-    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false))]
+    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None))]
     #[allow(clippy::too_many_arguments)]
     fn declare(
         slf: Bound<'_, Self>,
@@ -203,6 +206,8 @@ impl PyEngine {
         timeout_ms: Option<u64>,
         retries: Option<u32>,
         hard_deadline: bool,
+        reads: Option<Vec<String>>,
+        writes: Option<Vec<String>>,
     ) -> PyResult<Py<EngineDecl>> {
         Py::new(
             py,
@@ -213,6 +218,8 @@ impl PyEngine {
                 timeout_ms,
                 retries,
                 hard_deadline,
+                reads,
+                writes,
             },
         )
     }
@@ -365,6 +372,8 @@ struct EngineDecl {
     timeout_ms: Option<u64>,
     retries: Option<u32>,
     hard_deadline: bool,
+    reads: Option<Vec<String>>,
+    writes: Option<Vec<String>>,
 }
 
 #[pymethods]
@@ -380,8 +389,8 @@ impl EngineDecl {
             self.timeout_ms,
             self.retries,
             self.hard_deadline,
-            None,
-            None,
+            self.reads.clone(),
+            self.writes.clone(),
         )?;
         Ok(func)
     }
@@ -394,6 +403,8 @@ struct MarkDecl {
     timeout_ms: Option<u64>,
     retries: Option<u32>,
     hard_deadline: bool,
+    reads: Option<Vec<String>>,
+    writes: Option<Vec<String>>,
 }
 
 #[pymethods]
@@ -405,13 +416,15 @@ impl MarkDecl {
         meta.set_item("timeout_ms", self.timeout_ms)?;
         meta.set_item("retries", self.retries)?;
         meta.set_item("hard_deadline", self.hard_deadline)?;
+        meta.set_item("reads", self.reads.clone())?;
+        meta.set_item("writes", self.writes.clone())?;
         func.setattr(py, "__weave__", meta)?;
         Ok(func)
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false))]
+#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None))]
 #[allow(clippy::too_many_arguments)]
 fn declare(
     effect: Option<String>,
@@ -419,6 +432,8 @@ fn declare(
     timeout_ms: Option<u64>,
     retries: Option<u32>,
     hard_deadline: bool,
+    reads: Option<Vec<String>>,
+    writes: Option<Vec<String>>,
 ) -> MarkDecl {
     MarkDecl {
         effect,
@@ -426,6 +441,8 @@ fn declare(
         timeout_ms,
         retries,
         hard_deadline,
+        reads,
+        writes,
     }
 }
 
@@ -444,9 +461,39 @@ fn install_marked(engine: &mut PyEngine, py: Python<'_>, func: &Bound<'_, PyAny>
         dict_opt_u64(meta, "timeout_ms")?,
         dict_opt_u32(meta, "retries")?,
         dict_bool(meta, "hard_deadline")?,
-        None,
-        None,
+        dict_opt_strings(meta, "reads")?,
+        dict_opt_strings(meta, "writes")?,
     )
+}
+
+fn dict_opt_strings(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<Vec<String>>> {
+    match meta.get_item(key)? {
+        Some(value) if !value.is_none() => Ok(Some(value.extract()?)),
+        _ => Ok(None),
+    }
+}
+
+/// Rewrite `{param}` to `{index}` using the function's positional parameter
+/// names, so Python footprints can say `"user:{user_id}"`.
+fn footprint_from(py: Python<'_>, func: &Py<PyAny>, names: Vec<String>) -> Footprint {
+    let params: Vec<String> = py
+        .import("inspect")
+        .and_then(|inspect| inspect.call_method1("signature", (func.bind(py),)))
+        .and_then(|sig| sig.getattr("parameters"))
+        .and_then(|params| params.call_method0("keys"))
+        .and_then(|keys| keys.try_iter().and_then(|it| it.map(|k| k.and_then(|k| k.extract::<String>())).collect()))
+        .unwrap_or_default();
+    let mapped: Vec<String> = names
+        .into_iter()
+        .map(|name| {
+            let mut out = name;
+            for (index, param) in params.iter().enumerate() {
+                out = out.replace(&format!("{{{param}}}"), &format!("{{{index}}}"));
+            }
+            out
+        })
+        .collect();
+    Footprint::parse(&mapped.join(","))
 }
 
 fn dict_opt_string(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<String>> {

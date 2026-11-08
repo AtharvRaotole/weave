@@ -108,3 +108,46 @@ fn no_escape_hatches() {
         assert!(engine.run(src).is_err(), "{src:?} should be rejected");
     }
 }
+
+#[test]
+fn wall_time_limit_cancels_slow_tools() {
+    use std::time::{Duration, Instant};
+    use weave::{Effect, ToolSpec, Value};
+    let mut engine = Engine::new();
+    engine.set_limits(Limits::default().with_max_wall_time(Duration::from_millis(200)));
+    engine.register_async("slow", ToolSpec::effect(Effect::Read).with_arity(0), |_, _, _| async {
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        Ok(Value::Null)
+    });
+    let started = Instant::now();
+    let msg = err(&engine, "x = slow()\nprint(x)\n");
+    let elapsed = started.elapsed();
+    assert!(msg.contains("time limit of 200ms exceeded"), "{msg}");
+    assert!(elapsed < Duration::from_secs(3), "took {elapsed:?}");
+}
+
+#[test]
+fn wall_time_limit_stops_compute_loops() {
+    use std::time::{Duration, Instant};
+    let mut engine = Engine::new();
+    engine.set_limits(
+        Limits::default()
+            .with_max_steps(u64::MAX)
+            .with_max_wall_time(Duration::from_millis(200)),
+    );
+    let started = Instant::now();
+    let msg = err(&engine, "n = 0\nfor a in range(100000):\n    for b in range(100000):\n        n += 1\n");
+    assert!(msg.contains("time limit"), "{msg}");
+    assert!(started.elapsed() < Duration::from_secs(5), "took {:?}", started.elapsed());
+}
+
+#[test]
+fn wall_time_does_not_count_streaming_wait() {
+    use std::time::Duration;
+    let mut engine = Engine::new();
+    engine.set_limits(Limits::default().with_max_wall_time(Duration::from_millis(100)));
+    let mut session = engine.session();
+    std::thread::sleep(Duration::from_millis(250));
+    session.push("print(1)\n").unwrap();
+    assert_eq!(session.finish().unwrap().stdout(), "1\n");
+}
