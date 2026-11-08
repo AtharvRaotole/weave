@@ -568,7 +568,9 @@ async fn driver(
     let mut bindings = BTreeMap::new();
     if first_err.is_none() {
         for (name, fut) in env {
+            let hidden = name.starts_with(crate::parse::HIDDEN_PREFIX);
             match fut.await {
+                Ok(_) if hidden => {}
                 Ok(value) => {
                     bindings.insert(name, value);
                 }

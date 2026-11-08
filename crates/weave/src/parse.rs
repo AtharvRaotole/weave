@@ -55,6 +55,7 @@ pub fn parse_detailed(source: &str, line_offset: usize) -> Result<ParsedProgram,
         lines: LineIndex::new(source),
         line_offset,
         errors: Vec::new(),
+        loops: Vec::new(),
     };
     let stmts: Vec<WStmt> = parsed.syntax().body.iter().map(|stmt| lower.stmt(stmt)).collect();
     for stmt in &stmts {
@@ -143,6 +144,8 @@ struct Lowerer<'a> {
     lines: LineIndex,
     line_offset: usize,
     errors: Vec<Diagnostic>,
+    /// Enclosing loops, innermost last: (break flag, continue flag, used).
+    loops: Vec<(String, String, bool)>,
 }
 
 impl<'a> Lowerer<'a> {
@@ -210,10 +213,17 @@ impl<'a> Lowerer<'a> {
                         "`for/else` is not supported; put the follow-up code after the loop",
                     );
                 }
-                StmtKind::For {
-                    target: self.target(&s.target),
-                    iter: self.expr(&s.iter),
-                    body: self.suite(&s.body),
+                let target = self.target(&s.target);
+                let iter = self.expr(&s.iter);
+                let brk = format!("{HIDDEN_PREFIX}brk_{line}_{col}");
+                let cont = format!("{HIDDEN_PREFIX}cont_{line}_{col}");
+                self.loops.push((brk.clone(), cont.clone(), false));
+                let body = self.suite(&s.body);
+                let (_, _, used) = self.loops.pop().expect("loop stack");
+                if used {
+                    desugar_jumps(line, col, target, iter, body, &brk, &cont)
+                } else {
+                    StmtKind::For { target, iter, body }
                 }
             }
             Stmt::Pass(_) => StmtKind::Pass,
@@ -274,13 +284,20 @@ impl<'a> Lowerer<'a> {
                 self.err(stmt.start(), "`global` and `nonlocal` are not supported");
                 StmtKind::Pass
             }
-            Stmt::Break(_) => {
-                self.err(stmt.start(), "`break` is not supported; filter the list before the loop");
-                StmtKind::Pass
-            }
-            Stmt::Continue(_) => {
-                self.err(stmt.start(), "`continue` is not supported; guard the body with `if`");
-                StmtKind::Pass
+            Stmt::Break(_) | Stmt::Continue(_) => {
+                let is_break = matches!(stmt, Stmt::Break(_));
+                match self.loops.last_mut() {
+                    Some((brk, cont, used)) => {
+                        *used = true;
+                        let flag = if is_break { brk.clone() } else { cont.clone() };
+                        assign_flag(line, col, &flag, true)
+                    }
+                    None => {
+                        let word = if is_break { "break" } else { "continue" };
+                        self.err(stmt.start(), format!("`{word}` outside a loop"));
+                        StmtKind::Pass
+                    }
+                }
             }
             Stmt::IpyEscapeCommand(_) => {
                 self.err(stmt.start(), "IPython escapes are not supported");
@@ -779,4 +796,135 @@ fn desugar_list_mutation(expr: crate::ast::Expr) -> StmtKind {
         }
     }
     StmtKind::Expr(expr)
+}
+
+/// Names the compiler introduces. They never appear in run results.
+pub const HIDDEN_PREFIX: &str = "__weave_";
+
+fn name_expr(line: usize, col: usize, name: &str) -> crate::ast::Expr {
+    crate::ast::Expr { line, col, kind: crate::ast::ExprKind::Name(name.to_string()) }
+}
+
+fn assign_flag(line: usize, col: usize, flag: &str, value: bool) -> StmtKind {
+    StmtKind::Assign {
+        targets: vec![Target::Name { line, col, name: flag.to_string() }],
+        value: crate::ast::Expr { line, col, kind: crate::ast::ExprKind::Bool(value) },
+    }
+}
+
+fn is_jump(stmt: &WStmt, brk: &str, cont: &str) -> bool {
+    match &stmt.kind {
+        StmtKind::Assign { targets, value } => {
+            matches!(value.kind, crate::ast::ExprKind::Bool(true))
+                && matches!(targets.as_slice(), [Target::Name { name, .. }] if name == brk || name == cont)
+        }
+        _ => false,
+    }
+}
+
+/// `not a and not b ...` over flag names.
+fn none_set(line: usize, col: usize, flags: &[&str]) -> crate::ast::Expr {
+    let values = flags
+        .iter()
+        .map(|flag| crate::ast::Expr {
+            line,
+            col,
+            kind: crate::ast::ExprKind::Unary {
+                op: crate::ast::UnaryOp::Not,
+                operand: Box::new(name_expr(line, col, flag)),
+            },
+        })
+        .collect::<Vec<_>>();
+    if values.len() == 1 {
+        return values.into_iter().next().expect("one flag");
+    }
+    crate::ast::Expr { line, col, kind: crate::ast::ExprKind::BoolOp { op: crate::ast::BoolOp::And, values } }
+}
+
+/// Drop code after a jump and guard code after a block that may jump.
+/// Returns the rewritten statements and whether they may jump.
+fn guard_jumps(stmts: Vec<WStmt>, brk: &str, cont: &str) -> (Vec<WStmt>, bool) {
+    let mut out = Vec::new();
+    let mut rest = stmts.into_iter();
+    while let Some(stmt) = rest.next() {
+        if is_jump(&stmt, brk, cont) {
+            out.push(stmt);
+            return (out, true); // anything after is unreachable
+        }
+        let (line, col) = (stmt.line, stmt.col);
+        let (kind, jumps) = match stmt.kind {
+            StmtKind::If { test, body, orelse } => {
+                let (body, a) = guard_jumps(body, brk, cont);
+                let (orelse, b) = guard_jumps(orelse, brk, cont);
+                (StmtKind::If { test, body, orelse }, a || b)
+            }
+            StmtKind::Try { body, handler } => {
+                let (body, a) = guard_jumps(body, brk, cont);
+                let (handler_body, b) = guard_jumps(handler.body, brk, cont);
+                (StmtKind::Try { body, handler: crate::ast::Handler { body: handler_body, ..handler } }, a || b)
+            }
+            // A nested loop's own break/continue use its own flags.
+            other => (other, false),
+        };
+        out.push(WStmt { line, col, kind });
+        if jumps {
+            let (tail, _) = guard_jumps(rest.collect(), brk, cont);
+            if !tail.is_empty() {
+                out.push(WStmt {
+                    line,
+                    col,
+                    kind: StmtKind::If { test: none_set(line, col, &[brk, cont]), body: tail, orelse: Vec::new() },
+                });
+            }
+            return (out, true);
+        }
+    }
+    (out, false)
+}
+
+/// Rewrite a loop that uses `break`/`continue` into flag-guarded code:
+///
+/// ```text
+/// if True:
+///     brk = False
+///     for it in iter:
+///         if not brk:
+///             cont = False
+///             target = it
+///             <body, with code after a jump guarded by `not brk and not cont`>
+/// ```
+///
+/// The guard reads `brk` before the body assigns it, so the scheduler sees a
+/// loop-carried dependency and runs iterations in order. Calls inside one
+/// iteration still run in parallel. The loop target is bound only for
+/// iterations that run, so after `break` it holds the item that broke.
+fn desugar_jumps(line: usize, col: usize, target: Target, iter: crate::ast::Expr, body: Vec<WStmt>, brk: &str, cont: &str) -> StmtKind {
+    let item = format!("{brk}_item");
+    let (guarded, _) = guard_jumps(body, brk, cont);
+    let mut inner = vec![
+        WStmt { line, col, kind: assign_flag(line, col, cont, false) },
+        WStmt {
+            line,
+            col,
+            kind: StmtKind::Assign { targets: vec![target], value: name_expr(line, col, &item) },
+        },
+    ];
+    inner.extend(guarded);
+    let loop_body = vec![WStmt {
+        line,
+        col,
+        kind: StmtKind::If { test: none_set(line, col, &[brk]), body: inner, orelse: Vec::new() },
+    }];
+    StmtKind::If {
+        test: crate::ast::Expr { line, col, kind: crate::ast::ExprKind::Bool(true) },
+        body: vec![
+            WStmt { line, col, kind: assign_flag(line, col, brk, false) },
+            WStmt {
+                line,
+                col,
+                kind: StmtKind::For { target: Target::Name { line, col, name: item }, iter, body: loop_body },
+            },
+        ],
+        orelse: Vec::new(),
+    }
 }
