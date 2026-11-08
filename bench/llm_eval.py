@@ -8,7 +8,7 @@ a provider responds.
 
 Keys and optional model overrides:
 
-    OPENAI_API_KEY, OPENAI_MODEL (default gpt-4o-mini)
+    OPENAI_API_KEY, OPENAI_MODELS (comma-separated, default gpt-5.4-mini)
 
 Modes: `weave` (one Weave script), `json_tool_calls` (one ordered JSON list of
 calls, no data flow between them), and, for OpenAI, `native_tools` (standard

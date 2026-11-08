@@ -265,33 +265,59 @@ Machine: Linux 6.12.113+ x86_64, 4 CPUs, Python 3.12.3, hostname `cursor`.
 Pydantic Monty 1.5.0 executed the same Python calls one at a time inside a warm worker.
 The hand-written `asyncio.gather` for `trip_plan` waits for weather before flights and hotels; the DAG runner and Weave overlap those three calls.
 
-### Real-model eval (OpenAI `gpt-5.4-mini`)
+### Real-model eval (OpenAI `gpt-5.4-mini` and `gpt-6.1-sol`)
 
-Measured 2026-11-08 with `OPENAI_MODEL=gpt-5.4-mini python bench/llm_eval.py`: 3 tasks × 3 modes × 3 repeats, every tool call sleeping 40 ms in every mode. Latency is wall time from the first model request to the graded answer, including model calls and retries. Raw rows: [`bench/results/llm-20261108T142334Z.json`](bench/results/llm-20261108T142334Z.json).
+Measured 2026-11-08 with `OPENAI_MODELS=gpt-5.4-mini,gpt-6.1-sol python bench/llm_eval.py`: 16 tasks × 3 modes × 3 repeats × 2 models = 288 graded runs, every tool call sleeping 40 ms in every mode. Raw rows: [`bench/results/llm-20261108T151237Z.json`](bench/results/llm-20261108T151237Z.json).
 
-- `weave`: the model writes one Weave script (prompt pack + few-shot), Weave runs it.
-- `native_tools`: standard OpenAI function calling. One model round trip per turn; the tools the model asks for run one after another.
-- `json_tool_calls`: the model writes one ordered JSON list of calls. It has no way to pass one call's result into another, so dependent tasks only pass if the model guesses the value, usually from the repair message.
+The tasks ([`bench/dataset.py`](bench/dataset.py)) cover parallel reads (2), chained dependencies (2), branching on a result (3), loops over a list result (3), tool failures that must be caught (2), and write ordering (4). Each run gets fresh tool state. Write tasks pass only if the printed answer matches and the log of write calls matches exactly, in order, with nothing extra. For example, `reserve_if_in_stock` fails if `reserve` is called at all.
 
-| Task | Mode | Passed | Median latency (s) | Median model turns | Input tokens (3 runs) | Output tokens (3 runs) |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| research_four | weave | 3/3 | 0.727 | 1 | 1,260 | 153 |
-| research_four | native_tools | 3/3 | 2.187 | 3 | 3,627 | 386 |
-| research_four | json_tool_calls | 3/3 | 2.497 | 3 | 4,920 | 601 |
-| weather_paris | weave | 3/3 | 0.609 | 1 | 1,209 | 39 |
-| weather_paris | native_tools | 3/3 | 1.686 | 3 | 2,019 | 126 |
-| weather_paris | json_tool_calls | 3/3 | 1.243 | 2 | 2,747 | 168 |
-| support_draft | weave | 3/3 | 0.693 | 1 | 1,284 | 69 |
-| support_draft | native_tools | 3/3 | 1.778 | 3 | 2,562 | 246 |
-| support_draft | json_tool_calls | 2/3 | 1.705 | 2 | 3,541 | 282 |
+- `weave`: the model writes one Weave script using the prompt pack and few-shot examples, and Weave runs it.
+- `native_tools`: standard OpenAI function calling through the Responses API. Each turn is one model round trip, and the requested tools run one after another. A failing tool returns `ERROR: ...` to the model.
+- `json_tool_calls`: the model writes one ordered JSON list of literal calls, using its own prompt. It has no variables, so it cannot pass a result into a later call or branch on one. It is a lower bound, not a fair competitor.
 
-Weave passed 9/9 on the first attempt, with a median latency 2.6–3.0× lower than native function calling on these tasks and fewer than half the tokens. The run used 23,169 input and 2,070 output tokens in total; at the list price checked on 2026-11-08 ($0.75 / $4.50 per 1M) that is about $0.027. These are three small mock tasks with fast tools, one model, and one machine (Linux x86_64, 8 CPUs, Python 3.13.5), so they show the round-trip effect, not general accuracy. Failure seen: the JSON baseline emitted placeholders like `$0/$1` for dependent values; it passed only after the repair message, which states the expected output, so its pass rate overstates what it can do.
+Weave and JSON get up to 3 attempts. A retry after a wrong answer shows the model what its own run printed, never the expected answer or the expected writes. (The earlier version leaked the expected answer.) `gpt-6.1-sol` ran at `reasoning_effort=low` in every mode. Chat Completions rejects function tools while that model reasons, which is why native mode uses the Responses API for both models.
+
+| Model | Mode | Passed | First try | Median latency (s) | Median model turns | Input tokens | Output tokens |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| gpt-5.4-mini | json_tool_calls | 11/48 | 3/48 | 2.120 | 3 | 40,397 | 5,546 |
+| gpt-5.4-mini | native_tools | 48/48 | 48/48 | 3.176 | 3 | 29,643 | 3,870 |
+| gpt-5.4-mini | weave | 48/48 | 48/48 | 0.719 | 1 | 29,940 | 1,985 |
+| gpt-6.1-sol | json_tool_calls | 22/48 | 0/48 | 6.626 | 3 | 36,988 | 10,263 |
+| gpt-6.1-sol | native_tools | 48/48 | 48/48 | 4.332 | 3 | 29,643 | 3,870 |
+| gpt-6.1-sol | weave | 48/48 | 48/48 | 1.563 | 1 | 29,940 | 2,125 |
+
+Pass counts and median latency by category:
+
+| Model | Mode | parallel | chain | branch | loop | tool_error | write_order |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| gpt-5.4-mini | weave | 6/6, 0.71s | 6/6, 0.63s | 9/9, 0.71s | 9/9, 1.00s | 6/6, 0.75s | 12/12, 0.73s |
+| gpt-5.4-mini | native_tools | 6/6, 3.17s | 6/6, 3.67s | 9/9, 2.94s | 9/9, 3.23s | 6/6, 2.15s | 12/12, 3.34s |
+| gpt-5.4-mini | json_tool_calls | 0/6, 2.62s | 1/6, 2.11s | 3/9, 2.00s | 0/9, 2.12s | 3/6, 1.65s | 4/12, 2.16s |
+| gpt-6.1-sol | weave | 6/6, 1.53s | 6/6, 1.42s | 9/9, 1.49s | 9/9, 1.83s | 6/6, 1.64s | 12/12, 1.53s |
+| gpt-6.1-sol | native_tools | 6/6, 4.17s | 6/6, 4.34s | 9/9, 4.08s | 9/9, 5.00s | 6/6, 3.37s | 12/12, 4.81s |
+| gpt-6.1-sol | json_tool_calls | 5/6, 7.71s | 6/6, 5.51s | 3/9, 6.55s | 0/9, 9.53s | 3/6, 4.78s | 5/12, 7.22s |
+
+What this shows:
+
+- **Accuracy:** Weave and native function calling both passed 96/96, all on the first attempt.
+- **Latency:** Weave's median latency was 4.4× lower than native on `gpt-5.4-mini` (0.719 s vs 3.176 s) and 2.8× lower on `gpt-6.1-sol` (1.563 s vs 4.332 s). The input-token cost was about the same: native's per-turn prompts are short here, and there are only 4–6 tools.
+- **JSON baseline:** it passed 33/96. Most failures were placeholders such as `$1`, `{"ref": 0}`, or `<result of geo>` where a dependent value belonged, plus calls to a nonexistent `print` tool. Some passes came only on a retry: after seeing its own printed output, the model guessed the literal value (for example `geo:Paris`). That is why it has 3/48 and 0/48 first-try passes.
+- **Scope:** these are mock tools with deterministic results, two models, and one machine (Linux x86_64, 8 CPUs, Python 3.13.5). They measure round trips and control flow, not open-ended task accuracy.
+
+Weaknesses the eval exposed and fixed:
+
+- **Missing list methods:** the model used `xs.append(v)`, which Weave rejected (`list has no method append`). Weave now rewrites `xs.append(v)` and `xs.extend(ys)` on a name to `xs += ...`, with tests.
+- **Gaps in the prompt:** the prompt did not mention `try/except ToolError` or list results, so `price_fallback` failed on its first attempt. The prompt now covers both, plus the builtins, with a loop-plus-try few-shot example.
+- **Before and after:** before these fixes, a one-repeat `gpt-5.4-mini` Weave run passed 16/16, but only 13/16 on the first attempt ([`llm-20261108T144107Z.json`](bench/results/llm-20261108T144107Z.json)). After them, Weave passed 48/48 on the first attempt.
+- **Harness bugs:** the JSON baseline had been sent Weave few-shot examples, and native mode for `gpt-6.1-sol` returned HTTP 400 on every call. A run made with those bugs is kept in [`bench/results/discarded/`](bench/results/discarded/) and is not reported above.
+
+Spend: the recorded run cost about $0.48 at list prices ($0.75 / $0.075 cached / $4.50 per 1M tokens for `gpt-5.4-mini`, and $2.00 / $0.10 / $10.00 for `gpt-6.1-sol`, checked 2026-11-08). Including the probes and discarded runs, the milestone cost about $1.20.
 
 To run it yourself:
 
 ```bash
 export OPENAI_API_KEY=...   # or ANTHROPIC_API_KEY, or GEMINI_API_KEY
-# optional: OPENAI_MODEL, ANTHROPIC_MODEL, GEMINI_MODEL, WEAVE_EVAL_REPEATS, WEAVE_EVAL_TOOL_DELAY
+# optional: OPENAI_MODELS (comma-separated), WEAVE_EVAL_BUDGET (USD, default 2), WEAVE_EVAL_TASKS, WEAVE_EVAL_MODES, ANTHROPIC_MODEL, GEMINI_MODEL, WEAVE_EVAL_REPEATS, WEAVE_EVAL_TOOL_DELAY
 python bench/llm_eval.py
 ```
 
