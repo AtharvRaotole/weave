@@ -45,3 +45,22 @@ for source in [
             else:
                 raise AssertionError("changed source accepted")
 print("300 batch/streamed recordings, 900 exact replays passed")
+
+# Replay and speculative hits must use the same value-ingress checks.
+import json
+for n in (63, 64, 65):
+    e=weave.Engine(); e.tool("large",lambda n=n:"a"*n,effect="read")
+    trace=e.run("x=large()\n").trace_json()
+    e.set_limits(max_value_size=64)
+    if n <=64:
+        assert len(e.replay("x=large()\n",trace).bindings["x"])==n
+    else:
+        try:e.replay("x=large()\n",trace)
+        except ValueError:pass
+        else:raise AssertionError("oversized replay accepted")
+    cache=e.speculate([("large",[])])
+    time.sleep(.01)
+    try:out=e.run("x=large()\n",speculation=cache)
+    except ValueError:assert n>64
+    else:assert n<=64
+print("replay and speculative 63/64/65-byte boundaries passed")

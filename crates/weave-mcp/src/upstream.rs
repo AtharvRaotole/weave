@@ -200,6 +200,7 @@ impl Upstream {
             let params = cursor.as_ref().map(|c| json!({"cursor": c})).unwrap_or(json!({}));
             let listed = upstream.request("tools/list", params)?;
             tools.extend(listed.get("tools").and_then(Json::as_array).cloned().unwrap_or_default());
+            if tools.len() > 4096 { return Err("tools/list tool count limit exceeded".into()); }
             match listed.get("nextCursor").and_then(Json::as_str) {
                 Some(next) => {
                     if !seen.insert(next.to_string()) { return Err("repeated tools/list cursor".into()); }
@@ -443,6 +444,16 @@ pub fn plain_json(value: &Value) -> Json {
 #[cfg(test)]
 mod shape_tests {
     use super::*;
+
+    #[test]
+    fn aliases_are_identifiers_and_collisions_remain_visible() {
+        assert_eq!(script_alias("a_read-file"), "a_read_u2d_file");
+        assert_eq!(script_alias("read.file"), "read_u2e_file");
+        assert_eq!(script_alias("for"), "tool_for");
+        // Alias collisions are deliberate inputs to config validation, never
+        // silently routed; this pair must produce the same final name.
+        assert_eq!(script_alias("read-file"), script_alias("read_u2d_file"));
+    }
 
     #[test]
     fn lines_shape_drops_blank_lines() {

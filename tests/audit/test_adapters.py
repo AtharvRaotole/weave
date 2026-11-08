@@ -14,6 +14,25 @@ for args in ("null", "[]", "42", "{}", "invalid"):
 p = subprocess.run([sys.executable, "-m", "weave", "typo"], capture_output=True, text=True)
 assert p.returncode != 0 and "unknown command" in p.stderr
 
+# Signature binding rejects duplicate/unknown args before entering Python body.
+calls=[]
+def echo(x, *, suffix="!"):
+    calls.append(x)
+    return str(x)+suffix
+e=weave.Engine();e.tool("echo",echo,effect="read")
+assert e.run('print(echo(x="ok", suffix="?"))\n').stdout == "ok?\n"
+for source in ('echo("x", x="y")\n', 'echo(unknown="x")\n'):
+    before=len(calls)
+    try:e.run(source)
+    except ValueError:pass
+    else:raise AssertionError(source)
+    assert len(calls)==before
+cycle=[];cycle.append(cycle)
+e.tool("cycle", lambda:cycle, effect="read")
+try:e.run("x=cycle()\n")
+except ValueError as exc:assert "depth" in str(exc)
+else:raise AssertionError("cyclic result accepted")
+
 async def heartbeat_test():
     @weave.declare(effect="read")
     def slow():
