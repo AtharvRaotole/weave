@@ -6,6 +6,35 @@ another. A Rust engine runs independent pure and read calls together, holds
 irreversible calls until the script is complete, and writes a JSON trace that
 replays the same output.
 
+## Quickstart
+
+```bash
+cargo test --workspace
+python3 -m venv .venv
+.venv/bin/pip install 'maturin>=1.8,<2'
+.venv/bin/maturin develop --release
+.venv/bin/python examples/speedup.py
+```
+
+```python
+from weave import Engine
+
+def weather(city: str) -> str:
+    return f"18C {city}"
+
+engine = Engine()
+engine.tool("weather", weather, effect="read", timeout_ms=1000, retries=1)
+result = engine.run('temp = weather("Paris")\nprint(temp)\n')
+print(result.stdout)
+engine.replay('temp = weather("Paris")\nprint(temp)\n', result.trace_json())
+```
+
+`check` returns one diagnostic per line, with a column and a `hint` an LLM
+can apply. `Session.cancel()` stops irreversible calls that have not started.
+`try` / `except ToolError` catches a host-tool failure, timeout, or exhausted
+retry. A bare `except` also catches ordinary runtime errors. Cancellation is
+not caught.
+
 ## Language
 
 Scripts are a subset of Python, parsed with `ruff_python_parser`. Supported:
@@ -15,7 +44,9 @@ Scripts are a subset of Python, parsed with `ruff_python_parser`. Supported:
 - `if` / `elif` / `else` and conditional expressions
 - `for` over a list or string
 - lists, dicts, f-strings, comparisons, boolean operators, and arithmetic
-- subscripts and a few methods (`str.strip`, `dict.get`, `" ".join`, …)
+- subscripts and methods such as `str.strip`, `str.find`, `str.title`, `dict.get`, `dict.items`, `list.index`, and `" ".join`
+- builtins `len`, `range`, `sum`, `min`, `max`, `sorted`, `reversed`, `enumerate`, `zip`, `any`, `all`, and `list`
+- `try` / `except ToolError` and a bare `except`
 
 Not supported, with a one-line error an LLM can patch: `import`, `def`,
 `class`, `while`, `try`, `with`, `lambda`, comprehensions, and `await`.
@@ -151,9 +182,51 @@ Tools:
 
 `echo` returns the single positional argument. `const` returns the tagged `result`.
 
+## Measured results
+
+Mock tools sleep for a configurable base latency (40 ms in this run, three
+repeats, median wall clock). Raw samples, machine info, and the round-trip
+definition are in [`bench/results/mock-20261108T021733Z.json`](bench/results/mock-20261108T021733Z.json)
+([`mock-latest.json`](bench/results/mock-latest.json) is the same file).
+Rounds are waves observed from start/end timestamps, not a planned schedule.
+Every runner below was correct on every repeat.
+
+| Task | Runner | Median wall (s) | Rounds | Tool calls |
+| --- | --- | ---: | ---: | ---: |
+| research_brief | sequential | 0.180959 | 5 | 5 |
+| research_brief | asyncio.gather | 0.063764 | 2 | 5 |
+| research_brief | DAG | 0.063927 | 2 | 5 |
+| research_brief | Weave | 0.062249 | 2 | 5 |
+| research_brief | Monty | 0.185408 | 5 | 5 |
+| trip_plan | sequential | 0.220662 | 6 | 6 |
+| trip_plan | asyncio.gather | 0.143810 | 4 | 6 |
+| trip_plan | DAG | 0.103826 | 3 | 6 |
+| trip_plan | Weave | 0.102194 | 3 | 6 |
+| trip_plan | Monty | 0.225473 | 6 | 6 |
+| support_ticket | sequential | 0.180494 | 5 | 5 |
+| support_ticket | asyncio.gather | 0.143868 | 4 | 5 |
+| support_ticket | DAG | 0.143551 | 4 | 5 |
+| support_ticket | Weave | 0.142729 | 4 | 5 |
+| support_ticket | Monty | 0.185144 | 5 | 5 |
+
+Machine: Linux 6.12.113+ x86_64, 4 CPUs, Python 3.12.3, hostname `cursor`.
+Pydantic Monty 1.5.0 executed the same Python calls one at a time inside a warm worker.
+The hand-written `asyncio.gather` for `trip_plan` waits for weather before flights and hotels; the DAG runner and Weave overlap those three calls.
+
+No `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY` was set, so the real-model eval did not call a provider and did not record a pass rate. See [`bench/results/llm-latest.json`](bench/results/llm-latest.json). To measure tokens, pass rate, and retries of models writing Weave versus ordered JSON tool calls:
+
+```bash
+export OPENAI_API_KEY=...   # or ANTHROPIC_API_KEY, or GEMINI_API_KEY
+# optional: OPENAI_MODEL, ANTHROPIC_MODEL, GEMINI_MODEL
+python bench/llm_eval.py
+```
+
+Re-run the mock suite with `python bench/run_mock.py`. `BENCH_LATENCY_MS` and `BENCH_REPEATS` change the sleep and the number of repeats. `pydantic-monty` is optional; without it the Monty column is recorded as skipped.
+
 ## Layout
 
 - `crates/weave` — parser, checker, scheduler, trace
 - `crates/weave-py` — PyO3 module
 - `crates/weave-mcp` — MCP server
 - `examples/speedup.py` — measured comparison with sequential calls
+- `bench/` — mock suite, optional real-model eval, and `bench/results`

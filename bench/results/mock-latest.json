@@ -1,0 +1,493 @@
+{
+  "kind": "mock",
+  "latency_s": 0.04,
+  "repeats": 3,
+  "machine": {
+    "python": "3.12.3",
+    "platform": "Linux-6.12.113+-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 4,
+    "hostname": "cursor"
+  },
+  "notes": {
+    "rounds": "Observed waves from tool start/end timestamps. A call joins the current wave when it starts before that wave finishes.",
+    "asyncio_gather": "Hand-written batches. trip_plan waits for weather before flights and hotels.",
+    "dag": "LLMCompiler-style: each wave is every node whose dependencies are already done.",
+    "monty": "Pydantic Monty feed_run on a warm worker, if pydantic-monty imports.",
+    "weave": "One Weave script per task. Tools are tagged read."
+  },
+  "tasks": [
+    {
+      "name": "research_brief",
+      "summary": "Fan out four searches, then summarize them.",
+      "expected": "hit:q1|hit:q2|hit:q3|hit:q4",
+      "runners": {
+        "sequential": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.1810032409998712,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            },
+            {
+              "wall_s": 0.18095882899979188,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            },
+            {
+              "wall_s": 0.18076233600004343,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            }
+          ],
+          "median_wall_s": 0.18095882899979188,
+          "rounds": 5,
+          "tool_calls": 5,
+          "correct": true
+        },
+        "asyncio_gather": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.06584581800007072,
+              "rounds": 2,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            },
+            {
+              "wall_s": 0.06240770199974577,
+              "rounds": 2,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            },
+            {
+              "wall_s": 0.06376358199986498,
+              "rounds": 2,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            }
+          ],
+          "median_wall_s": 0.06376358199986498,
+          "rounds": 2,
+          "tool_calls": 5,
+          "correct": true
+        },
+        "dag": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.06349445400019249,
+              "rounds": 2,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            },
+            {
+              "wall_s": 0.06401783999990585,
+              "rounds": 2,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            },
+            {
+              "wall_s": 0.06392737999976816,
+              "rounds": 2,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            }
+          ],
+          "median_wall_s": 0.06392737999976816,
+          "rounds": 2,
+          "tool_calls": 5,
+          "correct": true
+        },
+        "weave": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.06254835700019612,
+              "rounds": 2,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            },
+            {
+              "wall_s": 0.062248806999832595,
+              "rounds": 2,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            },
+            {
+              "wall_s": 0.06222411099997771,
+              "rounds": 2,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            }
+          ],
+          "median_wall_s": 0.062248806999832595,
+          "rounds": 2,
+          "tool_calls": 5,
+          "correct": true
+        },
+        "monty": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.18493828100008614,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            },
+            {
+              "wall_s": 0.1854075319997719,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            },
+            {
+              "wall_s": 0.18545211999980893,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "hit:q1|hit:q2|hit:q3|hit:q4"
+            }
+          ],
+          "median_wall_s": 0.1854075319997719,
+          "rounds": 5,
+          "tool_calls": 5,
+          "correct": true
+        }
+      }
+    },
+    {
+      "name": "trip_plan",
+      "summary": "Geocode two cities, then weather, flights, and hotels, then an itinerary.",
+      "expected": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR",
+      "runners": {
+        "sequential": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.22095259799971245,
+              "rounds": 6,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            },
+            {
+              "wall_s": 0.2206503510001312,
+              "rounds": 6,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            },
+            {
+              "wall_s": 0.22066208199976245,
+              "rounds": 6,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            }
+          ],
+          "median_wall_s": 0.22066208199976245,
+          "rounds": 6,
+          "tool_calls": 6,
+          "correct": true
+        },
+        "asyncio_gather": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.14381026499995642,
+              "rounds": 4,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            },
+            {
+              "wall_s": 0.14285237700005382,
+              "rounds": 4,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            },
+            {
+              "wall_s": 0.14408449599977757,
+              "rounds": 4,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            }
+          ],
+          "median_wall_s": 0.14381026499995642,
+          "rounds": 4,
+          "tool_calls": 6,
+          "correct": true
+        },
+        "dag": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.10365748499998517,
+              "rounds": 3,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            },
+            {
+              "wall_s": 0.10391861200014318,
+              "rounds": 3,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            },
+            {
+              "wall_s": 0.10382606800021676,
+              "rounds": 3,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            }
+          ],
+          "median_wall_s": 0.10382606800021676,
+          "rounds": 3,
+          "tool_calls": 6,
+          "correct": true
+        },
+        "weave": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.10236184199993659,
+              "rounds": 3,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            },
+            {
+              "wall_s": 0.10219354799983194,
+              "rounds": 3,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            },
+            {
+              "wall_s": 0.10203172100000302,
+              "rounds": 3,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            }
+          ],
+          "median_wall_s": 0.10219354799983194,
+          "rounds": 3,
+          "tool_calls": 6,
+          "correct": true
+        },
+        "monty": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.22547266200035665,
+              "rounds": 6,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            },
+            {
+              "wall_s": 0.22578313600024558,
+              "rounds": 6,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            },
+            {
+              "wall_s": 0.22516450099965368,
+              "rounds": 6,
+              "tool_calls": 6,
+              "correct": true,
+              "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR"
+            }
+          ],
+          "median_wall_s": 0.22547266200035665,
+          "rounds": 6,
+          "tool_calls": 6,
+          "correct": true
+        }
+      }
+    },
+    {
+      "name": "support_ticket",
+      "summary": "Look up a user and policy together, then orders, stock, and a draft reply.",
+      "expected": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1",
+      "runners": {
+        "sequential": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.1806909160000032,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            },
+            {
+              "wall_s": 0.18049440799995864,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            },
+            {
+              "wall_s": 0.18049368600031812,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            }
+          ],
+          "median_wall_s": 0.18049440799995864,
+          "rounds": 5,
+          "tool_calls": 5,
+          "correct": true
+        },
+        "asyncio_gather": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.14446873599990795,
+              "rounds": 4,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            },
+            {
+              "wall_s": 0.1432707119997758,
+              "rounds": 4,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            },
+            {
+              "wall_s": 0.1438679980001325,
+              "rounds": 4,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            }
+          ],
+          "median_wall_s": 0.1438679980001325,
+          "rounds": 4,
+          "tool_calls": 5,
+          "correct": true
+        },
+        "dag": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.14435256100023253,
+              "rounds": 4,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            },
+            {
+              "wall_s": 0.14354876800007332,
+              "rounds": 4,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            },
+            {
+              "wall_s": 0.143551054999989,
+              "rounds": 4,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            }
+          ],
+          "median_wall_s": 0.143551054999989,
+          "rounds": 4,
+          "tool_calls": 5,
+          "correct": true
+        },
+        "weave": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.14313673400010885,
+              "rounds": 4,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            },
+            {
+              "wall_s": 0.14233124000020325,
+              "rounds": 3,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            },
+            {
+              "wall_s": 0.14272923999988052,
+              "rounds": 4,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            }
+          ],
+          "median_wall_s": 0.14272923999988052,
+          "rounds": 4,
+          "tool_calls": 5,
+          "correct": true
+        },
+        "monty": {
+          "skipped": false,
+          "samples": [
+            {
+              "wall_s": 0.18514386500010005,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            },
+            {
+              "wall_s": 0.18482338400008302,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            },
+            {
+              "wall_s": 0.1852858570000535,
+              "rounds": 5,
+              "tool_calls": 5,
+              "correct": true,
+              "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1"
+            }
+          ],
+          "median_wall_s": 0.18514386500010005,
+          "rounds": 5,
+          "tool_calls": 5,
+          "correct": true
+        }
+      }
+    }
+  ]
+}
