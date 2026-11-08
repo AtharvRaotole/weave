@@ -23,6 +23,9 @@ pub struct TraceEvent {
     pub args: Vec<Value>,
     pub kwargs: BTreeMap<String, Value>,
     pub result: Value,
+    /// Set when the call failed. Replay raises the same tool error instead of returning `result`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 impl Trace {

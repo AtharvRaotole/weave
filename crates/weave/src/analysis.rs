@@ -40,6 +40,7 @@ fn stmt_effects(stmt: &Stmt, tools: &ToolRegistry) -> Effects {
             .union(block_effects(body, tools))
             .union(block_effects(orelse, tools)),
         StmtKind::For { iter, body, .. } => expr_effects(iter, tools).union(block_effects(body, tools)),
+        StmtKind::Try { body, handler } => block_effects(body, tools).union(block_effects(&handler.body, tools)),
         StmtKind::Pass => Effects::none(),
     }
 }
@@ -104,7 +105,24 @@ fn call_effect(func: &Expr, tools: &ToolRegistry) -> Effects {
 pub fn is_builtin(name: &str) -> bool {
     matches!(
         name,
-        "print" | "len" | "range" | "str" | "int" | "float" | "bool" | "abs"
+        "print"
+            | "len"
+            | "range"
+            | "str"
+            | "int"
+            | "float"
+            | "bool"
+            | "abs"
+            | "sum"
+            | "min"
+            | "max"
+            | "sorted"
+            | "reversed"
+            | "enumerate"
+            | "zip"
+            | "any"
+            | "all"
+            | "list"
     )
 }
 
@@ -130,6 +148,13 @@ fn collect_assigned(stmts: &[Stmt], names: &mut HashSet<String>) {
             StmtKind::For { target, body, .. } => {
                 collect_target(target, names);
                 collect_assigned(body, names);
+            }
+            StmtKind::Try { body, handler } => {
+                collect_assigned(body, names);
+                if let Some(name) = &handler.name {
+                    names.insert(name.clone());
+                }
+                collect_assigned(&handler.body, names);
             }
             StmtKind::Expr(_) | StmtKind::Pass => {}
         }
@@ -208,6 +233,20 @@ fn reads_before_assign(stmts: &[Stmt], writes: &HashSet<String>, assigned: &mut 
                 if reads_before_assign(body, writes, &mut inner) {
                     return true;
                 }
+            }
+            StmtKind::Try { body, handler } => {
+                let mut try_assigned = assigned.clone();
+                if reads_before_assign(body, writes, &mut try_assigned) {
+                    return true;
+                }
+                let mut exc_assigned = assigned.clone();
+                if let Some(name) = &handler.name {
+                    exc_assigned.insert(name.clone());
+                }
+                if reads_before_assign(&handler.body, writes, &mut exc_assigned) {
+                    return true;
+                }
+                *assigned = try_assigned.intersection(&exc_assigned).cloned().collect();
             }
             StmtKind::Pass => {}
         }

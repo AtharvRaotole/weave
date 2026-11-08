@@ -4,8 +4,8 @@ use ruff_python_parser::parse_module;
 use ruff_text_size::{Ranged, TextSize};
 
 use crate::ast::{
-    BinOp, BoolOp, Conversion, Expr as WExpr, ExprKind, FSeg, Keyword, Stmt as WStmt, StmtKind,
-    Target, UnaryOp as WUnary,
+    BinOp, BoolOp, Conversion, Expr as WExpr, ExprKind, FSeg, Handler, Keyword, Stmt as WStmt,
+    StmtKind, Target, UnaryOp as WUnary,
 };
 use crate::error::{Diagnostic, WeaveError};
 
@@ -74,6 +74,11 @@ impl<'a> Lowerer<'a> {
         self.errors.push(Diagnostic::static_err(line, col, message));
     }
 
+    fn err_hint(&mut self, offset: TextSize, message: impl Into<String>, hint: impl Into<String>) {
+        let (line, col) = self.loc(offset);
+        self.errors.push(Diagnostic::static_err(line, col, message).with_hint(hint));
+    }
+
     fn stmt(&mut self, stmt: &Stmt) -> WStmt {
         let (line, col) = self.loc(stmt.start());
         let kind = match stmt {
@@ -131,59 +136,55 @@ impl<'a> Lowerer<'a> {
             }
             Stmt::Pass(_) => StmtKind::Pass,
             Stmt::FunctionDef(_) => {
-                self.err(
+                self.err_hint(
                     stmt.start(),
-                    "`def` is not supported; register a host tool instead of defining a function",
+                    "`def` is not supported",
+                    "register a host tool instead of defining a function",
                 );
                 StmtKind::Pass
             }
             Stmt::ClassDef(_) => {
-                self.err(stmt.start(), "`class` is not supported; use dicts for records");
+                self.err_hint(stmt.start(), "`class` is not supported", "use a dict for the record");
                 StmtKind::Pass
             }
             Stmt::Return(_) => {
-                self.err(stmt.start(), "`return` is not supported; the script has no functions");
+                self.err_hint(stmt.start(), "`return` is not supported", "the script has no functions; assign the value instead");
                 StmtKind::Pass
             }
             Stmt::Delete(_) => {
-                self.err(stmt.start(), "`del` is not supported; rebind the name instead");
+                self.err_hint(stmt.start(), "`del` is not supported", "rebind the name instead");
                 StmtKind::Pass
             }
             Stmt::TypeAlias(_) => {
-                self.err(stmt.start(), "`type` aliases are not supported");
+                self.err_hint(stmt.start(), "`type` aliases are not supported", "drop the alias and use the value directly");
                 StmtKind::Pass
             }
             Stmt::While(_) => {
-                self.err(
-                    stmt.start(),
-                    "`while` is not supported; use `for` over a list",
-                );
+                self.err_hint(stmt.start(), "`while` is not supported", "use `for` over a list");
                 StmtKind::Pass
             }
             Stmt::With(_) => {
-                self.err(stmt.start(), "`with` is not supported; call the tool directly");
+                self.err_hint(stmt.start(), "`with` is not supported", "call the tool directly");
                 StmtKind::Pass
             }
             Stmt::Match(_) => {
-                self.err(stmt.start(), "`match` is not supported; use `if`");
+                self.err_hint(stmt.start(), "`match` is not supported", "use `if`");
                 StmtKind::Pass
             }
             Stmt::Raise(_) => {
-                self.err(stmt.start(), "`raise` is not supported");
+                self.err_hint(stmt.start(), "`raise` is not supported", "return a tool error by letting the tool fail, or use `if`");
                 StmtKind::Pass
             }
-            Stmt::Try(_) => {
-                self.err(stmt.start(), "`try` is not supported; check values with `if`");
-                StmtKind::Pass
-            }
+            Stmt::Try(s) => self.lower_try(s),
             Stmt::Assert(_) => {
-                self.err(stmt.start(), "`assert` is not supported; use `if`");
+                self.err_hint(stmt.start(), "`assert` is not supported", "use `if`");
                 StmtKind::Pass
             }
             Stmt::Import(_) | Stmt::ImportFrom(_) => {
-                self.err(
+                self.err_hint(
                     stmt.start(),
-                    "`import` is not supported; inline values or fetch them with a tool",
+                    "`import` is not supported",
+                    "inline values or fetch them with a tool",
                 );
                 StmtKind::Pass
             }
@@ -205,6 +206,63 @@ impl<'a> Lowerer<'a> {
             }
         };
         WStmt { line, col, kind }
+    }
+
+    fn lower_try(&mut self, stmt: &ast::StmtTry) -> StmtKind {
+        if stmt.is_star {
+            self.err_hint(
+                stmt.start(),
+                "`except*` is not supported",
+                "use `except ToolError` or a bare `except`",
+            );
+            return StmtKind::Pass;
+        }
+        if !stmt.orelse.is_empty() {
+            self.err_hint(
+                stmt.start(),
+                "`try/else` is not supported",
+                "put that code after the try",
+            );
+        }
+        if !stmt.finalbody.is_empty() {
+            self.err_hint(
+                stmt.start(),
+                "`finally` is not supported",
+                "put cleanup after the try",
+            );
+        }
+        if stmt.handlers.len() != 1 {
+            self.err_hint(
+                stmt.start(),
+                "try needs exactly one except clause",
+                "use `except ToolError:` or a bare `except:`",
+            );
+            return StmtKind::Pass;
+        }
+        let ast::ExceptHandler::ExceptHandler(handler) = &stmt.handlers[0];
+        let catches_all = match handler.type_.as_deref() {
+            None => true,
+            Some(ast::Expr::Name(name)) if name.id.as_str() == "ToolError" => false,
+            Some(_) => {
+                self.err_hint(
+                    handler.range.start(),
+                    "only `except ToolError` or a bare `except` is supported",
+                    "catch tool failures with `except ToolError`",
+                );
+                return StmtKind::Pass;
+            }
+        };
+        let (line, col) = self.loc(handler.range.start());
+        StmtKind::Try {
+            body: self.suite(&stmt.body),
+            handler: Handler {
+                line,
+                col,
+                catches_all,
+                name: handler.name.as_ref().map(|id| id.id.as_str().to_string()),
+                body: self.suite(&handler.body),
+            },
+        }
     }
 
     fn lower_if(&mut self, stmt: &ast::StmtIf) -> StmtKind {

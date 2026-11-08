@@ -2,6 +2,8 @@
 //! pure and read calls, and deferring irreversible calls until the program
 //! is complete.
 
+#![allow(clippy::too_many_arguments)]
+
 mod analysis;
 mod ast;
 mod check;

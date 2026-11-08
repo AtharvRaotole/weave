@@ -28,7 +28,24 @@ pub enum StmtKind {
         iter: Expr,
         body: Vec<Stmt>,
     },
+    Try {
+        body: Vec<Stmt>,
+        handler: Handler,
+    },
     Pass,
+}
+
+/// One `except` clause. Bare `except` catches every tool and runtime error.
+/// `except ToolError` catches only host-tool failures.
+#[derive(Clone, Debug)]
+pub struct Handler {
+    #[allow(dead_code)]
+    pub line: usize,
+    #[allow(dead_code)]
+    pub col: usize,
+    pub catches_all: bool,
+    pub name: Option<String>,
+    pub body: Vec<Stmt>,
 }
 
 #[derive(Clone, Debug)]

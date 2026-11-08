@@ -11,7 +11,8 @@ use tokio::sync::{mpsc::UnboundedReceiver, watch};
 
 use crate::analysis::{assigned_names, block_effects, has_carried_dep, is_builtin};
 use crate::ast::{
-    BinOp, BoolOp, CmpOp, Conversion, Expr, ExprKind, FSeg, Keyword, Stmt, StmtKind, Target, UnaryOp,
+    BinOp, BoolOp, CmpOp, Conversion, Expr, ExprKind, FSeg, Handler, Keyword, Stmt, StmtKind, Target,
+    UnaryOp,
 };
 use crate::check::{check_block, check_program};
 use crate::effect::Effect;
@@ -68,6 +69,7 @@ struct Launch {
     seq: Arc<std::sync::atomic::AtomicU64>,
     complete_tx: watch::Sender<bool>,
     complete_rx: watch::Receiver<bool>,
+    cancel_rx: watch::Receiver<bool>,
     last_mutation: ValFut,
     last_observable: ValFut,
     print_barrier: ValFut,
@@ -98,8 +100,10 @@ impl BarrierSnap {
     }
 }
 
-fn track(g: &mut Launch, fut: ValFut) {
-    g.roots.push(fut.clone());
+fn track(g: &mut Launch, fut: ValFut, record_root: bool) {
+    if record_root {
+        g.roots.push(fut.clone());
+    }
     g.pending_spawn.push(fut);
 }
 
@@ -198,6 +202,7 @@ impl Engine {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let (result_tx, result_rx) = std::sync::mpsc::sync_channel(1);
         let (complete_tx, complete_rx) = watch::channel(false);
+        let (cancel_tx, cancel_rx) = watch::channel(false);
         let launch = Launch {
             handle: runtime.handle().clone(),
             tools: Arc::new(self.tools.clone()),
@@ -207,6 +212,7 @@ impl Engine {
             seq: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             complete_tx,
             complete_rx,
+            cancel_rx,
             last_mutation: ready(Value::Null),
             last_observable: ready(Value::Null),
             print_barrier: ready(Value::Null),
@@ -226,6 +232,7 @@ impl Engine {
             tools: Arc::new(self.tools.clone()),
             failed: None,
             finished: false,
+            cancel_tx,
         }
     }
 }
@@ -241,6 +248,7 @@ pub struct Session {
     tools: Arc<ToolRegistry>,
     failed: Option<WeaveError>,
     finished: bool,
+    cancel_tx: watch::Sender<bool>,
 }
 
 enum Msg {
@@ -249,6 +257,12 @@ enum Msg {
 }
 
 impl Session {
+    /// Stop work that has not started yet. In-flight host calls may still finish.
+    /// Cancellation is not caught by `try`.
+    pub fn cancel(&self) {
+        let _ = self.cancel_tx.send(true);
+    }
+
     pub fn push(&mut self, chunk: &str) -> Result<(), WeaveError> {
         if self.finished {
             return Err(WeaveError::runtime(0, 0, "session is already finished"));
@@ -352,7 +366,7 @@ async fn driver(
                 {
                     let mut g = arc.lock().expect("launch lock");
                     let mut env = std::mem::take(&mut g.env);
-                    launch_block(&mut g, &arc, &stmts, &mut env);
+                    launch_block(&mut g, &arc, &stmts, &mut env, true);
                     g.env = env;
                 }
                 spawn_pending(&arc);
@@ -434,7 +448,13 @@ async fn driver(
     let _ = done.send(result);
 }
 
-fn launch_block(g: &mut Launch, arc: &Arc<Mutex<Launch>>, stmts: &[Stmt], env: &mut HashMap<String, ValFut>) -> Vec<ValFut> {
+fn launch_block(
+    g: &mut Launch,
+    arc: &Arc<Mutex<Launch>>,
+    stmts: &[Stmt],
+    env: &mut HashMap<String, ValFut>,
+    record_root: bool,
+) -> Vec<ValFut> {
     let mut roots = Vec::new();
     for stmt in stmts {
         match &stmt.kind {
@@ -442,7 +462,7 @@ fn launch_block(g: &mut Launch, arc: &Arc<Mutex<Launch>>, stmts: &[Stmt], env: &
             StmtKind::Expr(expr) => {
                 let fut = schedule_expr(expr, g, arc, env);
                 roots.push(fut.clone());
-                track(g, fut);
+                track(g, fut, record_root);
             }
             StmtKind::Assign { targets, value } => {
                 let fut = schedule_expr(value, g, arc, env);
@@ -450,22 +470,27 @@ fn launch_block(g: &mut Launch, arc: &Arc<Mutex<Launch>>, stmts: &[Stmt], env: &
                     bind_target(target, fut.clone(), g, arc, env);
                 }
                 roots.push(fut.clone());
-                track(g, fut);
+                track(g, fut, record_root);
             }
             StmtKind::AugAssign { target, op, value } => {
                 let fut = schedule_aug(target, *op, value, g, arc, env);
                 roots.push(fut.clone());
-                track(g, fut);
+                track(g, fut, record_root);
             }
             StmtKind::If { test, body, orelse } => {
                 let root = schedule_if(stmt.line, stmt.col, test, body, orelse, g, arc, env);
                 roots.push(root.clone());
-                track(g, root);
+                track(g, root, record_root);
             }
             StmtKind::For { target, iter, body } => {
                 let root = schedule_for(stmt.line, stmt.col, target, iter, body, g, arc, env);
                 roots.push(root.clone());
-                track(g, root);
+                track(g, root, record_root);
+            }
+            StmtKind::Try { body, handler } => {
+                let root = schedule_try(stmt.line, stmt.col, body, handler, g, arc, env);
+                roots.push(root.clone());
+                track(g, root, record_root);
             }
         }
     }
@@ -504,7 +529,7 @@ fn schedule_if(
             g.last_observable = branch_obs;
             g.print_barrier = branch_print;
             let mut child = snap;
-            let roots = launch_block(&mut g, &arc_c, &branch, &mut child);
+            let roots = launch_block(&mut g, &arc_c, &branch, &mut child, true);
             let assigned = capture_assigned(&written_task, &child);
             saved.install(&mut g);
             (roots, assigned)
@@ -516,6 +541,95 @@ fn schedule_if(
     install_placeholders(line, col, &written, &map_fut, env);
     gate_ctrl(g, effects, &map_fut);
     map_driver(map_fut)
+}
+
+fn schedule_try(
+    line: usize,
+    col: usize,
+    body: &[Stmt],
+    handler: &Handler,
+    g: &mut Launch,
+    arc: &Arc<Mutex<Launch>>,
+    env: &mut HashMap<String, ValFut>,
+) -> ValFut {
+    let effects = block_effects(body, &g.tools).union(block_effects(&handler.body, &g.tools));
+    let snap = env.clone();
+    let mut written = assigned_names(body);
+    written.extend(assigned_names(&handler.body));
+    let branch_mut = g.last_mutation.clone();
+    let branch_obs = g.last_observable.clone();
+    let branch_print = g.print_barrier.clone();
+    let body = body.to_vec();
+    let handler = handler.clone();
+    let arc_c = arc.clone();
+    let written_task = written.clone();
+    let map_fut = share_map(async move {
+        let tried = run_caught_block(
+            &arc_c,
+            &body,
+            snap.clone(),
+            &written_task,
+            branch_mut.clone(),
+            branch_obs.clone(),
+            branch_print.clone(),
+        )
+        .await;
+        match tried {
+            Ok(map) => Ok(map),
+            Err(err) if catch_error(&err, &handler) => {
+                let mut handler_env = snap;
+                if let Some(name) = &handler.name {
+                    handler_env.insert(name.clone(), ready(Value::str(err.summary())));
+                }
+                run_caught_block(
+                    &arc_c,
+                    &handler.body,
+                    handler_env,
+                    &written_task,
+                    branch_mut,
+                    branch_obs,
+                    branch_print,
+                )
+                .await
+            }
+            Err(err) => Err(err),
+        }
+    });
+    install_placeholders(line, col, &written, &map_fut, env);
+    gate_ctrl(g, effects, &map_fut);
+    map_driver(map_fut)
+}
+
+fn catch_error(err: &WeaveError, handler: &Handler) -> bool {
+    if err.is_cancelled() || !err.is_catchable() {
+        return false;
+    }
+    handler.catches_all || err.is_tool()
+}
+
+async fn run_caught_block(
+    arc: &Arc<Mutex<Launch>>,
+    stmts: &[Stmt],
+    mut child: HashMap<String, ValFut>,
+    written: &HashSet<String>,
+    branch_mut: ValFut,
+    branch_obs: ValFut,
+    branch_print: ValFut,
+) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
+    let (roots, assigned) = {
+        let mut guard = arc.lock().expect("launch lock");
+        let saved = BarrierSnap::capture(&guard);
+        guard.last_mutation = branch_mut;
+        guard.last_observable = branch_obs;
+        guard.print_barrier = branch_print;
+        let roots = launch_block(&mut guard, arc, stmts, &mut child, false);
+        let assigned = capture_assigned(written, &child);
+        saved.install(&mut guard);
+        (roots, assigned)
+    };
+    spawn_pending(arc);
+    await_roots(roots).await?;
+    collect_assigned(assigned).await
 }
 
 fn schedule_for(
@@ -587,8 +701,6 @@ fn install_placeholders(line: usize, col: usize, written: &HashSet<String>, map_
     for name in written {
         let map_fut = map_fut.clone();
         let name_c = name.clone();
-        let line = line;
-        let col = col;
         let fut = share(async move {
             let map = map_fut.await?;
             match map.get(&name_c) {
@@ -651,7 +763,7 @@ async fn run_parallel_for(
         for item in items {
             let mut child = snap.clone();
             bind_ready(target, item.clone(), &mut child);
-            let roots = launch_block(&mut g, arc, body, &mut child);
+            let roots = launch_block(&mut g, arc, body, &mut child, true);
             let assigned = capture_assigned(written, &child);
             planned.push((roots, assigned));
         }
@@ -705,7 +817,7 @@ async fn run_sequential_for(
                 child.insert(name.clone(), ready(value.clone()));
             }
             bind_ready(target, item.clone(), &mut child);
-            let roots = launch_block(&mut g, arc, body, &mut child);
+            let roots = launch_block(&mut g, arc, body, &mut child, true);
             let assigned = capture_assigned(written, &child);
             local_mut = g.last_mutation.clone();
             local_obs = g.last_observable.clone();
@@ -1239,11 +1351,14 @@ fn schedule_tool(
     };
     let effect = tool.spec.effect;
     let func = tool.func.clone();
+    let retries = tool.spec.retries;
+    let timeout = tool.spec.timeout;
     let tool_name = name.to_string();
     let seq = g.seq.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     let mutation = g.last_mutation.clone();
     let observable = g.last_observable.clone();
     let complete_rx = g.complete_rx.clone();
+    let mut cancel_rx = g.cancel_rx.clone();
     let mode = g.mode.clone();
     let trace = g.trace.clone();
     let handle = g.handle.clone();
@@ -1251,6 +1366,7 @@ fn schedule_tool(
         let args_fut = join_values(arg_futs);
         let kwargs_fut = join_kwargs(kw_futs);
         let gate = async {
+            ensure_running(line, col, &cancel_rx)?;
             match effect {
                 Effect::Pure => {}
                 Effect::Read => {
@@ -1260,50 +1376,43 @@ fn schedule_tool(
                     observable.await?;
                 }
                 Effect::Irreversible => {
-                    wait_complete(complete_rx).await;
+                    wait_complete(complete_rx, &mut cancel_rx).await?;
                     observable.await?;
                 }
             }
+            ensure_running(line, col, &cancel_rx)?;
             Ok::<(), WeaveError>(())
         };
         let (args, kwargs, gate_res) = futures::future::join3(args_fut, kwargs_fut, gate).await;
         let args = args?;
         let kwargs = kwargs?;
         gate_res?;
-        let result = match &mode {
-            RunMode::Replay(recorded) => {
-                let Some(event) = recorded.events.get(seq as usize) else {
-                    return Err(WeaveError::runtime(
-                        line,
-                        col,
-                        format!("replay diverged at call {seq}: trace has no such call"),
-                    ));
-                };
-                if event.tool != tool_name || event.args != args || event.kwargs != kwargs {
-                    return Err(WeaveError::runtime(
-                        line,
-                        col,
-                        format!(
-                            "replay diverged at call {seq}: expected {}({}), got {}({})",
-                            event.tool,
-                            fmt_call(&event.args, &event.kwargs),
-                            tool_name,
-                            fmt_call(&args, &kwargs)
-                        ),
-                    ));
-                }
-                event.result.clone()
-            }
+        let outcome = match &mode {
+            RunMode::Replay(recorded) => replay_tool(line, col, seq, &tool_name, &args, &kwargs, recorded),
             RunMode::Execute => {
-                let tool_name_c = tool_name.clone();
-                let call_args = args.clone();
-                let call_kwargs = kwargs.clone();
-                let outcome = handle
-                    .spawn_blocking(move || func(call_args, call_kwargs))
-                    .await
-                    .map_err(|_| WeaveError::runtime(line, col, format!("tool `{tool_name_c}` panicked")))?;
-                outcome.map_err(|msg| WeaveError::runtime(line, col, format!("tool `{tool_name}` failed: {msg}")))?
+                run_tool_attempts(
+                    line,
+                    col,
+                    &tool_name,
+                    &handle,
+                    &func,
+                    &args,
+                    &kwargs,
+                    retries,
+                    timeout,
+                    &cancel_rx,
+                )
+                .await
             }
+        };
+        if let Err(err) = &outcome {
+            if err.is_cancelled() {
+                return Err(err.clone());
+            }
+        }
+        let (result, error) = match outcome {
+            Ok(value) => (value, None),
+            Err(err) => (Value::Null, Some(err.summary())),
         };
         trace.lock().expect("trace").record(TraceEvent {
             seq,
@@ -1313,8 +1422,12 @@ fn schedule_tool(
             args,
             kwargs,
             result: result.clone(),
+            error: error.clone(),
         });
-        Ok(result)
+        match error {
+            Some(message) => Err(WeaveError::tool(line, col, message)),
+            None => Ok(result),
+        }
     });
     match effect {
         Effect::Pure => {}
@@ -1371,12 +1484,142 @@ fn fmt_call(args: &[Value], kwargs: &BTreeMap<String, Value>) -> String {
     parts.join(", ")
 }
 
-async fn wait_complete(mut rx: watch::Receiver<bool>) {
-    while !*rx.borrow() {
-        if rx.changed().await.is_err() {
-            break;
+fn replay_tool(
+    line: usize,
+    col: usize,
+    seq: u64,
+    tool_name: &str,
+    args: &[Value],
+    kwargs: &BTreeMap<String, Value>,
+    recorded: &Trace,
+) -> Result<Value, WeaveError> {
+    let Some(event) = recorded.events.get(seq as usize) else {
+        return Err(WeaveError::runtime(
+            line,
+            col,
+            format!("replay diverged at call {seq}: trace has no such call"),
+        ));
+    };
+    if event.tool != tool_name || event.args != args || &event.kwargs != kwargs {
+        return Err(WeaveError::runtime(
+            line,
+            col,
+            format!(
+                "replay diverged at call {seq}: expected {}({}), got {}({})",
+                event.tool,
+                fmt_call(&event.args, &event.kwargs),
+                tool_name,
+                fmt_call(args, kwargs)
+            ),
+        ));
+    }
+    if let Some(message) = &event.error {
+        return Err(WeaveError::tool(line, col, message.clone()));
+    }
+    Ok(event.result.clone())
+}
+
+fn ensure_running(line: usize, col: usize, cancel: &watch::Receiver<bool>) -> Result<(), WeaveError> {
+    if *cancel.borrow() {
+        Err(WeaveError::cancelled(line, col))
+    } else {
+        Ok(())
+    }
+}
+
+async fn wait_complete(
+    mut done: watch::Receiver<bool>,
+    cancel: &mut watch::Receiver<bool>,
+) -> Result<(), WeaveError> {
+    loop {
+        if *cancel.borrow() {
+            return Err(WeaveError::cancelled(0, 0));
+        }
+        if *done.borrow() {
+            return Ok(());
+        }
+        tokio::select! {
+            changed = done.changed() => {
+                if changed.is_err() {
+                    break;
+                }
+            }
+            changed = cancel.changed() => {
+                if changed.is_err() {
+                    break;
+                }
+            }
         }
     }
+    if *cancel.borrow() {
+        Err(WeaveError::cancelled(0, 0))
+    } else {
+        Ok(())
+    }
+}
+
+async fn run_tool_attempts(
+    line: usize,
+    col: usize,
+    tool_name: &str,
+    handle: &Handle,
+    func: &crate::tools::ToolFn,
+    args: &[Value],
+    kwargs: &BTreeMap<String, Value>,
+    retries: u32,
+    timeout: Option<std::time::Duration>,
+    cancel: &watch::Receiver<bool>,
+) -> Result<Value, WeaveError> {
+    let attempts = retries.saturating_add(1);
+    let mut last = String::from("failed");
+    for attempt in 1..=attempts {
+        ensure_running(line, col, cancel)?;
+        let call_args = args.to_vec();
+        let call_kwargs = kwargs.clone();
+        let func = func.clone();
+        let limit = timeout;
+        let tool_label = tool_name.to_string();
+        // recv_timeout runs on the blocking pool. Tokio timers scheduled from a
+        // Shared future are not woken until the blocking call itself finishes.
+        let join = handle.spawn_blocking(move || {
+            if let Some(limit) = limit {
+                let (tx, rx) = std::sync::mpsc::channel();
+                std::thread::spawn(move || {
+                    let _ = tx.send(func(call_args, call_kwargs));
+                });
+                match rx.recv_timeout(limit) {
+                    Ok(result) => result,
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                        Err(format!("timed out after {}ms", limit.as_millis()))
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                        Err(format!("tool `{tool_label}` panicked"))
+                    }
+                }
+            } else {
+                func(call_args, call_kwargs)
+            }
+        });
+        let outcome = match join.await {
+            Ok(result) => result,
+            Err(_) => Err(format!("tool `{tool_name}` panicked")),
+        };
+        match outcome {
+            Ok(value) => return Ok(value),
+            Err(message) => {
+                last = message;
+                if attempt == attempts {
+                    break;
+                }
+            }
+        }
+    }
+    let hint_message = if timeout.is_some() {
+        format!("tool `{tool_name}` failed after {attempts} attempt(s): {last}")
+    } else {
+        format!("tool `{tool_name}` failed: {last}")
+    };
+    Err(WeaveError::tool(line, col, hint_message))
 }
 
 fn to_cmp(op: CmpOp) -> value::Cmp {
@@ -1440,7 +1683,122 @@ fn eval_builtin(name: &str, args: &[Value]) -> Result<Value, String> {
         "int" => to_int(args.first().ok_or("int() takes 1 argument")?),
         "float" => to_float(args.first().ok_or("float() takes 1 argument")?),
         "range" => make_range(args),
+        "sum" => sum_of(args),
+        "min" => min_max(args, true),
+        "max" => min_max(args, false),
+        "sorted" => sorted_list(args),
+        "reversed" => reversed_list(args),
+        "enumerate" => enumerate_list(args),
+        "zip" => zip_lists(args),
+        "any" => any_all(args, true),
+        "all" => any_all(args, false),
+        "list" => as_list_value(args),
         other => Err(format!("unknown builtin `{other}`")),
+    }
+}
+
+fn one_list<'a>(name: &str, args: &'a [Value]) -> Result<&'a [Value], String> {
+    if args.len() != 1 {
+        return Err(format!("{name}() takes 1 argument"));
+    }
+    match &args[0] {
+        Value::List(xs) => Ok(xs),
+        other => Err(format!("{name}() expects a list, got {}", value::type_name(other))),
+    }
+}
+
+fn sum_of(args: &[Value]) -> Result<Value, String> {
+    let xs = one_list("sum", args)?;
+    let mut total = Value::Int(0);
+    for item in xs {
+        total = value::add(&total, item)?;
+    }
+    Ok(total)
+}
+
+fn min_max(args: &[Value], want_min: bool) -> Result<Value, String> {
+    let name = if want_min { "min" } else { "max" };
+    let items: Vec<Value> = match args {
+        [Value::List(xs)] => xs.clone(),
+        [a, b] => vec![a.clone(), b.clone()],
+        _ => return Err(format!("{name}() takes a list or two values")),
+    };
+    let mut best = items.first().cloned().ok_or_else(|| format!("{name}() of an empty sequence"))?;
+    for item in items.iter().skip(1) {
+        let is_less = value::compare(value::Cmp::Lt, item, &best).map(|v| value::truthy(&v))?;
+        if want_min == is_less {
+            best = item.clone();
+        }
+    }
+    Ok(best)
+}
+
+fn sorted_list(args: &[Value]) -> Result<Value, String> {
+    let mut xs = one_list("sorted", args)?.to_vec();
+    for i in 1..xs.len() {
+        let mut j = i;
+        while j > 0 {
+            let less = value::compare(value::Cmp::Lt, &xs[j], &xs[j - 1]).map(|v| value::truthy(&v))?;
+            if !less {
+                break;
+            }
+            xs.swap(j, j - 1);
+            j -= 1;
+        }
+    }
+    Ok(Value::List(xs))
+}
+
+fn reversed_list(args: &[Value]) -> Result<Value, String> {
+    let mut xs = one_list("reversed", args)?.to_vec();
+    xs.reverse();
+    Ok(Value::List(xs))
+}
+
+fn enumerate_list(args: &[Value]) -> Result<Value, String> {
+    let xs = one_list("enumerate", args)?;
+    Ok(Value::List(
+        xs.iter()
+            .enumerate()
+            .map(|(i, item)| Value::List(vec![Value::Int(i as i64), item.clone()]))
+            .collect(),
+    ))
+}
+
+fn zip_lists(args: &[Value]) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err("zip() takes 2 lists".into());
+    }
+    let left = one_list("zip", &args[..1])?;
+    let right = one_list("zip", &args[1..])?;
+    let n = left.len().min(right.len());
+    Ok(Value::List(
+        (0..n)
+            .map(|i| Value::List(vec![left[i].clone(), right[i].clone()]))
+            .collect(),
+    ))
+}
+
+fn any_all(args: &[Value], want_any: bool) -> Result<Value, String> {
+    let name = if want_any { "any" } else { "all" };
+    let xs = one_list(name, args)?;
+    let flag = if want_any {
+        xs.iter().any(value::truthy)
+    } else {
+        xs.iter().all(value::truthy)
+    };
+    Ok(Value::Bool(flag))
+}
+
+fn as_list_value(args: &[Value]) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err("list() takes 1 argument".into());
+    }
+    match &args[0] {
+        Value::List(xs) => Ok(Value::List(xs.clone())),
+        Value::Str(s) => Ok(Value::List(s.chars().map(|ch| Value::Str(ch.to_string())).collect())),
+        Value::Dict(items) => Ok(Value::List(items.iter().map(|(k, _)| k.clone()).collect())),
+        other => Err(format!("list() cannot convert {}", value::type_name(other))),
     }
 }
 
@@ -1528,6 +1886,37 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
             let suffix = one_str("endswith", args)?;
             Ok(Value::Bool(s.ends_with(&suffix)))
         }
+        (Value::Str(s), "find") => {
+            let needle = one_str("find", args)?;
+            Ok(Value::Int(s.find(&needle).map(|i| i as i64).unwrap_or(-1)))
+        }
+        (Value::Str(s), "count") => {
+            let needle = one_str("count", args)?;
+            if needle.is_empty() {
+                return Err("count() argument must not be empty".into());
+            }
+            Ok(Value::Int(s.matches(&needle).count() as i64))
+        }
+        (Value::Str(s), "isdigit") => no_args(name, args).map(|_| Value::Bool(!s.is_empty() && s.chars().all(|c| c.is_ascii_digit()))),
+        (Value::Str(s), "isalpha") => no_args(name, args).map(|_| Value::Bool(!s.is_empty() && s.chars().all(|c| c.is_alphabetic()))),
+        (Value::Str(s), "title") => no_args(name, args).map(|_| {
+            let mut out = String::new();
+            let mut boundary = true;
+            for ch in s.chars() {
+                if ch.is_alphabetic() {
+                    if boundary {
+                        out.extend(ch.to_uppercase());
+                    } else {
+                        out.extend(ch.to_lowercase());
+                    }
+                    boundary = false;
+                } else {
+                    out.push(ch);
+                    boundary = true;
+                }
+            }
+            Value::Str(out)
+        }),
         (Value::Str(s), "replace") => {
             if args.len() != 2 {
                 return Err("replace() takes 2 arguments".into());
@@ -1563,6 +1952,38 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
         (Value::Dict(items), "values") => {
             no_args(name, args)?;
             Ok(Value::List(items.iter().map(|(_, v)| v.clone()).collect()))
+        }
+        (Value::Dict(items), "items") => {
+            no_args(name, args)?;
+            Ok(Value::List(
+                items
+                    .iter()
+                    .map(|(k, v)| Value::List(vec![k.clone(), v.clone()]))
+                    .collect(),
+            ))
+        }
+        (Value::Dict(items), "copy") => {
+            no_args(name, args)?;
+            Ok(Value::Dict(items.clone()))
+        }
+        (Value::List(xs), "count") => {
+            if args.len() != 1 {
+                return Err("count() takes 1 argument".into());
+            }
+            Ok(Value::Int(xs.iter().filter(|item| *item == &args[0]).count() as i64))
+        }
+        (Value::List(xs), "index") => {
+            if args.len() != 1 {
+                return Err("index() takes 1 argument".into());
+            }
+            xs.iter()
+                .position(|item| item == &args[0])
+                .map(|i| Value::Int(i as i64))
+                .ok_or_else(|| format!("{} is not in the list", value::py_repr(&args[0])))
+        }
+        (Value::List(xs), "copy") => {
+            no_args(name, args)?;
+            Ok(Value::List(xs.clone()))
         }
         (other, method) => Err(format!(
             "{} has no method `{method}`",
