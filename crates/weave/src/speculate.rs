@@ -10,9 +10,14 @@
 //! Only [`Effect::Pure`] and [`Effect::Read`] run ahead. Reversible and
 //! irreversible calls are rejected. The cache does not reorder observation:
 //! the script still waits for its usual effect barrier, then reads the value
-//! that was computed early. A predictor must not pre-run a read that depends
-//! on a write the script has not performed yet. The speculative call itself
-//! is not rolled back.
+//! that was computed early.
+//!
+//! Writes invalidate. When the script starts a reversible or irreversible
+//! call, every cached read whose [`Footprint`] overlaps the write's footprint
+//! is dropped before the write runs. A later read of the same call misses and
+//! runs live, so it observes the write. Tools default to [`Footprint::All`],
+//! so with no annotations any write drops every cached read. Pure entries
+//! are never dropped. The speculative call itself is not rolled back.
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -24,7 +29,7 @@ use tokio::runtime::Handle;
 use tokio::sync::watch;
 
 use crate::effect::Effect;
-use crate::tools::{ToolBody, ToolRegistry};
+use crate::tools::{Footprint, ToolBody, ToolRegistry};
 use crate::value::Value;
 
 /// One predicted host call. Arguments are the cache key, so they must be the
@@ -78,8 +83,10 @@ pub struct SpecStats {
     pub misses: u64,
     /// Launched predictions the program never used.
     pub wasted: u64,
-    /// Predictions that were not started (missing tool, wrong effect, or async).
+    /// Predictions that were not started (missing tool, wrong effect, bad arity, or duplicate).
     pub rejected: u64,
+    /// Cached reads dropped because the script wrote an overlapping resource first.
+    pub invalidated: u64,
 }
 
 impl SpecStats {
@@ -99,6 +106,8 @@ struct Entry {
     current: Mutex<Option<Result<Value, String>>>,
     cv: Condvar,
     consumed: AtomicBool,
+    /// `None` for pure tools, which no write can invalidate.
+    reads: Option<Footprint>,
 }
 
 impl Entry {
@@ -117,6 +126,7 @@ struct Inner {
     hits: AtomicU64,
     misses: AtomicU64,
     rejected: AtomicU64,
+    invalidated: AtomicU64,
 }
 
 /// Cache of in-flight and finished speculative calls.
@@ -137,6 +147,7 @@ impl SpecCache {
                 hits: AtomicU64::new(0),
                 misses: AtomicU64::new(0),
                 rejected: AtomicU64::new(0),
+                invalidated: AtomicU64::new(0),
             }),
         };
         for call in calls {
@@ -160,7 +171,25 @@ impl SpecCache {
             misses: self.inner.misses.load(Ordering::SeqCst),
             wasted,
             rejected: self.inner.rejected.load(Ordering::SeqCst),
+            invalidated: self.inner.invalidated.load(Ordering::SeqCst),
         }
+    }
+
+    /// Drop every cached read whose footprint overlaps `writes`. Called before
+    /// a reversible or irreversible call runs. Unconsumed dropped entries are
+    /// counted in [`SpecStats::invalidated`]; already-consumed ones are just
+    /// removed so a repeat of the read runs live.
+    pub(crate) fn invalidate(&self, writes: &Footprint) {
+        let mut entries = self.inner.entries.lock().expect("spec entries");
+        let mut dropped = 0u64;
+        entries.retain(|_, entry| {
+            let hit = entry.reads.as_ref().is_some_and(|reads| reads.overlaps(writes));
+            if hit && !entry.consumed.load(Ordering::SeqCst) {
+                dropped += 1;
+            }
+            !hit
+        });
+        self.inner.invalidated.fetch_add(dropped, Ordering::SeqCst);
     }
 
     pub(crate) fn miss(&self) {
@@ -193,10 +222,6 @@ impl SpecCache {
             self.inner.rejected.fetch_add(1, Ordering::SeqCst);
             return;
         }
-        if matches!(tool.body, ToolBody::Async(_)) {
-            self.inner.rejected.fetch_add(1, Ordering::SeqCst);
-            return;
-        }
         if let Some(arity) = tool.spec.arity {
             if call.args.len() != arity {
                 self.inner.rejected.fetch_add(1, Ordering::SeqCst);
@@ -208,6 +233,10 @@ impl SpecCache {
             current: Mutex::new(None),
             cv: Condvar::new(),
             consumed: AtomicBool::new(false),
+            reads: match tool.spec.effect {
+                Effect::Pure => None,
+                _ => Some(tool.spec.reads.clone()),
+            },
         });
         {
             let mut entries = self.inner.entries.lock().expect("spec entries");

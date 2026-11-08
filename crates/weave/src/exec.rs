@@ -1411,6 +1411,7 @@ fn schedule_tool(
         return fail(WeaveError::runtime(line, col, format!("unknown tool `{name}`")));
     };
     let effect = tool.spec.effect;
+    let writes = tool.spec.writes.clone();
     let body = tool.body.clone();
     let retries = tool.spec.retries;
     let timeout = tool.spec.timeout;
@@ -1456,6 +1457,7 @@ fn schedule_tool(
                     line,
                     col,
                     effect,
+                    &writes,
                     &speculation,
                     &tool_name,
                     &handle,
@@ -1626,6 +1628,7 @@ async fn execute_tool(
     line: usize,
     col: usize,
     effect: Effect,
+    writes: &crate::tools::Footprint,
     speculation: &Option<SpecCache>,
     tool_name: &str,
     handle: &Handle,
@@ -1643,6 +1646,11 @@ async fn execute_tool(
             }
             cache.miss();
         }
+    } else if let Some(cache) = speculation {
+        // Program order: every earlier read has finished (the write waited on
+        // them). Drop overlapping cached reads before the write can change
+        // what they would return.
+        cache.invalidate(writes);
     }
     run_tool_attempts(line, col, tool_name, handle, body, args, kwargs, retries, timeout, cancel).await
 }
