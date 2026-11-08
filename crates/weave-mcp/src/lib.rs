@@ -132,7 +132,7 @@ fn tools_list(config: &ServerConfig) -> Json {
         }),
         json!({
             "name": "weave_run",
-            "description": "Run a Weave script. Scripted tools are echo or const. Pure and read calls run in parallel; irreversible calls wait until the script is complete. Omit tools to use the server config.",
+            "description": "Run a Weave script. Pure and read calls run in parallel; irreversible calls wait until the script is complete. Omit tools to use the server config (scripted tools and upstream MCP tools).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -193,10 +193,15 @@ pub fn script_tool_listing(config: &ServerConfig) -> String {
     for upstream in &config.upstreams {
         for tool in &upstream.tools {
             let summary = tool.description.lines().next().unwrap_or("");
+            let params: Vec<String> = tool
+                .params
+                .iter()
+                .map(|p| if tool.required.contains(p) { p.clone() } else { format!("{p}=None") })
+                .collect();
             lines.push(format!(
                 "{}({}), effect {}. {}",
                 tool.name,
-                tool.params.join(", "),
+                params.join(", "),
                 tool.effect.as_str(),
                 summary
             ));

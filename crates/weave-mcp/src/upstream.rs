@@ -265,7 +265,10 @@ pub fn arguments_for(tool: &UpstreamTool, args: &[Value], kwargs: &BTreeMap<Stri
     }
     let mut out = Map::new();
     for (name, value) in tool.params.iter().zip(args) {
-        out.insert(name.clone(), plain_json(value));
+        // `None` for an optional parameter means "not given".
+        if *value != Value::Null {
+            out.insert(name.clone(), plain_json(value));
+        }
     }
     for (name, value) in kwargs {
         if out.contains_key(name) {
