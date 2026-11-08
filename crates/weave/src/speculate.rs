@@ -235,7 +235,7 @@ impl SpecCache {
             consumed: AtomicBool::new(false),
             reads: match tool.spec.effect {
                 Effect::Pure => None,
-                _ => Some(tool.spec.reads.clone()),
+                _ => Some(tool.spec.reads.resolve(&call.args, &call.kwargs)),
             },
         });
         {

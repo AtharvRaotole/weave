@@ -1800,7 +1800,7 @@ async fn execute_tool(
         // Program order: every earlier read has finished (the write waited on
         // them). Drop overlapping cached reads before the write can change
         // what they would return.
-        cache.invalidate(writes);
+        cache.invalidate(&writes.resolve(args, kwargs));
     }
     run_tool_attempts(line, col, tool_name, handle, body, args, kwargs, retries, timeout, cancel).await
 }
