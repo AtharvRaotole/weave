@@ -358,6 +358,8 @@ impl EngineDecl {
             self.timeout_ms,
             self.retries,
             self.hard_deadline,
+            None,
+            None,
         )?;
         Ok(func)
     }
@@ -420,6 +422,8 @@ fn install_marked(engine: &mut PyEngine, py: Python<'_>, func: &Bound<'_, PyAny>
         dict_opt_u64(meta, "timeout_ms")?,
         dict_opt_u32(meta, "retries")?,
         dict_bool(meta, "hard_deadline")?,
+        None,
+        None,
     )
 }
 
