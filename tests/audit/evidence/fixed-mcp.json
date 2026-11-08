@@ -153,6 +153,9 @@
               "inputSchema": {
                 "type": "object",
                 "properties": {}
+              },
+              "annotations": {
+                "readOnlyHint": true
               }
             },
             {
@@ -161,6 +164,9 @@
               "inputSchema": {
                 "type": "object",
                 "properties": {}
+              },
+              "annotations": {
+                "readOnlyHint": true
               }
             },
             {
@@ -169,6 +175,9 @@
               "inputSchema": {
                 "type": "object",
                 "properties": {}
+              },
+              "annotations": {
+                "readOnlyHint": true
               }
             },
             {
@@ -177,6 +186,9 @@
               "inputSchema": {
                 "type": "object",
                 "properties": {}
+              },
+              "annotations": {
+                "readOnlyHint": true
               }
             },
             {
@@ -185,6 +197,9 @@
               "inputSchema": {
                 "type": "object",
                 "properties": {}
+              },
+              "annotations": {
+                "readOnlyHint": false
               }
             },
             {
@@ -193,6 +208,9 @@
               "inputSchema": {
                 "type": "object",
                 "properties": {}
+              },
+              "annotations": {
+                "readOnlyHint": true
               }
             }
           ]
@@ -249,13 +267,13 @@
         }
       }
     ],
-    "elapsed_s": 0.021531760001380462,
+    "elapsed_s": 0.022844455001177266,
     "exit": 0,
     "stderr": ""
   },
   "duplicate_routing": {
     "responses": [],
-    "elapsed_s": 0.0393488530007744,
+    "elapsed_s": 0.035494103000019095,
     "exit": 1,
     "stderr": "weave-mcp: duplicate tool `same` from `A` and `B`; use unique prefixes\n"
   },
@@ -280,7 +298,7 @@
         "result": {}
       }
     ],
-    "elapsed_s": 0.3714902770007029,
+    "elapsed_s": 0.37055800300004194,
     "exit": 0,
     "stderr": "",
     "write_completed": true

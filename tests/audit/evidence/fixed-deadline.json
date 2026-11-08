@@ -3,7 +3,7 @@
     "mode": "saturation",
     "watchdog_timeout": false,
     "exit": 0,
-    "stdout": "{\"mode\": \"saturation\", \"elapsed_s\": 0.057718047999514965, \"status\": \"L1:C5: tool `slow` failed after 1 attempt(s): timed out after 50ms hint: catch it with `except ToolError` or fix the call\"}\n{\"markers\": []}\n",
+    "stdout": "{\"mode\": \"saturation\", \"elapsed_s\": 0.05361152499972377, \"status\": \"L1:C5: tool `slow` failed after 1 attempt(s): timed out after 50ms hint: catch it with `except ToolError` or fix the call\"}\n{\"markers\": []}\n",
     "stderr": ""
   },
   {
