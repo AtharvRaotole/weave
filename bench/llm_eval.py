@@ -9,6 +9,13 @@ a provider responds.
 Keys and optional model overrides:
 
     OPENAI_API_KEY, OPENAI_MODEL (default gpt-4o-mini)
+
+Modes: `weave` (one Weave script), `json_tool_calls` (one ordered JSON list of
+calls, no data flow between them), and, for OpenAI, `native_tools` (standard
+function calling: one model round trip per turn, tools run one at a time).
+Every tool call sleeps WEAVE_EVAL_TOOL_DELAY seconds (default 0.04) in every
+mode. WEAVE_EVAL_REPEATS (default 3) repeats each case; latency is wall time
+including model calls.
     ANTHROPIC_API_KEY, ANTHROPIC_MODEL (default claude-3-5-haiku-latest)
     GEMINI_API_KEY or GOOGLE_API_KEY, GEMINI_MODEL (default gemini-2.0-flash)
 """
@@ -18,6 +25,8 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
+import statistics
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -31,6 +40,20 @@ from bench.harness import machine_info, utc_stamp  # noqa: E402
 from bench.prompts import few_shot_messages, repair_message, system_message  # noqa: E402
 
 MAX_ATTEMPTS = 3
+# Every tool call sleeps this long in every mode, so latency includes tool time.
+TOOL_DELAY_S = float(os.environ.get("WEAVE_EVAL_TOOL_DELAY", "0.04"))
+REPEATS = int(os.environ.get("WEAVE_EVAL_REPEATS", "3"))
+MAX_TOOL_TURNS = 8
+MODES = ("weave", "json_tool_calls", "native_tools")
+
+
+def _slow(fn):
+    def wrapped(*args):
+        time.sleep(TOOL_DELAY_S)
+        return fn(*args)
+
+    wrapped.__name__ = fn.__name__
+    return wrapped
 
 
 def providers() -> list[dict]:
@@ -140,7 +163,7 @@ def _engine(task):
     for tool in task.tools:
         engine.tool(
             tool.name,
-            IMPLEMENTATIONS[tool.name],
+            _slow(IMPLEMENTATIONS[tool.name]),
             effect=tool.effect,
             arity=len(tool.params),
         )
@@ -167,6 +190,7 @@ def execute_json_calls(text: str) -> str:
     for call in calls:
         if not isinstance(call, dict) or "tool" not in call:
             raise ValueError("each call needs a tool name")
+        time.sleep(TOOL_DELAY_S)
         last = call_tool(call["tool"], list(call.get("args") or []))
     return last
 
@@ -192,9 +216,13 @@ def grade_task(provider: dict, task, mode: str) -> dict:
     attempts = []
     passed = False
     source = ""
+    started = time.perf_counter()
+    model_s = 0.0
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
+            t0 = time.perf_counter()
             text, usage = complete(provider["name"], provider["model"], messages)
+            model_s += time.perf_counter() - t0
             source = _strip_fence(text)
             if mode == "weave":
                 errors = check_weave(task, source)
@@ -203,11 +231,11 @@ def grade_task(provider: dict, task, mode: str) -> dict:
                 output = execute_weave(task, source)
             else:
                 output = execute_json_calls(text)
-            ok = output == task.expected
-            attempts.append({"attempt": attempt, "ok": ok, "usage": usage, "error": None})
-            if ok:
+            if output == task.expected:
+                attempts.append({"attempt": attempt, "ok": True, "usage": usage, "error": None})
                 passed = True
                 break
+            # Logged once, by the handler below.
             raise ValueError(f"output was {output!r}, expected {task.expected!r}")
         except (
             urllib.error.URLError,
@@ -218,10 +246,16 @@ def grade_task(provider: dict, task, mode: str) -> dict:
             json.JSONDecodeError,
         ) as exc:
             attempts.append(
-                {"attempt": attempt, "ok": False, "usage": locals().get("usage"), "error": str(exc)}
+                {"attempt": attempt, "ok": False, "usage": usage, "error": str(exc)}
             )
             messages.append({"role": "assistant", "content": source or str(exc)})
-            messages.append({"role": "user", "content": repair_message(source, [str(exc)])})
+            if mode == "weave":
+                repair = repair_message(source, [str(exc)])
+            else:
+                repair = (
+                    f"That failed: {exc}\nReply with only the corrected JSON array of tool calls."
+                )
+            messages.append({"role": "user", "content": repair})
     input_tokens = sum((item["usage"] or {}).get("input_tokens") or 0 for item in attempts)
     output_tokens = sum((item["usage"] or {}).get("output_tokens") or 0 for item in attempts)
     return {
@@ -234,8 +268,119 @@ def grade_task(provider: dict, task, mode: str) -> dict:
         "retries": max(0, len(attempts) - 1),
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
+        "model_turns": len(attempts),
+        "wall_s": time.perf_counter() - started,
+        "model_s": model_s,
         "attempt_log": attempts,
     }
+
+
+def _openai_tools(task) -> list[dict]:
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": tool.name,
+                "description": f"{tool.doc} Effect: {tool.effect}.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {p: {"type": "string"} for p in tool.params},
+                    "required": list(tool.params),
+                    "additionalProperties": False,
+                },
+            },
+        }
+        for tool in task.tools
+    ]
+
+
+def grade_native(provider: dict, task) -> dict:
+    """Standard function calling: one model round trip per turn, tools run one
+    after another in the order the model asked for them."""
+    messages = [
+        {"role": "system", "content": "Use the tools to complete the task. When done, reply with only the final answer string."},
+        {"role": "user", "content": f"Task: {task.instruction}"},
+    ]
+    started = time.perf_counter()
+    model_s = 0.0
+    tool_calls_made = 0
+    turns = 0
+    input_tokens = output_tokens = 0
+    answer = None
+    error = None
+    try:
+        while turns < MAX_TOOL_TURNS:
+            turns += 1
+            t0 = time.perf_counter()
+            body = _post(
+                "https://api.openai.com/v1/chat/completions",
+                {"model": provider["model"], "messages": messages, "tools": _openai_tools(task)},
+                {
+                    "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
+                    "Content-Type": "application/json",
+                },
+            )
+            model_s += time.perf_counter() - t0
+            usage = body.get("usage") or {}
+            input_tokens += usage.get("prompt_tokens") or 0
+            output_tokens += usage.get("completion_tokens") or 0
+            message = body["choices"][0]["message"]
+            calls = message.get("tool_calls") or []
+            if not calls:
+                answer = (message.get("content") or "").strip()
+                break
+            messages.append({"role": "assistant", "content": message.get("content"), "tool_calls": calls})
+            for call in calls:
+                args = json.loads(call["function"]["arguments"] or "{}")
+                tool = next(t for t in task.tools if t.name == call["function"]["name"])
+                time.sleep(TOOL_DELAY_S)
+                result = call_tool(tool.name, [args[p] for p in tool.params])
+                tool_calls_made += 1
+                messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
+        else:
+            error = f"no final answer after {MAX_TOOL_TURNS} turns"
+    except (urllib.error.URLError, KeyError, ValueError, TypeError, StopIteration) as exc:
+        error = str(exc)
+    passed = answer == task.expected
+    if answer is not None and not passed:
+        error = f"output was {answer!r}, expected {task.expected!r}"
+    return {
+        "task": task.id,
+        "provider": provider["name"],
+        "model": provider["model"],
+        "mode": "native_tools",
+        "passed": passed,
+        "attempts": 1,
+        "retries": 0,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "model_turns": turns,
+        "tool_calls": tool_calls_made,
+        "wall_s": time.perf_counter() - started,
+        "model_s": model_s,
+        "error": error,
+    }
+
+
+def summarize(rows: list[dict]) -> list[dict]:
+    out = []
+    keys = sorted({(r["model"], r["task"], r["mode"]) for r in rows})
+    for model, task, mode in keys:
+        group = [r for r in rows if (r["model"], r["task"], r["mode"]) == (model, task, mode)]
+        out.append(
+            {
+                "model": model,
+                "task": task,
+                "mode": mode,
+                "runs": len(group),
+                "passed": sum(r["passed"] for r in group),
+                "median_wall_s": statistics.median(r["wall_s"] for r in group),
+                "median_model_turns": statistics.median(r["model_turns"] for r in group),
+                "input_tokens": sum(r["input_tokens"] for r in group),
+                "output_tokens": sum(r["output_tokens"] for r in group),
+            }
+        )
+    return out
 
 
 def main() -> int:
@@ -258,10 +403,15 @@ def main() -> int:
         }
     else:
         rows = []
-        for provider in found:
-            for task in TASKS:
-                for mode in ("weave", "json_tool_calls"):
-                    rows.append(grade_task(provider, task, mode))
+        for _ in range(REPEATS):
+            for provider in found:
+                for task in TASKS:
+                    for mode in MODES:
+                        if mode == "native_tools":
+                            if provider["name"] == "openai":
+                                rows.append(grade_native(provider, task))
+                        else:
+                            rows.append(grade_task(provider, task, mode))
         passed = sum(1 for row in rows if row["passed"])
         payload = {
             "kind": "llm",
@@ -269,8 +419,11 @@ def main() -> int:
             "measured": True,
             "machine": machine_info(),
             "tasks": task_ids,
-            "modes": ["weave", "json_tool_calls"],
+            "modes": list(MODES),
+            "tool_delay_s": TOOL_DELAY_S,
+            "repeats": REPEATS,
             "cases": len(rows),
+            "summary": summarize(rows),
             "passed": passed,
             "pass_rate": passed / len(rows) if rows else None,
             "rows": rows,
