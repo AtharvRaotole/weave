@@ -198,7 +198,15 @@ fn reads_before_assign(stmts: &[Stmt], writes: &HashSet<String>, assigned: &mut 
                 }
             }
             StmtKind::AugAssign { target, value, .. } => {
-                if target_reads_carried(target, writes, assigned) || expr_reads_carried(value, writes, assigned) {
+                // `n += x` reads `n` before writing it.
+                let reads_self = match target {
+                    Target::Name { name, .. } => writes.contains(name) && !assigned.contains(name),
+                    _ => false,
+                };
+                if reads_self
+                    || target_reads_carried(target, writes, assigned)
+                    || expr_reads_carried(value, writes, assigned)
+                {
                     return true;
                 }
                 mark_assigned(target, assigned);
