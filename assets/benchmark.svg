@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<style>.h{font-size:15px;font-weight:600;fill:#111827}.m{font-size:13px;fill:#374151}.v{font-size:12px;fill:#111827}.n{font-size:11px;fill:#6b7280}</style>
+<rect width="720" height="420" fill="#ffffff"/>
+<text x="24" y="30" class="h">Median wall time per task (lower is better)</text>
+<text x="24" y="74" class="m">gpt-5.4-mini</text>
+<rect x="150" y="48" width="72.4" height="18" rx="3" fill="#2563eb"/>
+<text x="230.4" y="61" class="v">0.85 s</text>
+<rect x="150" y="70" width="265.2" height="18" rx="3" fill="#9ca3af"/>
+<text x="423.2" y="83" class="v">3.11 s</text>
+<text x="24" y="132" class="m">gpt-6.1-sol</text>
+<rect x="150" y="106" width="156.4" height="18" rx="3" fill="#2563eb"/>
+<text x="314.4" y="119" class="v">1.83 s</text>
+<rect x="150" y="128" width="420.0" height="18" rx="3" fill="#9ca3af"/>
+<text x="578.0" y="141" class="v">4.92 s</text>
+<text x="24" y="210" class="h">Mean model turns per task (lower is better)</text>
+<text x="24" y="254" class="m">gpt-5.4-mini</text>
+<rect x="150" y="228" width="168.6" height="18" rx="3" fill="#2563eb"/>
+<text x="326.6" y="241" class="v">1.10</text>
+<rect x="150" y="250" width="404.1" height="18" rx="3" fill="#9ca3af"/>
+<text x="562.1" y="263" class="v">2.65</text>
+<text x="24" y="312" class="m">gpt-6.1-sol</text>
+<rect x="150" y="286" width="175.0" height="18" rx="3" fill="#2563eb"/>
+<text x="333.0" y="299" class="v">1.15</text>
+<rect x="150" y="308" width="420.0" height="18" rx="3" fill="#9ca3af"/>
+<text x="578.0" y="321" class="v">2.75</text>
+<rect x="24" y="384" width="12" height="12" rx="2" fill="#2563eb"/>
+<text x="42" y="394" class="m">Weave (one script)</text>
+<rect x="214" y="384" width="12" height="12" rx="2" fill="#9ca3af"/>
+<text x="232" y="394" class="m">Native tool calling</text>
+<text x="24" y="374" class="n">16 tasks x 3 repeats on 4 real MCP servers. Passed (Weave vs native): gpt-5.4-mini 48/48 vs 48/48; gpt-6.1-sol 48/48 vs 48/48.</text>
+<text x="24" y="414" class="n">Source: bench/results/real-20261108T175251Z.json and real-20261108T175500Z.json</text>
+</svg>

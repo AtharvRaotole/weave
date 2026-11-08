@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="304" viewBox="0 0 760 304" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<style>.t{font-size:15px;font-weight:600;fill:#111827}.s{font-size:12px;fill:#374151}.c{font-size:11px;fill:#ffffff;font-family:ui-monospace,Menlo,Consolas,monospace}.k{font-size:11px;fill:#111827;font-family:ui-monospace,Menlo,Consolas,monospace}</style>
+<rect width="760" height="304" fill="#ffffff"/>
+<text x="20" y="28" class="t">Native tool calling: a model turn per step</text>
+<text x="20" y="294" class="s">Illustration. Measured turns are in the chart below.</text>
+<text x="400" y="28" class="t">Weave: one script, independent calls together</text>
+<line x1="380" y1="14" x2="380" y2="286" stroke="#e5e7eb" stroke-width="2"/>
+<rect x="20" y="46" width="230" height="26" rx="4" fill="#f59e0b"/>
+<text x="30" y="63" class="c">model: decide: read a.txt</text>
+<rect x="20" y="79" width="230" height="26" rx="4" fill="#9ca3af"/>
+<text x="30" y="96" class="c">tool: read a.txt</text>
+<rect x="20" y="112" width="230" height="26" rx="4" fill="#f59e0b"/>
+<text x="30" y="129" class="c">model: decide: read b.txt</text>
+<rect x="20" y="145" width="230" height="26" rx="4" fill="#9ca3af"/>
+<text x="30" y="162" class="c">tool: read b.txt</text>
+<rect x="20" y="178" width="230" height="26" rx="4" fill="#f59e0b"/>
+<text x="30" y="195" class="c">model: decide: read c.txt</text>
+<rect x="20" y="211" width="230" height="26" rx="4" fill="#9ca3af"/>
+<text x="30" y="228" class="c">tool: read c.txt</text>
+<rect x="20" y="244" width="230" height="26" rx="4" fill="#f59e0b"/>
+<text x="30" y="261" class="c">model: answer</text>
+<text x="290" y="168" class="s">time</text><line x1="272" y1="46" x2="272" y2="280" stroke="#6b7280" marker-end="url(#a)"/>
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="4" refY="7" orient="auto"><path d="M0,0 L8,0 L4,8 z" fill="#6b7280"/></marker></defs>
+<rect x="400" y="46" width="340" height="26" rx="4" fill="#f59e0b"/><text x="410" y="63" class="c">model: write one script</text>
+<rect x="400" y="80" width="340" height="80" rx="4" fill="#f3f4f6" stroke="#e5e7eb"/>
+<text x="410" y="98" class="k">a = fs_read_text_file(f"&#123;root&#125;/a.txt")</text>
+<text x="410" y="115" class="k">b = fs_read_text_file(f"&#123;root&#125;/b.txt")</text>
+<text x="410" y="132" class="k">c = fs_read_text_file(f"&#123;root&#125;/c.txt")</text>
+<text x="410" y="149" class="k">print(int(a) + int(b) + int(c))</text>
+<rect x="400" y="172" width="108" height="26" rx="4" fill="#2563eb"/><text x="410" y="189" class="c">read a.txt</text>
+<rect x="516" y="172" width="108" height="26" rx="4" fill="#2563eb"/><text x="526" y="189" class="c">read b.txt</text>
+<rect x="632" y="172" width="108" height="26" rx="4" fill="#2563eb"/><text x="642" y="189" class="c">read c.txt</text>
+<text x="400" y="216" class="s">The three reads are independent, so they run together.</text>
+<rect x="400" y="226" width="340" height="26" rx="4" fill="#10b981"/><text x="410" y="243" class="c">print the sum, write a replayable trace</text>
+<text x="400" y="276" class="s">Writes (effect irreversible) wait until the script is complete.</text>
+</svg>
