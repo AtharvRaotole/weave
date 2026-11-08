@@ -1,0 +1,1711 @@
+{
+  "kind": "real_tools",
+  "measured": true,
+  "machine": {
+    "python": "3.13.5",
+    "platform": "Linux-6.12.113+-x86_64-with-glibc2.41",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 8,
+    "hostname": "grok-bot-vm-405872838"
+  },
+  "models": [
+    "gpt-5.4-mini",
+    "gpt-6.1-sol"
+  ],
+  "servers": [
+    "@modelcontextprotocol/server-filesystem",
+    "mcp-server-fetch"
+  ],
+  "repeats": 3,
+  "variant": [
+    "examples",
+    "structured"
+  ],
+  "summary": [
+    {
+      "model": "gpt-5.4-mini",
+      "task": "append_log",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 0.6421025619997636,
+      "median_model_turns": 1.0,
+      "input_tokens": 6632,
+      "output_tokens": 98
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 0.7283434820001276,
+      "median_model_turns": 1.0,
+      "input_tokens": 6665,
+      "output_tokens": 147
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.8804772390003563,
+      "median_model_turns": 1,
+      "input_tokens": 13435,
+      "output_tokens": 403
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.254079608000211,
+      "median_model_turns": 1,
+      "input_tokens": 9937,
+      "output_tokens": 140
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.7676642469996295,
+      "median_model_turns": 1,
+      "input_tokens": 9906,
+      "output_tokens": 166
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 0.8840474759999779,
+      "median_model_turns": 1.0,
+      "input_tokens": 6644,
+      "output_tokens": 207
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_count",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 0.6625266634996478,
+      "median_model_turns": 1.0,
+      "input_tokens": 6614,
+      "output_tokens": 109
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 0.7011644894996607,
+      "median_model_turns": 1.0,
+      "input_tokens": 6615,
+      "output_tokens": 94
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 0.6388600500004031,
+      "median_model_turns": 1.0,
+      "input_tokens": 6642,
+      "output_tokens": 112
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "largest_note",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 0.8552124110001387,
+      "median_model_turns": 1.0,
+      "input_tokens": 6653,
+      "output_tokens": 215
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 0.7878750359996047,
+      "median_model_turns": 1.0,
+      "input_tokens": 6633,
+      "output_tokens": 150
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 0.7159550175001641,
+      "median_model_turns": 1.0,
+      "input_tokens": 6672,
+      "output_tokens": 90
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 0.6178745954998703,
+      "median_model_turns": 1.0,
+      "input_tokens": 6660,
+      "output_tokens": 112
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.8257906099997854,
+      "median_model_turns": 1,
+      "input_tokens": 9971,
+      "output_tokens": 267
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.3298706764994677,
+      "median_model_turns": 1.0,
+      "input_tokens": 6692,
+      "output_tokens": 152
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.8470259700006864,
+      "median_model_turns": 1,
+      "input_tokens": 9989,
+      "output_tokens": 286
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "append_log",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.865889562999655,
+      "median_model_turns": 1.0,
+      "input_tokens": 6661,
+      "output_tokens": 143
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "config_to_memory",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.649993881499995,
+      "median_model_turns": 1.0,
+      "input_tokens": 6663,
+      "output_tokens": 142
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "count_urgent",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 4.075477040000351,
+      "median_model_turns": 1.0,
+      "input_tokens": 6648,
+      "output_tokens": 494
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "example_heading",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 2.079692558500028,
+      "median_model_turns": 1.0,
+      "input_tokens": 6603,
+      "output_tokens": 106
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "fallback_file",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.3373635869997997,
+      "median_model_turns": 1.0,
+      "input_tokens": 6605,
+      "output_tokens": 110
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "git_commit",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 2.5992331809998177,
+      "median_model_turns": 1.0,
+      "input_tokens": 6654,
+      "output_tokens": 197
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "git_count",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.546209513499889,
+      "median_model_turns": 1.0,
+      "input_tokens": 6618,
+      "output_tokens": 112
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "git_last_message",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.5004000429994448,
+      "median_model_turns": 1.0,
+      "input_tokens": 6621,
+      "output_tokens": 90
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "git_modified",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.7611280679998345,
+      "median_model_turns": 1.0,
+      "input_tokens": 6620,
+      "output_tokens": 113
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "largest_note",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.9275286859997323,
+      "median_model_turns": 1.0,
+      "input_tokens": 6637,
+      "output_tokens": 214
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "mem_lookup",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.9087960515003033,
+      "median_model_turns": 1.0,
+      "input_tokens": 6638,
+      "output_tokens": 167
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "mem_observe",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 2.898572226500164,
+      "median_model_turns": 1.0,
+      "input_tokens": 6635,
+      "output_tokens": 244
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "mem_relate",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.2846663310001531,
+      "median_model_turns": 1.0,
+      "input_tokens": 6663,
+      "output_tokens": 122
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "sum_notes",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 1.56075047000013,
+      "median_model_turns": 1.0,
+      "input_tokens": 6637,
+      "output_tokens": 171
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "two_pages",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 2.0212594500003433,
+      "median_model_turns": 1.0,
+      "input_tokens": 6685,
+      "output_tokens": 142
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "write_version",
+      "mode": "weave",
+      "runs": 2,
+      "passed": 2,
+      "median_wall_s": 2.087614111499988,
+      "median_model_turns": 1.0,
+      "input_tokens": 6664,
+      "output_tokens": 230
+    }
+  ],
+  "rows": [
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3321,
+      "output_tokens": 88,
+      "wall_s": 0.8257906099997854,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6781,
+      "output_tokens": 203,
+      "wall_s": 1.8351951410004403,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "The run finished but the result is not correct. Printed output: '1'. Re-read the task and fix the logic.",
+          "source": "items = fs_list_directory(\"/tmp/weave-real-a2tf3cat/data/inbox\")\ncount = 0\nfor item in items:\n    if item.startswith(\"[FILE] \") and item.endswith(\".txt\"):\n        path = \"/tmp/weave-real-a2tf3cat/data/inbox/\" + item.split(\"] \", 1)[1]\n        text = fs_read_text_file(path)\n        if \"URGENT\" in text.split():\n            count += 1\nprint(count)"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3327,
+      "output_tokens": 95,
+      "wall_s": 0.8721043530003953,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3303,
+      "output_tokens": 56,
+      "wall_s": 0.7676642469996295,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3319,
+      "output_tokens": 36,
+      "wall_s": 1.1136315319999994,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3357,
+      "output_tokens": 74,
+      "wall_s": 1.3415841919995728,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3322,
+      "output_tokens": 50,
+      "wall_s": 0.6370876869996209,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3326,
+      "output_tokens": 106,
+      "wall_s": 0.8974211190006827,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3314,
+      "output_tokens": 39,
+      "wall_s": 0.6503452099996139,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3313,
+      "output_tokens": 57,
+      "wall_s": 0.7388679159994354,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_count",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3326,
+      "output_tokens": 58,
+      "wall_s": 0.6609310530002404,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3319,
+      "output_tokens": 102,
+      "wall_s": 0.870590634999644,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3319,
+      "output_tokens": 75,
+      "wall_s": 0.7473637289995168,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3340,
+      "output_tokens": 45,
+      "wall_s": 0.7630671560000337,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3332,
+      "output_tokens": 61,
+      "wall_s": 0.6152004329996998,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3327,
+      "output_tokens": 76,
+      "wall_s": 0.67268528600016,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3315,
+      "output_tokens": 84,
+      "wall_s": 1.6549574290002056,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3328,
+      "output_tokens": 279,
+      "wall_s": 4.360166452000158,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3331,
+      "output_tokens": 115,
+      "wall_s": 2.1146305940001184,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3299,
+      "output_tokens": 54,
+      "wall_s": 1.3266092359999675,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3306,
+      "output_tokens": 57,
+      "wall_s": 2.1277054789998147,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3346,
+      "output_tokens": 71,
+      "wall_s": 2.1214089600007355,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3330,
+      "output_tokens": 70,
+      "wall_s": 1.6672774989992831,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3317,
+      "output_tokens": 123,
+      "wall_s": 2.003189070999724,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3311,
+      "output_tokens": 45,
+      "wall_s": 1.6476947809997,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3309,
+      "output_tokens": 59,
+      "wall_s": 1.711835921999409,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_count",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3319,
+      "output_tokens": 59,
+      "wall_s": 2.028200375999404,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3318,
+      "output_tokens": 87,
+      "wall_s": 2.469140759999391,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3315,
+      "output_tokens": 61,
+      "wall_s": 1.5289306750000833,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3319,
+      "output_tokens": 94,
+      "wall_s": 1.901896592000412,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3321,
+      "output_tokens": 61,
+      "wall_s": 1.2912418559999423,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3333,
+      "output_tokens": 71,
+      "wall_s": 1.6332751010004358,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3322,
+      "output_tokens": 88,
+      "wall_s": 0.7212784379998993,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3319,
+      "output_tokens": 93,
+      "wall_s": 0.7922964990002583,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3341,
+      "output_tokens": 96,
+      "wall_s": 0.786154334999992,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3303,
+      "output_tokens": 56,
+      "wall_s": 0.8655278829992312,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3306,
+      "output_tokens": 55,
+      "wall_s": 1.254079608000211,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3335,
+      "output_tokens": 78,
+      "wall_s": 1.3181571609993625,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3310,
+      "output_tokens": 48,
+      "wall_s": 0.6471174369999062,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3327,
+      "output_tokens": 109,
+      "wall_s": 0.8130037029995947,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3301,
+      "output_tokens": 55,
+      "wall_s": 0.7519837689997075,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3301,
+      "output_tokens": 52,
+      "wall_s": 0.5861854109998603,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_count",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3316,
+      "output_tokens": 54,
+      "wall_s": 0.6167890470005659,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3325,
+      "output_tokens": 105,
+      "wall_s": 0.8975043170003119,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3314,
+      "output_tokens": 75,
+      "wall_s": 0.8283863429996927,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3332,
+      "output_tokens": 45,
+      "wall_s": 0.6688428790002945,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3328,
+      "output_tokens": 51,
+      "wall_s": 0.6205487580000408,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3338,
+      "output_tokens": 71,
+      "wall_s": 0.7840016780000951,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3322,
+      "output_tokens": 87,
+      "wall_s": 1.4665435110000544,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3320,
+      "output_tokens": 215,
+      "wall_s": 3.790787628000544,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3333,
+      "output_tokens": 115,
+      "wall_s": 2.060597628999858,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3306,
+      "output_tokens": 56,
+      "wall_s": 1.348117937999632,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3297,
+      "output_tokens": 49,
+      "wall_s": 2.0316796380002415,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3339,
+      "output_tokens": 71,
+      "wall_s": 1.9211099399999512,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3331,
+      "output_tokens": 73,
+      "wall_s": 2.064501627000027,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3320,
+      "output_tokens": 91,
+      "wall_s": 1.8518683009997403,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3310,
+      "output_tokens": 45,
+      "wall_s": 1.3531053049991897,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3309,
+      "output_tokens": 53,
+      "wall_s": 1.380583105000369,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_count",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3301,
+      "output_tokens": 54,
+      "wall_s": 1.4940557600002649,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3336,
+      "output_tokens": 110,
+      "wall_s": 2.7293256020002445,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3323,
+      "output_tokens": 106,
+      "wall_s": 2.2886614280005233,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3316,
+      "output_tokens": 150,
+      "wall_s": 3.895247860999916,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3342,
+      "output_tokens": 61,
+      "wall_s": 1.278090806000364,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3330,
+      "output_tokens": 71,
+      "wall_s": 1.6667126619995543,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3328,
+      "output_tokens": 91,
+      "wall_s": 0.8610315280002396,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3335,
+      "output_tokens": 107,
+      "wall_s": 0.8804772390003563,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3321,
+      "output_tokens": 95,
+      "wall_s": 0.8470259700006864,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3300,
+      "output_tokens": 54,
+      "wall_s": 0.6759442160000617,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3312,
+      "output_tokens": 49,
+      "wall_s": 1.3517539969998325,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 2
+    }
+  ],
+  "prices_per_1m": {
+    "gpt-5.4-mini": [
+      0.75,
+      0.075,
+      4.5
+    ],
+    "gpt-6.1-sol": [
+      2.0,
+      0.1,
+      10.0
+    ]
+  },
+  "estimated_cost_usd": 0.3504,
+  "stopped_early": "spend passed $0.35"
+}

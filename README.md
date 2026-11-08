@@ -477,6 +477,53 @@ of 18 without it. Config example:
  "examples": {"list_directory": {"path": "/data"}}}
 ```
 
+### Does it generalize? (M11: 16 tasks, 4 servers, 2 models)
+
+The real-tools eval now has 16 tasks across four reference MCP servers:
+`server-filesystem`, `mcp-server-fetch`, `mcp-server-git`, and
+`server-memory`. Five of them write, and the harness checks the real result
+after each run: file contents, the git commit (`git log`), and the memory
+graph's JSONL file. The task categories are parallel reads, loops, write
+ordering, tool errors, fetch, git reads, a git commit, memory reads, memory
+writes, and one cross-server task (config file to memory entity). Each run uses
+the M10 defaults (`examples,structured`) and 3 repeats, which gives 48 runs per
+model and mode. Example outputs come from a scratch git repo and queries that no
+task asks about.
+
+| run (UTC) | model | code | Weave passed (first try) | Weave median | Weave mean turns | native passed | native median | native mean turns | cost |
+|---|---|---|---|---|---|---|---|---|---|
+| 17:37:35 | gpt-5.4-mini | M10 | 45/48 (33) | 1.159 s | 1.46 | 48/48 | 3.556 s | 2.69 | $0.2383 |
+| 17:52:51 | gpt-5.4-mini | + fixes 1-2 | **48/48 (44)** | 0.849 s | 1.10 | 48/48 | 3.108 s | 2.65 | $0.2215 |
+| 17:55:00 | gpt-6.1-sol | + fixes 1-2 | **48/48 (42)** | 1.833 s | 1.15 | 48/48 | 4.923 s | 2.75 | $0.4944 |
+| 18:00:40 | both, Weave only | + fix 3 | mini 37/37 (36), sol 32/32 (32) | 0.786 s / 1.877 s | 1.03 / 1.00 | — | — | — | $0.3504 |
+
+The last run hit its $0.35 cap after 69 of 96 planned runs (`stopped_early`
+in the JSON), so it covers repeats 0 and 1 of both models and part of repeat 2.
+M11 spent $1.3046 in total.
+
+What failed in the first run, and the fixes:
+
+1. **Runtime bug.** A parallel `for` loop dropped a conditional assignment
+   when a later iteration skipped the `if`. For example, in
+   `for obs in obs_list: if "lives in" in obs: city = ...`, `city` came out as
+   its pre-loop value. That caused all three `mem_lookup` failures. Now the
+   value comes from the last iteration that assigned it, as in Python. The
+   differential fuzzer generates this pattern, and it fails on the old code.
+2. **Structured parameters.** The listing showed only parameter names, so
+   scripts guessed `type` for `entityType` and `observations` for `contents`.
+   Native function calling sees the JSON schema. The listing now spells out
+   object parameters, e.g.
+   `entities: list[{name: str, entityType: str, observations: list[str]}]`.
+3. **Missing string methods** that gpt-6.1-sol used: `strip`/`rstrip` with a
+   character set, and `isalnum`.
+
+After fixes 1 and 2, both models passed 48/48 in Weave and in native mode.
+Per task, Weave's median wall time was 1.6x to 6.7x lower than native on
+gpt-5.4-mini. On gpt-6.1-sol it was 0.9x to 4.0x lower: `count_urgent` and
+`mem_lookup` took a retry on gpt-6.1-sol because of the missing methods in fix 3,
+which made them about as slow as native. In the partial run after fix 3,
+gpt-6.1-sol passed every task on the first try.
+
 ### Streaming into a live session
 
 `bench/streaming.py` turns OpenAI chat chunks (`choices[0].delta.content`) and Anthropic events (`content_block_delta` / `delta.text`) into text and pushes each piece into `Session.push`. Safe calls start once their statement is complete, before the rest of the script arrives.
