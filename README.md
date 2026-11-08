@@ -246,6 +246,19 @@ python bench/llm_eval.py
 
 Re-run the mock suite with `python bench/run_mock.py`. `BENCH_LATENCY_MS` and `BENCH_REPEATS` change the sleep and the number of repeats. `pydantic-monty` is optional; without it the Monty column is recorded as skipped.
 
+### Streaming into a live session
+
+`bench/streaming.py` turns OpenAI chat chunks (`choices[0].delta.content`) and Anthropic events (`content_block_delta` / `delta.text`) into text and pushes each piece into `Session.push`. Safe calls start once their statement is complete, before the rest of the script arrives.
+
+A deterministic demo sleeps 12 ms between 4-character chunks and 80 ms inside each `slow` tool. Three repeats, medians, from [`bench/results/stream-20261108T022244Z.json`](bench/results/stream-20261108T022244Z.json):
+
+| Mode | Median time to first tool (s) | Median total (s) |
+| --- | ---: | ---: |
+| streaming `Session.push` | 0.049319 | 0.166217 |
+| `Engine.run` after the same gaps | 0.146334 | 0.227328 |
+
+`bench/prompts.py` is the system prompt and few-shot examples. `bench/llm_eval.py` uses them, plus `repair_message`, on the tasks in `bench/dataset.py`. Weave and an ordered JSON tool-call baseline are graded the same way. Without an API key the eval writes a skip record and no pass rate.
+
 ## Layout
 
 - `crates/weave` — parser, checker, scheduler, trace
