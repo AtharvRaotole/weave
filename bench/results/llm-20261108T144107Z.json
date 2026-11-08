@@ -1,0 +1,758 @@
+{
+  "kind": "llm",
+  "skipped": false,
+  "measured": true,
+  "machine": {
+    "python": "3.13.5",
+    "platform": "Linux-6.12.94+-x86_64-with-glibc2.41",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 8,
+    "hostname": "grok-bot-vm-405872838"
+  },
+  "tasks": [
+    "research_four",
+    "weather_paris",
+    "support_draft",
+    "skip_manager_city",
+    "reserve_if_in_stock",
+    "reserve_in_stock",
+    "gear_for_forecast",
+    "order_totals",
+    "high_priority_tickets",
+    "stale_docs",
+    "price_fallback",
+    "emails_with_failures",
+    "charge_then_receipt",
+    "cancel_then_notify",
+    "conditional_transfer",
+    "sweep_accounts"
+  ],
+  "modes": [
+    "weave"
+  ],
+  "tool_delay_s": 0.04,
+  "repeats": 1,
+  "cases": 16,
+  "summary": [
+    {
+      "model": "gpt-5.4-mini",
+      "task": "cancel_then_notify",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 0.6330003500042949,
+      "median_model_turns": 1,
+      "input_tokens": 407,
+      "output_tokens": 24
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "charge_then_receipt",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 0.5518109859985998,
+      "median_model_turns": 1,
+      "input_tokens": 416,
+      "output_tokens": 29
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "conditional_transfer",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 0.7835230959899491,
+      "median_model_turns": 1,
+      "input_tokens": 425,
+      "output_tokens": 42
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "emails_with_failures",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 1.1599706700071692,
+      "median_model_turns": 1,
+      "input_tokens": 441,
+      "output_tokens": 143
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "gear_for_forecast",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 0.8110863010078901,
+      "median_model_turns": 1,
+      "input_tokens": 413,
+      "output_tokens": 61
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "high_priority_tickets",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 1.4783035869913874,
+      "median_model_turns": 2,
+      "input_tokens": 996,
+      "output_tokens": 106
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "order_totals",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 0.7512453380040824,
+      "median_model_turns": 1,
+      "input_tokens": 410,
+      "output_tokens": 35
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "price_fallback",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 1.4192903619987192,
+      "median_model_turns": 2,
+      "input_tokens": 942,
+      "output_tokens": 60
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "research_four",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 1.1296504749916494,
+      "median_model_turns": 1,
+      "input_tokens": 414,
+      "output_tokens": 51
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "reserve_if_in_stock",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 0.7070212139951764,
+      "median_model_turns": 1,
+      "input_tokens": 441,
+      "output_tokens": 56
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "reserve_in_stock",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 0.7453543280134909,
+      "median_model_turns": 1,
+      "input_tokens": 441,
+      "output_tokens": 56
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "skip_manager_city",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 0.6748573229997419,
+      "median_model_turns": 1,
+      "input_tokens": 430,
+      "output_tokens": 27
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "stale_docs",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 1.8502168800041545,
+      "median_model_turns": 2,
+      "input_tokens": 1072,
+      "output_tokens": 188
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "support_draft",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 0.6108679680037312,
+      "median_model_turns": 1,
+      "input_tokens": 419,
+      "output_tokens": 23
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "sweep_accounts",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 1.0297020500001963,
+      "median_model_turns": 1,
+      "input_tokens": 426,
+      "output_tokens": 65
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "weather_paris",
+      "mode": "weave",
+      "runs": 1,
+      "passed": 1,
+      "median_wall_s": 0.5975139130023308,
+      "median_model_turns": 1,
+      "input_tokens": 397,
+      "output_tokens": 13
+    }
+  ],
+  "by_mode": [
+    {
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "runs": 16,
+      "passed": 16,
+      "passed_first_try": 13,
+      "median_wall_s": 0.7673842169970158,
+      "input_tokens": 8490,
+      "output_tokens": 979,
+      "failed_tasks": []
+    }
+  ],
+  "prices_per_1m": {
+    "gpt-5.4-mini": [
+      0.75,
+      0.075,
+      4.5
+    ],
+    "gpt-6.1-sol": [
+      2.0,
+      0.1,
+      10.0
+    ]
+  },
+  "estimated_cost_usd": 0.0108,
+  "stopped_early": null,
+  "passed": 16,
+  "pass_rate": 1.0,
+  "rows": [
+    {
+      "task": "research_four",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 414,
+      "output_tokens": 51,
+      "model_turns": 1,
+      "wall_s": 1.1296504749916494,
+      "model_s": 1.0456432979990495,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 414,
+            "output_tokens": 51,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "parallel"
+    },
+    {
+      "task": "weather_paris",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 397,
+      "output_tokens": 13,
+      "model_turns": 1,
+      "wall_s": 0.5975139130023308,
+      "model_s": 0.5155782439978793,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 397,
+            "output_tokens": 13,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "chain"
+    },
+    {
+      "task": "support_draft",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 419,
+      "output_tokens": 23,
+      "model_turns": 1,
+      "wall_s": 0.6108679680037312,
+      "model_s": 0.5291955270076869,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 419,
+            "output_tokens": 23,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "parallel"
+    },
+    {
+      "task": "skip_manager_city",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 430,
+      "output_tokens": 27,
+      "model_turns": 1,
+      "wall_s": 0.6748573229997419,
+      "model_s": 0.552674450998893,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 430,
+            "output_tokens": 27,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "chain"
+    },
+    {
+      "task": "reserve_if_in_stock",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 441,
+      "output_tokens": 56,
+      "model_turns": 1,
+      "wall_s": 0.7070212139951764,
+      "model_s": 0.624949299992295,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 441,
+            "output_tokens": 56,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "branch"
+    },
+    {
+      "task": "reserve_in_stock",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 441,
+      "output_tokens": 56,
+      "model_turns": 1,
+      "wall_s": 0.7453543280134909,
+      "model_s": 0.6638461300026393,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 441,
+            "output_tokens": 56,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": [
+            "reserve:B2"
+          ]
+        }
+      ],
+      "repeat": 0,
+      "category": "branch"
+    },
+    {
+      "task": "gear_for_forecast",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 413,
+      "output_tokens": 61,
+      "model_turns": 1,
+      "wall_s": 0.8110863010078901,
+      "model_s": 0.7292091440031072,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 413,
+            "output_tokens": 61,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "branch"
+    },
+    {
+      "task": "order_totals",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 410,
+      "output_tokens": 35,
+      "model_turns": 1,
+      "wall_s": 0.7512453380040824,
+      "model_s": 0.5885391429910669,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 410,
+            "output_tokens": 35,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "loop"
+    },
+    {
+      "task": "high_priority_tickets",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 2,
+      "retries": 1,
+      "input_tokens": 996,
+      "output_tokens": 106,
+      "model_turns": 2,
+      "wall_s": 1.4783035869913874,
+      "model_s": 1.1921577570028603,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 428,
+            "output_tokens": 51,
+            "cached_tokens": 0
+          },
+          "error": "L6:C9: list has no method `append`",
+          "writes": [],
+          "source": "tickets = list_tickets(\"q2\")\nhigh_ids = []\nfor ticket_id in tickets:\n    priority = ticket_priority(ticket_id)\n    if priority == \"high\":\n        high_ids.append(ticket_id)\nprint(\",\".join(high_ids))"
+        },
+        {
+          "attempt": 2,
+          "ok": true,
+          "usage": {
+            "input_tokens": 568,
+            "output_tokens": 55,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "loop"
+    },
+    {
+      "task": "stale_docs",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 2,
+      "retries": 1,
+      "input_tokens": 1072,
+      "output_tokens": 188,
+      "model_turns": 2,
+      "wall_s": 1.8502168800041545,
+      "model_s": 1.560804050983279,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 428,
+            "output_tokens": 95,
+            "cached_tokens": 0
+          },
+          "error": "L8:C9: list has no method `append`",
+          "writes": [],
+          "source": "refund_docs = find_docs(\"refund\")\nbilling_docs = find_docs(\"billing\")\nall_docs = refund_docs + billing_docs\nstale_ids = []\nfor doc_id in all_docs:\n    status = doc_status(doc_id)\n    if status == \"stale\":\n        stale_ids.append(doc_id)\nif len(stale_ids) == 0:\n    print(\"none\")\nelse:\n    print(\",\".join(stale_ids))"
+        },
+        {
+          "attempt": 2,
+          "ok": true,
+          "usage": {
+            "input_tokens": 644,
+            "output_tokens": 93,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "loop"
+    },
+    {
+      "task": "price_fallback",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 2,
+      "retries": 1,
+      "input_tokens": 942,
+      "output_tokens": 60,
+      "model_turns": 2,
+      "wall_s": 1.4192903619987192,
+      "model_s": 1.2963572409935296,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 412,
+            "output_tokens": 29,
+            "cached_tokens": 0
+          },
+          "error": "L1:C9: tool `primary_price` failed: RuntimeError: primary price service unavailable hint: catch it with `except ToolError` or fix the call",
+          "writes": [],
+          "source": "price = primary_price(\"Z9\")\nif price:\n    print(price)\nelse:\n    print(backup_price(\"Z9\"))"
+        },
+        {
+          "attempt": 2,
+          "ok": true,
+          "usage": {
+            "input_tokens": 530,
+            "output_tokens": 31,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "tool_error"
+    },
+    {
+      "task": "emails_with_failures",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 441,
+      "output_tokens": 143,
+      "model_turns": 1,
+      "wall_s": 1.1599706700071692,
+      "model_s": 1.1184135989897186,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 441,
+            "output_tokens": 143,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": []
+        }
+      ],
+      "repeat": 0,
+      "category": "tool_error"
+    },
+    {
+      "task": "charge_then_receipt",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 416,
+      "output_tokens": 29,
+      "model_turns": 1,
+      "wall_s": 0.5518109859985998,
+      "model_s": 0.4696929369965801,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 416,
+            "output_tokens": 29,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": [
+            "charge:c1:25",
+            "receipt:ch_c1_25"
+          ]
+        }
+      ],
+      "repeat": 0,
+      "category": "write_order"
+    },
+    {
+      "task": "cancel_then_notify",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 407,
+      "output_tokens": 24,
+      "model_turns": 1,
+      "wall_s": 0.6330003500042949,
+      "model_s": 0.5517420229880372,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 407,
+            "output_tokens": 24,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": [
+            "cancel:o5",
+            "notify:c4:order o5 cancelled"
+          ]
+        }
+      ],
+      "repeat": 0,
+      "category": "write_order"
+    },
+    {
+      "task": "conditional_transfer",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 425,
+      "output_tokens": 42,
+      "model_turns": 1,
+      "wall_s": 0.7835230959899491,
+      "model_s": 0.6609776029945351,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 425,
+            "output_tokens": 42,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": [
+            "transfer:a1:a2:100"
+          ]
+        }
+      ],
+      "repeat": 0,
+      "category": "write_order"
+    },
+    {
+      "task": "sweep_accounts",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 426,
+      "output_tokens": 65,
+      "model_turns": 1,
+      "wall_s": 1.0297020500001963,
+      "model_s": 0.8671557970083086,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 426,
+            "output_tokens": 65,
+            "cached_tokens": 0
+          },
+          "error": null,
+          "writes": [
+            "transfer:a3:a1:30"
+          ]
+        }
+      ],
+      "repeat": 0,
+      "category": "write_order"
+    }
+  ]
+}

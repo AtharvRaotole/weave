@@ -572,3 +572,31 @@ fn augmented_assignment_in_a_loop_is_carried() {
     let src = "n = 0\nfor a in range(3):\n    n += 1\nk = 0\nfor a in range(3):\n    for b in range(4):\n        k += 1\nprint(n, k)\n";
     assert_eq!(engine.run(src).unwrap().stdout(), "3 12\n");
 }
+
+#[test]
+fn list_append_and_extend_on_a_name_accumulate_in_loops() {
+    let mut engine = Engine::new();
+    engine.register("priority", ToolSpec::effect(Effect::Read).with_arity(1), |args, _| {
+        let id = args[0].as_str().unwrap();
+        Ok(Value::str(if id == "t8" || id == "t16" { "high" } else { "low" }))
+    });
+    let source = r#"
+high = []
+for t in ["t4", "t8", "t15", "t16"]:
+    if priority(t) == "high":
+        high.append(t)
+high.extend(["x"])
+out = ",".join(high)
+"#;
+    let result = engine.run(source).unwrap();
+    assert_eq!(result.bindings["out"], Value::str("t8,t16,x"));
+    let replayed = engine.replay(source, &result.trace).unwrap();
+    assert_eq!(replayed.bindings["out"], result.bindings["out"]);
+}
+
+#[test]
+fn append_on_a_non_name_is_still_an_error() {
+    let engine = Engine::new();
+    let err = engine.run("d = {\"k\": []}\nd[\"k\"].append(1)\n").unwrap_err();
+    assert!(err.to_string().contains("append"), "{err}");
+}
