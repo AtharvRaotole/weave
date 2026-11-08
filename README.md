@@ -218,9 +218,31 @@ print(result.stdout)
 engine.replay(source, result.trace_json())
 ```
 
+### Weave as one tool in an existing agent
+
+`weave.WeaveTool` wraps `@weave.declare`d functions as a single `run_weave(source)` tool. The model writes one script instead of making N tool calls. The tool description carries the language rules and one line per function. Failures come back as `error: ...` text the model can repair from.
+
+```python
+tool = weave.WeaveTool([list_orders, order_total])
+# Chat Completions
+resp = client.chat.completions.create(model=..., messages=messages, tools=[tool.chat_tool()])
+for call in resp.choices[0].message.tool_calls or []:
+    messages.append(tool.handle(call))          # {"role": "tool", ...}
+# Responses API: tools=[tool.responses_tool()], items.append(tool.handle(function_call_item))
+# OpenAI Agents SDK: Agent(..., tools=[tool.agents_tool()])
+```
+
+`examples/run_weave_tool.py` runs a plain function-calling loop. A live run with `gpt-5.4-mini` answered `49` in 2 model turns. Without a key it replays a canned call, and CI runs it that way. `tests/python/test_agent_tool.py` covers:
+
+- Chat, SDK-object, and Responses inputs.
+- Two calls overlapping in parallel.
+- Repairable errors.
+- Write ordering.
+- The Agents SDK `FunctionTool`. CI runs this with `openai-agents` installed.
+
 ## MCP
 
-`weave-mcp` speaks MCP over stdio with `Content-Length` framing.
+`weave-mcp` speaks MCP over stdio. It reads newline-delimited JSON-RPC, which is the MCP stdio transport, and also accepts `Content-Length` framing for older clients. Each reply uses the same framing as its request. Before this change it accepted only `Content-Length`, so standard MCP clients could not talk to it.
 
 ```bash
 cargo run -p weave-mcp --release
@@ -233,6 +255,28 @@ Tools:
 - `weave_replay` — replays `source` from `trace`; pass the same `tools` list so the checker knows their arity
 
 `echo` returns the single positional argument. `const` returns the tagged `result`.
+
+### Calling real MCP servers from scripts
+
+Add `upstreams` to the config. `weave-mcp` starts each upstream server, lists its tools, and makes every tool callable from `weave_run` scripts under a prefix. It also exposes them directly in `tools/list`.
+
+```json
+{"upstreams": [
+  {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"], "prefix": "fs_"},
+  {"name": "fetch", "command": "uvx", "args": ["mcp-server-fetch"], "prefix": "web_", "effects": {"fetch": "read"}}
+]}
+```
+
+How upstream tools are mapped:
+
+- **Positional arguments** fill the tool's schema properties in order. Keyword arguments pass through by name.
+- **Missing arguments:** a missing required argument is reported before the call is made, and `None` for an optional parameter is dropped.
+- **Effects:** an `effects` entry sets a tool's effect. Otherwise a tool with `readOnlyHint` is `read`, and every other tool is `irreversible`, so it waits until the script is complete.
+- **Errors:** an upstream `isError` becomes a `ToolError`.
+- **Return values:** results are the upstream text content. Use `parse_json(text)` for JSON.
+- **Parallel calls:** calls from parallel branches are in flight together, and responses are matched by request id.
+
+The `weave_run` description lists the callable tools as `name(params), effect ...`. `python examples/real_mcp_upstream.py` runs a script against the real filesystem server: it lists a directory, sums files in a loop, parses JSON, catches a `ToolError`, then writes and reads back a file. CI runs it.
 
 ## Measured results
 
@@ -313,6 +357,63 @@ Weaknesses the eval exposed and fixed:
 
 Spend: the recorded run cost about $0.48 at list prices ($0.75 / $0.075 cached / $4.50 per 1M tokens for `gpt-5.4-mini`, and $2.00 / $0.10 / $10.00 for `gpt-6.1-sol`, checked 2026-11-08). Including the probes and discarded runs, the milestone cost about $1.20.
 
+### Real-tools eval (real MCP servers, `gpt-5.4-mini`)
+
+`python bench/real_tools_eval.py` runs 6 tasks against two real reference servers, both proxied by `weave-mcp`:
+
+- `@modelcontextprotocol/server-filesystem`, rooted at fresh temp files for every run.
+- `mcp-server-fetch`, which fetches live pages from `example.com` and `rfc-editor.org`.
+
+`weave` sends one script to `weave_run`. `native_tools` calls the same proxied tools one turn at a time through the Responses API. Both modes see all 17 tools. Each mode ran each task 3 times on 2026-11-08 (36 runs). Raw rows: [`bench/results/real-20261108T153344Z.json`](bench/results/real-20261108T153344Z.json).
+
+| Task | Category | Weave passed | Weave median s | Native passed | Native median s | Native median turns |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| sum_notes | parallel | 3/3 | 0.77 | 3/3 | 2.11 | 2 |
+| count_urgent | loop | 3/3 | 0.95 | 3/3 | 3.31 | 3 |
+| write_version | write_order | 3/3 | 0.83 | 3/3 | 4.90 | 5 |
+| fallback_file | tool_error | 3/3 | 0.78 | 3/3 | 1.86 | 2 |
+| example_heading | fetch | 2/3 | 2.30 | 3/3 | 2.61 | 2 |
+| two_pages | fetch | 3/3 | 1.63 | 3/3 | 4.39 | 3 |
+
+| Mode | Passed | First try | Median latency (s) | Input tokens | Output tokens |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| weave | 17/18 | 14/18 | 0.877 | 39,709 | 1,958 |
+| native_tools | 18/18 | 18/18 | 2.912 | 87,338 | 2,043 |
+
+**What this shows:** Native function calling was more reliable here. The model sees each result before deciding what to do next. A Weave script has to parse text formats it has not seen yet, such as the filesystem server's `[FILE] name` listings and the fetch server's `Contents of <url>:` preamble.
+
+Weave was faster and used fewer tokens:
+
+- Its median latency was 3.3× lower (0.877 s vs 2.912 s).
+- It used 55% fewer input tokens.
+- `write_version`, which needs 5 native turns, took 0.83 s vs 4.90 s.
+
+**Weave failures:**
+
+- `example_heading` failed once out of 3. The model reached for `break` (unsupported), then printed an empty string twice.
+- Retries on that task and on `count_urgent` came from:
+  - `break`
+  - `str.split(sep, maxsplit)`, which takes at most 1 argument in Weave
+  - joining a bare file name to the wrong directory
+
+**Fixes this eval led to, with tests:**
+
+- **`parse_json(text)`:** reading `config.json` needed it.
+- **`str.splitlines()`:** the prompt suggested it, but Weave lacked it.
+- **Prompt:** added a section on text tool results.
+
+**Before the fixes:**
+
+| Run | Weave passed | Weave first try | Native passed | Results file |
+| --- | ---: | ---: | ---: | --- |
+| Before the fixes | 16/18 | 11/18 | 18/18 | [`real-20261108T152737Z.json`](bench/results/real-20261108T152737Z.json) |
+| After `parse_json`, before `splitlines` | 17/18 | 12/18 | 18/18 | [`real-20261108T153104Z.json`](bench/results/real-20261108T153104Z.json) |
+
+**Notes:**
+
+- On this machine DNS resolves through a proxy to a 198.18.x address, which `mcp-server-fetch` refuses by default. The runs used `WEAVE_FETCH_ARGS=--allow-private-ips`.
+- Spend for this milestone was about $0.17 at list prices: the three recorded runs ($0.059, $0.047, $0.043), a one-repeat smoke run ($0.019, file not kept), and the live adapter example.
+
 To run it yourself:
 
 ```bash
@@ -363,6 +464,15 @@ weave trace trace.json
 ## MCP
 
 `weave-mcp --config examples/tools.json` lists `weave_check`, `weave_run`, `weave_replay`, and each configured tool. A request that omits `tools` uses the config. `examples/mcp-client-config.json` is a client entry. `python examples/mcp_client.py` performs the handshake, calls `weather`, and runs a script.
+
+## Releases
+
+`.github/workflows/release.yml` runs when a `v*` tag is pushed, and can also be started by hand. It builds:
+
+- Wheels for CPython 3.9–3.13 on Linux (manylinux x86_64 and aarch64), macOS (arm64 and x86_64), and Windows x64.
+- An sdist.
+
+It smoke-tests each wheel that matches the runner's architecture and uploads everything as workflow artifacts. It does not publish anywhere.
 
 ## Layout
 
