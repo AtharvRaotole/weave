@@ -19,7 +19,8 @@ use crate::effect::Effect;
 use crate::error::{Diagnostic, WeaveError};
 use crate::parse::{parse_detailed, parse_program};
 use crate::stream::complete_prefix_end;
-use crate::tools::{ToolFn, ToolRegistry, ToolSpec};
+use crate::cancel::{CancelSource, CancelToken};
+use crate::tools::{ToolBody, ToolFn, ToolRegistry, ToolSpec};
 use crate::trace::{Trace, TraceBuilder, TraceEvent};
 use crate::value::{self, Value};
 
@@ -142,6 +143,33 @@ impl Engine {
         F: Fn(Vec<Value>, BTreeMap<String, Value>) -> Result<Value, String> + Send + Sync + 'static,
     {
         self.tools.register(name, spec, Arc::new(func) as ToolFn);
+    }
+
+    /// Blocking tool that should poll `token.is_cancelled()` and return.
+    /// Timeout and session cancel fire the token and stop waiting.
+    pub fn register_cooperative<F>(&mut self, name: &str, spec: ToolSpec, func: F)
+    where
+        F: Fn(Vec<Value>, BTreeMap<String, Value>, CancelToken) -> Result<Value, String>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.tools
+            .register_cooperative(name, spec, Arc::new(func));
+    }
+
+    /// Async tool. The future is dropped when the attempt times out or the session is cancelled.
+    pub fn register_async<F, Fut>(&mut self, name: &str, spec: ToolSpec, func: F)
+    where
+        F: Fn(Vec<Value>, BTreeMap<String, Value>, CancelToken) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<Value, String>> + Send + 'static,
+    {
+        let func = Arc::new(func);
+        self.tools.register_async(
+            name,
+            spec,
+            Arc::new(move |args, kwargs, token| Box::pin(func(args, kwargs, token))),
+        );
     }
 
     pub fn check(&self, source: &str) -> Vec<Diagnostic> {
@@ -1350,7 +1378,7 @@ fn schedule_tool(
         return fail(WeaveError::runtime(line, col, format!("unknown tool `{name}`")));
     };
     let effect = tool.spec.effect;
-    let func = tool.func.clone();
+    let body = tool.body.clone();
     let retries = tool.spec.retries;
     let timeout = tool.spec.timeout;
     let tool_name = name.to_string();
@@ -1395,7 +1423,7 @@ fn schedule_tool(
                     col,
                     &tool_name,
                     &handle,
-                    &func,
+                    &body,
                     &args,
                     &kwargs,
                     retries,
@@ -1563,7 +1591,7 @@ async fn run_tool_attempts(
     col: usize,
     tool_name: &str,
     handle: &Handle,
-    func: &crate::tools::ToolFn,
+    body: &ToolBody,
     args: &[Value],
     kwargs: &BTreeMap<String, Value>,
     retries: u32,
@@ -1574,36 +1602,7 @@ async fn run_tool_attempts(
     let mut last = String::from("failed");
     for attempt in 1..=attempts {
         ensure_running(line, col, cancel)?;
-        let call_args = args.to_vec();
-        let call_kwargs = kwargs.clone();
-        let func = func.clone();
-        let limit = timeout;
-        let tool_label = tool_name.to_string();
-        // recv_timeout runs on the blocking pool. Tokio timers scheduled from a
-        // Shared future are not woken until the blocking call itself finishes.
-        let join = handle.spawn_blocking(move || {
-            if let Some(limit) = limit {
-                let (tx, rx) = std::sync::mpsc::channel();
-                std::thread::spawn(move || {
-                    let _ = tx.send(func(call_args, call_kwargs));
-                });
-                match rx.recv_timeout(limit) {
-                    Ok(result) => result,
-                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                        Err(format!("timed out after {}ms", limit.as_millis()))
-                    }
-                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                        Err(format!("tool `{tool_label}` panicked"))
-                    }
-                }
-            } else {
-                func(call_args, call_kwargs)
-            }
-        });
-        let outcome = match join.await {
-            Ok(result) => result,
-            Err(_) => Err(format!("tool `{tool_name}` panicked")),
-        };
+        let outcome = invoke_once(tool_name, handle, body, args, kwargs, timeout, cancel).await;
         match outcome {
             Ok(value) => return Ok(value),
             Err(message) => {
@@ -1620,6 +1619,163 @@ async fn run_tool_attempts(
         format!("tool `{tool_name}` failed: {last}")
     };
     Err(WeaveError::tool(line, col, hint_message))
+}
+
+async fn invoke_once(
+    tool_name: &str,
+    handle: &Handle,
+    body: &ToolBody,
+    args: &[Value],
+    kwargs: &BTreeMap<String, Value>,
+    timeout: Option<std::time::Duration>,
+    session: &watch::Receiver<bool>,
+) -> Result<Value, String> {
+    let (source, token) = CancelToken::pair(session.clone());
+    let call_args = args.to_vec();
+    let call_kwargs = kwargs.clone();
+    let label = tool_name.to_string();
+    // The timer and the tool run in a normal task. A Shared future does not
+    // wake tokio timers, so the wait lives outside it.
+    let task = match body {
+        ToolBody::Sync(func) => {
+            let func = func.clone();
+            let limit = timeout;
+            handle.spawn_blocking(move || invoke_sync(func, call_args, call_kwargs, limit, &label))
+        }
+        ToolBody::Cooperative(func) => {
+            let func = func.clone();
+            let limit = timeout;
+            let session = session.clone();
+            handle.spawn(async move {
+                invoke_cooperative(func, call_args, call_kwargs, token, source, limit, session, &label).await
+            })
+        }
+        ToolBody::Async(func) => {
+            let func = func.clone();
+            let limit = timeout;
+            let session = session.clone();
+            handle.spawn(async move {
+                invoke_async(func, call_args, call_kwargs, token, source, limit, session).await
+            })
+        }
+    };
+    match task.await {
+        Ok(result) => result,
+        Err(_) => Err(format!("tool `{tool_name}` panicked")),
+    }
+}
+
+fn invoke_sync(
+    func: ToolFn,
+    args: Vec<Value>,
+    kwargs: BTreeMap<String, Value>,
+    limit: Option<std::time::Duration>,
+    tool_name: &str,
+) -> Result<Value, String> {
+    if let Some(limit) = limit {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(func(args, kwargs));
+        });
+        match rx.recv_timeout(limit) {
+            Ok(result) => result,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                Err(format!("timed out after {}ms", limit.as_millis()))
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                Err(format!("tool `{tool_name}` panicked"))
+            }
+        }
+    } else {
+        func(args, kwargs)
+    }
+}
+
+async fn invoke_cooperative(
+    func: crate::tools::CooperativeFn,
+    args: Vec<Value>,
+    kwargs: BTreeMap<String, Value>,
+    token: CancelToken,
+    source: CancelSource,
+    limit: Option<std::time::Duration>,
+    session: watch::Receiver<bool>,
+    tool_name: &str,
+) -> Result<Value, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(func(args, kwargs, token));
+    });
+    let timeout_sleep = async {
+        if let Some(limit) = limit {
+            tokio::time::sleep(limit).await;
+        } else {
+            std::future::pending::<()>().await;
+        }
+    };
+    let mut session_rx = session.clone();
+    let session_hit = async move {
+        if *session_rx.borrow() {
+            return;
+        }
+        while session_rx.changed().await.is_ok() {
+            if *session_rx.borrow() {
+                return;
+            }
+        }
+    };
+    tokio::select! {
+        result = rx => match result {
+            Ok(value) => value,
+            Err(_) => Err(format!("tool `{tool_name}` panicked")),
+        },
+        _ = timeout_sleep => {
+            source.cancel();
+            Err(format!("timed out after {}ms", limit.unwrap_or_default().as_millis()))
+        }
+        _ = session_hit => {
+            source.cancel();
+            Err("execution was cancelled".into())
+        }
+    }
+}
+
+async fn invoke_async(
+    func: crate::tools::AsyncToolFn,
+    args: Vec<Value>,
+    kwargs: BTreeMap<String, Value>,
+    token: CancelToken,
+    source: CancelSource,
+    limit: Option<std::time::Duration>,
+    session: watch::Receiver<bool>,
+) -> Result<Value, String> {
+    let work = func(args, kwargs, token.clone());
+    let timeout_sleep = async {
+        if let Some(limit) = limit {
+            tokio::time::sleep(limit).await;
+            true
+        } else {
+            std::future::pending::<bool>().await
+        }
+    };
+    tokio::select! {
+        result = work => result,
+        _ = token.cancelled() => {
+            source.cancel();
+            if *session.borrow() {
+                Err("execution was cancelled".into())
+            } else {
+                Err("timed out".into())
+            }
+        }
+        timed_out = timeout_sleep => {
+            if timed_out {
+                source.cancel();
+                Err(format!("timed out after {}ms", limit.unwrap_or_default().as_millis()))
+            } else {
+                Err("timed out".into())
+            }
+        }
+    }
 }
 
 fn to_cmp(op: CmpOp) -> value::Cmp {
