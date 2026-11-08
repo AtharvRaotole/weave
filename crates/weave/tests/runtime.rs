@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use weave::{CancelToken, Effect, Engine, ToolSpec, Value};
+use weave::{CancelToken, Effect, Engine, IsolatedJob, PredictedCall, ToolSpec, Value};
 
 fn reg(engine: &mut Engine, name: &str, effect: Effect, calls: Arc<Mutex<Vec<String>>>, delay: Duration) {
     let label = name.to_string();
@@ -496,4 +496,72 @@ items = {"b": 1, "a": 2}.items()
         Value::List(rows) => assert_eq!(rows.len(), 2),
         other => panic!("items was {other}"),
     }
+}
+
+#[test]
+fn isolated_timeout_kills_the_job() {
+    let mut engine = Engine::new();
+    let killed = Arc::new(AtomicBool::new(false));
+    let flag = killed.clone();
+    engine.register_isolated(
+        "slow",
+        ToolSpec::effect(Effect::Read).with_arity(0).with_timeout(Duration::from_millis(40)),
+        move |_args, _kwargs| {
+            let flag = flag.clone();
+            let (tx, rx) = std::sync::mpsc::channel();
+            let rx = Arc::new(Mutex::new(rx));
+            thread::spawn(move || {
+                thread::sleep(Duration::from_millis(400));
+                let _ = tx.send(Ok(Value::str("late")));
+            });
+            let wait_rx = rx.clone();
+            Ok(IsolatedJob::new(
+                move || {
+                    wait_rx
+                        .lock()
+                        .expect("rx")
+                        .recv()
+                        .unwrap_or_else(|_| Err("worker gone".into()))
+                },
+                move || flag.store(true, Ordering::SeqCst),
+            ))
+        },
+    );
+    let started = Instant::now();
+    let err = engine.run("slow()\n").unwrap_err();
+    assert!(started.elapsed() < Duration::from_millis(200), "{err} elapsed={:?}", started.elapsed());
+    assert!(err.to_string().contains("timed out"), "{err}");
+    assert!(killed.load(Ordering::SeqCst), "kill was not called");
+}
+
+#[test]
+fn speculation_serves_pure_calls_and_rejects_irreversible() {
+    let mut engine = Engine::new();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let seen = calls.clone();
+    engine.register("search", ToolSpec::effect(Effect::Pure).with_arity(1), move |args, _| {
+        seen.fetch_add(1, Ordering::SeqCst);
+        thread::sleep(Duration::from_millis(30));
+        Ok(args[0].clone())
+    });
+    engine.register("pay", ToolSpec::effect(Effect::Irreversible).with_arity(1), |_args, _| {
+        Ok(Value::str("paid"))
+    });
+    let cache = engine.speculate(&[
+        PredictedCall::new("search", vec![Value::str("q")]),
+        PredictedCall::new("pay", vec![Value::str("x")]),
+        PredictedCall::new("missing", vec![Value::str("x")]),
+    ]);
+    let result = engine
+        .run_with("a = search(\"q\")\nb = search(\"z\")\nprint(a)\n", Some(&cache))
+        .unwrap();
+    assert_eq!(result.stdout(), "q\n");
+    let stats = result.speculation.expect("stats");
+    assert_eq!(stats.started, 1, "{stats:?}");
+    assert_eq!(stats.hits, 1, "{stats:?}");
+    assert_eq!(stats.misses, 1, "{stats:?}");
+    assert_eq!(stats.wasted, 0, "{stats:?}");
+    assert_eq!(stats.rejected, 2, "{stats:?}");
+    assert_eq!(stats.hit_rate(), 0.5);
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "a hit must not call the tool again");
 }

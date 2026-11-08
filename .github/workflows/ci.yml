@@ -31,3 +31,8 @@ jobs:
           maturin build --release --out dist
           python -m pip install dist/*.whl
           python examples/speedup.py
+          python examples/hard_deadline.py
+          python -m weave.cli check examples/hello.weave --tool name=weather,effect=read,arity=1
+          python -m weave.cli run examples/hello.weave --tool name=weather,effect=read,behavior=echo,arity=1
+          cargo build -p weave-mcp
+          python examples/mcp_client.py

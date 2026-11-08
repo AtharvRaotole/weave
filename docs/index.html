@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weave</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="language.html">Language</a>
+      <a href="runtime.html">Runtime</a>
+      <a href="cli.html">CLI</a>
+      <a href="mcp.html">MCP</a>
+    </nav>
+    <h1>Weave</h1>
+    <p class="muted">A small Python-like language for agent tool calls. Independent pure and read calls run together. Irreversible calls wait until the script is complete.</p>
+  </header>
+  <main>
+    <h2>Install</h2>
+    <pre>cargo test --workspace
+python3 -m venv .venv
+.venv/bin/pip install 'maturin&gt;=1.8,&lt;2'
+.venv/bin/maturin develop --release
+.venv/bin/weave check examples/hello.weave --tool name=weather,effect=read,arity=1</pre>
+    <p>The package metadata is ready for crates.io and PyPI. Nothing in this repository publishes a release.</p>
+    <h2>A script</h2>
+    <pre>city = "Paris"
+temp = weather(city)
+print(temp)</pre>
+    <pre>import weave
+
+@weave.declare(effect="read", timeout_ms=1000)
+def weather(city: str) -> str:
+    return f"18C {city}"
+
+def main():
+    engine = weave.Engine()
+    engine.install([weather])
+    print(engine.run(open("script.weave").read()).stdout)
+
+if __name__ == "__main__":
+    main()</pre>
+    <p><code>@engine.declare(...)</code> registers the function immediately. <code>@weave.declare</code> only marks it, and <code>install</code> registers the marked functions later. Mark tools at module scope when they will run in a worker process.</p>
+  </main>
+</body>
+</html>

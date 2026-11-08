@@ -1,0 +1,349 @@
+{
+  "kind": "speculation",
+  "measured": true,
+  "reference": "arXiv:2512.15834 tool cache, pure/read calls only",
+  "generation_s": 0.08,
+  "predictor_s": 0.01,
+  "base_tool_s": 0.04,
+  "repeats": 3,
+  "machine": {
+    "python": "3.12.3",
+    "platform": "Linux-6.12.113+-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 4,
+    "hostname": "cursor"
+  },
+  "notes": {
+    "run_after_generate": "Sleep for the full generation, then Engine.run with no cache.",
+    "speculative": "Sleep for the predictor, start predicted pure/read calls, then Engine.run at the same generation instant.",
+    "hit_rate": "hits / (hits + misses) over pure and read calls the program actually made.",
+    "wasted": "Predictions the program never called. One unused argument is predicted per task."
+  },
+  "tasks": [
+    {
+      "name": "research_brief",
+      "expected": "hit:q1|hit:q2|hit:q3|hit:q4",
+      "run_after_generate": {
+        "samples": [
+          {
+            "wall_s": 0.1422223750005287,
+            "correct": true,
+            "output": "hit:q1|hit:q2|hit:q3|hit:q4",
+            "host_calls": 5,
+            "program_calls": 5,
+            "spec_started": 0,
+            "spec_hits": 0,
+            "spec_misses": 0,
+            "spec_wasted": 0,
+            "spec_rejected": 0,
+            "hit_rate": 0.0
+          },
+          {
+            "wall_s": 0.1423714860002292,
+            "correct": true,
+            "output": "hit:q1|hit:q2|hit:q3|hit:q4",
+            "host_calls": 5,
+            "program_calls": 5,
+            "spec_started": 0,
+            "spec_hits": 0,
+            "spec_misses": 0,
+            "spec_wasted": 0,
+            "spec_rejected": 0,
+            "hit_rate": 0.0
+          },
+          {
+            "wall_s": 0.14236462299959385,
+            "correct": true,
+            "output": "hit:q1|hit:q2|hit:q3|hit:q4",
+            "host_calls": 5,
+            "program_calls": 5,
+            "spec_started": 0,
+            "spec_hits": 0,
+            "spec_misses": 0,
+            "spec_wasted": 0,
+            "spec_rejected": 0,
+            "hit_rate": 0.0
+          }
+        ],
+        "median_wall_s": 0.14236462299959385,
+        "correct": true,
+        "spec_started": 0,
+        "spec_hits": 0,
+        "spec_misses": 0,
+        "spec_wasted": 0,
+        "spec_rejected": 0,
+        "hit_rate": 0.0,
+        "host_calls": 5
+      },
+      "speculative": {
+        "samples": [
+          {
+            "wall_s": 0.10158267299993895,
+            "correct": true,
+            "output": "hit:q1|hit:q2|hit:q3|hit:q4",
+            "host_calls": 6,
+            "program_calls": 5,
+            "spec_started": 5,
+            "spec_hits": 4,
+            "spec_misses": 1,
+            "spec_wasted": 1,
+            "spec_rejected": 0,
+            "hit_rate": 0.8
+          },
+          {
+            "wall_s": 0.10132387899921014,
+            "correct": true,
+            "output": "hit:q1|hit:q2|hit:q3|hit:q4",
+            "host_calls": 6,
+            "program_calls": 5,
+            "spec_started": 5,
+            "spec_hits": 4,
+            "spec_misses": 1,
+            "spec_wasted": 1,
+            "spec_rejected": 0,
+            "hit_rate": 0.8
+          },
+          {
+            "wall_s": 0.10201949800011789,
+            "correct": true,
+            "output": "hit:q1|hit:q2|hit:q3|hit:q4",
+            "host_calls": 6,
+            "program_calls": 5,
+            "spec_started": 5,
+            "spec_hits": 4,
+            "spec_misses": 1,
+            "spec_wasted": 1,
+            "spec_rejected": 0,
+            "hit_rate": 0.8
+          }
+        ],
+        "median_wall_s": 0.10158267299993895,
+        "correct": true,
+        "spec_started": 5,
+        "spec_hits": 4,
+        "spec_misses": 1,
+        "spec_wasted": 1,
+        "spec_rejected": 0,
+        "hit_rate": 0.8,
+        "host_calls": 6
+      }
+    },
+    {
+      "name": "trip_plan",
+      "expected": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR",
+      "run_after_generate": {
+        "samples": [
+          {
+            "wall_s": 0.18272697100019286,
+            "correct": true,
+            "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR",
+            "host_calls": 6,
+            "program_calls": 6,
+            "spec_started": 0,
+            "spec_hits": 0,
+            "spec_misses": 0,
+            "spec_wasted": 0,
+            "spec_rejected": 0,
+            "hit_rate": 0.0
+          },
+          {
+            "wall_s": 0.18272979899938946,
+            "correct": true,
+            "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR",
+            "host_calls": 6,
+            "program_calls": 6,
+            "spec_started": 0,
+            "spec_hits": 0,
+            "spec_misses": 0,
+            "spec_wasted": 0,
+            "spec_rejected": 0,
+            "hit_rate": 0.0
+          },
+          {
+            "wall_s": 0.1831282420007483,
+            "correct": true,
+            "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR",
+            "host_calls": 6,
+            "program_calls": 6,
+            "spec_started": 0,
+            "spec_hits": 0,
+            "spec_misses": 0,
+            "spec_wasted": 0,
+            "spec_rejected": 0,
+            "hit_rate": 0.0
+          }
+        ],
+        "median_wall_s": 0.18272979899938946,
+        "correct": true,
+        "spec_started": 0,
+        "spec_hits": 0,
+        "spec_misses": 0,
+        "spec_wasted": 0,
+        "spec_rejected": 0,
+        "hit_rate": 0.0,
+        "host_calls": 6
+      },
+      "speculative": {
+        "samples": [
+          {
+            "wall_s": 0.1422562839998136,
+            "correct": true,
+            "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR",
+            "host_calls": 7,
+            "program_calls": 6,
+            "spec_started": 3,
+            "spec_hits": 2,
+            "spec_misses": 4,
+            "spec_wasted": 1,
+            "spec_rejected": 0,
+            "hit_rate": 0.3333333333333333
+          },
+          {
+            "wall_s": 0.14200707000054535,
+            "correct": true,
+            "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR",
+            "host_calls": 7,
+            "program_calls": 6,
+            "spec_started": 3,
+            "spec_hits": 2,
+            "spec_misses": 4,
+            "spec_wasted": 1,
+            "spec_rejected": 0,
+            "hit_rate": 0.3333333333333333
+          },
+          {
+            "wall_s": 0.16660369799956243,
+            "correct": true,
+            "output": "wx:geo:PAR/fl:geo:NYC>geo:PAR/ht:geo:PAR",
+            "host_calls": 7,
+            "program_calls": 6,
+            "spec_started": 3,
+            "spec_hits": 2,
+            "spec_misses": 4,
+            "spec_wasted": 1,
+            "spec_rejected": 0,
+            "hit_rate": 0.3333333333333333
+          }
+        ],
+        "median_wall_s": 0.1422562839998136,
+        "correct": true,
+        "spec_started": 3,
+        "spec_hits": 2,
+        "spec_misses": 4,
+        "spec_wasted": 1,
+        "spec_rejected": 0,
+        "hit_rate": 0.3333333333333333,
+        "host_calls": 7
+      }
+    },
+    {
+      "name": "support_ticket",
+      "expected": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1",
+      "run_after_generate": {
+        "samples": [
+          {
+            "wall_s": 0.22335781899982976,
+            "correct": true,
+            "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1",
+            "host_calls": 5,
+            "program_calls": 5,
+            "spec_started": 0,
+            "spec_hits": 0,
+            "spec_misses": 0,
+            "spec_wasted": 0,
+            "spec_rejected": 0,
+            "hit_rate": 0.0
+          },
+          {
+            "wall_s": 0.22297483199963608,
+            "correct": true,
+            "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1",
+            "host_calls": 5,
+            "program_calls": 5,
+            "spec_started": 0,
+            "spec_hits": 0,
+            "spec_misses": 0,
+            "spec_wasted": 0,
+            "spec_rejected": 0,
+            "hit_rate": 0.0
+          },
+          {
+            "wall_s": 0.22348351400069077,
+            "correct": true,
+            "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1",
+            "host_calls": 5,
+            "program_calls": 5,
+            "spec_started": 0,
+            "spec_hits": 0,
+            "spec_misses": 0,
+            "spec_wasted": 0,
+            "spec_rejected": 0,
+            "hit_rate": 0.0
+          }
+        ],
+        "median_wall_s": 0.22335781899982976,
+        "correct": true,
+        "spec_started": 0,
+        "spec_hits": 0,
+        "spec_misses": 0,
+        "spec_wasted": 0,
+        "spec_rejected": 0,
+        "hit_rate": 0.0,
+        "host_calls": 5
+      },
+      "speculative": {
+        "samples": [
+          {
+            "wall_s": 0.18274176100021577,
+            "correct": true,
+            "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1",
+            "host_calls": 6,
+            "program_calls": 5,
+            "spec_started": 3,
+            "spec_hits": 2,
+            "spec_misses": 3,
+            "spec_wasted": 1,
+            "spec_rejected": 0,
+            "hit_rate": 0.4
+          },
+          {
+            "wall_s": 0.1821904270000232,
+            "correct": true,
+            "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1",
+            "host_calls": 6,
+            "program_calls": 5,
+            "spec_started": 3,
+            "spec_hits": 2,
+            "spec_misses": 3,
+            "spec_wasted": 1,
+            "spec_rejected": 0,
+            "hit_rate": 0.4
+          },
+          {
+            "wall_s": 0.18286043699936272,
+            "correct": true,
+            "output": "user:u1;orders:user:u1;policy:standard;stock:orders:user:u1",
+            "host_calls": 6,
+            "program_calls": 5,
+            "spec_started": 3,
+            "spec_hits": 2,
+            "spec_misses": 3,
+            "spec_wasted": 1,
+            "spec_rejected": 0,
+            "hit_rate": 0.4
+          }
+        ],
+        "median_wall_s": 0.18274176100021577,
+        "correct": true,
+        "spec_started": 3,
+        "spec_hits": 2,
+        "spec_misses": 3,
+        "spec_wasted": 1,
+        "spec_rejected": 0,
+        "hit_rate": 0.4,
+        "host_calls": 6
+      }
+    }
+  ]
+}

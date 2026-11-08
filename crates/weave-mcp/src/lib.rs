@@ -12,7 +12,49 @@ use std::time::Duration;
 use serde_json::{json, Value as Json};
 use weave::{Effect, Engine, ToolSpec, Value};
 
+/// Tools the server exposes directly, in addition to `weave_check`, `weave_run`,
+/// and `weave_replay`. Loaded from a JSON config.
+#[derive(Clone, Debug)]
+pub struct ScriptedTool {
+    pub name: String,
+    pub description: String,
+    pub effect: Effect,
+    pub arity: Option<usize>,
+    pub behavior: String,
+    pub result: Option<Value>,
+    pub delay_ms: u64,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ServerConfig {
+    pub tools: Vec<ScriptedTool>,
+}
+
+impl ServerConfig {
+    pub fn from_json(text: &str) -> Result<Self, String> {
+        let value: Json = serde_json::from_str(text).map_err(|err| err.to_string())?;
+        let tools = value
+            .get("tools")
+            .and_then(|v| v.as_array())
+            .ok_or("config needs a tools list")?;
+        let mut parsed = Vec::with_capacity(tools.len());
+        for tool in tools {
+            parsed.push(parse_scripted(tool)?);
+        }
+        Ok(Self { tools: parsed })
+    }
+
+    pub fn load(path: &std::path::Path) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path).map_err(|err| format!("{}: {err}", path.display()))?;
+        Self::from_json(&text)
+    }
+}
+
 pub fn handle_message(message: &Json) -> Option<Json> {
+    handle_with(message, &ServerConfig::default())
+}
+
+pub fn handle_with(message: &Json, config: &ServerConfig) -> Option<Json> {
     let method = message.get("method").and_then(|m| m.as_str()).unwrap_or("");
     let id = message.get("id").cloned();
     id.as_ref()?;
@@ -24,8 +66,8 @@ pub fn handle_message(message: &Json) -> Option<Json> {
             "serverInfo": {"name": "weave", "version": "0.1.0"}
         })),
         "ping" => Ok(json!({})),
-        "tools/list" => Ok(tools_list()),
-        "tools/call" => tools_call(&params),
+        "tools/list" => Ok(tools_list(config)),
+        "tools/call" => tools_call(&params, config),
         other => Err((
             -32601,
             format!("unknown method `{other}`"),
@@ -45,47 +87,59 @@ pub fn handle_message(message: &Json) -> Option<Json> {
     })
 }
 
-fn tools_list() -> Json {
-    json!({
-        "tools": [
-            {
-                "name": "weave_check",
-                "description": "Statically check a Weave script. Returns one short error per line, or 'ok'.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "source": {"type": "string"},
-                        "tools": {"type": "array", "items": tool_schema()}
-                    },
-                    "required": ["source"]
-                }
-            },
-            {
-                "name": "weave_run",
-                "description": "Run a Weave script. Scripted tools are echo or const. Pure and read calls run in parallel; irreversible calls wait until the script is complete.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "source": {"type": "string"},
-                        "tools": {"type": "array", "items": tool_schema()}
-                    },
-                    "required": ["source"]
-                }
-            },
-            {
-                "name": "weave_replay",
-                "description": "Replay a Weave script from a JSON trace without calling tools. Output matches the recorded run.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "source": {"type": "string"},
-                        "trace": {"type": "object"}
-                    },
-                    "required": ["source", "trace"]
+fn tools_list(config: &ServerConfig) -> Json {
+    let mut tools = vec![
+        json!({
+            "name": "weave_check",
+            "description": "Statically check a Weave script. Returns one short error per line, or 'ok'.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string"},
+                    "tools": {"type": "array", "items": tool_schema()}
+                },
+                "required": ["source"]
+            }
+        }),
+        json!({
+            "name": "weave_run",
+            "description": "Run a Weave script. Scripted tools are echo or const. Pure and read calls run in parallel; irreversible calls wait until the script is complete. Omit tools to use the server config.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string"},
+                    "tools": {"type": "array", "items": tool_schema()}
+                },
+                "required": ["source"]
+            }
+        }),
+        json!({
+            "name": "weave_replay",
+            "description": "Replay a Weave script from a JSON trace without calling tools. Output matches the recorded run.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string"},
+                    "trace": {"type": "object"}
+                },
+                "required": ["source", "trace"]
+            }
+        }),
+    ];
+    for tool in &config.tools {
+        tools.push(json!({
+            "name": tool.name,
+            "description": tool.description,
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "args": {"type": "array", "description": "Positional arguments"},
+                    "kwargs": {"type": "object", "description": "Keyword arguments"}
                 }
             }
-        ]
-    })
+        }));
+    }
+    json!({ "tools": tools })
 }
 
 fn tool_schema() -> Json {
@@ -103,17 +157,20 @@ fn tool_schema() -> Json {
     })
 }
 
-fn tools_call(params: &Json) -> Result<Json, (i32, String)> {
+fn tools_call(params: &Json, config: &ServerConfig) -> Result<Json, (i32, String)> {
     let name = params
         .get("name")
         .and_then(|v| v.as_str())
         .ok_or((-32602, "tools/call needs a name".to_string()))?;
     let args = params.get("arguments").cloned().unwrap_or(json!({}));
     let text = match name {
-        "weave_check" => weave_check(&args),
-        "weave_run" => weave_run(&args),
-        "weave_replay" => weave_replay(&args),
-        other => return Err((-32602, format!("unknown tool `{other}`"))),
+        "weave_check" => weave_check(&args, config),
+        "weave_run" => weave_run(&args, config),
+        "weave_replay" => weave_replay(&args, config),
+        other => match config.tools.iter().find(|tool| tool.name == other) {
+            Some(tool) => call_configured(tool, &args),
+            None => return Err((-32602, format!("unknown tool `{other}`"))),
+        },
     };
     match text {
         Ok(body) => Ok(tool_ok(&body)),
@@ -141,9 +198,9 @@ fn source_of(args: &Json) -> Result<&str, String> {
         .ok_or_else(|| "source must be a string".to_string())
 }
 
-fn weave_check(args: &Json) -> Result<String, String> {
+fn weave_check(args: &Json, config: &ServerConfig) -> Result<String, String> {
     let source = source_of(args)?;
-    let engine = engine_from_args(args)?;
+    let engine = engine_from_args(args, config)?;
     let diags = engine.check(source);
     if diags.is_empty() {
         Ok("ok".to_string())
@@ -152,14 +209,14 @@ fn weave_check(args: &Json) -> Result<String, String> {
     }
 }
 
-fn weave_run(args: &Json) -> Result<String, String> {
+fn weave_run(args: &Json, config: &ServerConfig) -> Result<String, String> {
     let source = source_of(args)?;
-    let engine = engine_from_args(args)?;
+    let engine = engine_from_args(args, config)?;
     let result = engine.run(source).map_err(|err| err.to_string())?;
     Ok(render_result(&result))
 }
 
-fn weave_replay(args: &Json) -> Result<String, String> {
+fn weave_replay(args: &Json, config: &ServerConfig) -> Result<String, String> {
     let source = source_of(args)?;
     let trace_json = match args.get("trace") {
         Some(Json::String(text)) => text.clone(),
@@ -167,7 +224,7 @@ fn weave_replay(args: &Json) -> Result<String, String> {
         None => return Err("trace is required".into()),
     };
     let trace = weave::Trace::from_json(&trace_json).map_err(|err| err.to_string())?;
-    let engine = engine_from_args(args)?;
+    let engine = engine_from_args(args, config)?;
     let result = engine.replay(source, &trace).map_err(|err| err.to_string())?;
     Ok(render_result(&result))
 }
@@ -186,16 +243,144 @@ fn render_result(result: &weave::RunResult) -> String {
     .unwrap_or_else(|_| "{}".into())
 }
 
-fn engine_from_args(args: &Json) -> Result<Engine, String> {
+fn engine_from_args(args: &Json, config: &ServerConfig) -> Result<Engine, String> {
     let mut engine = Engine::new();
-    let Some(tools) = args.get("tools") else {
+    if let Some(tools) = args.get("tools") {
+        let tools = tools.as_array().ok_or("tools must be a list")?;
+        for tool in tools {
+            register_scripted(&mut engine, tool)?;
+        }
         return Ok(engine);
-    };
-    let tools = tools.as_array().ok_or("tools must be a list")?;
-    for tool in tools {
-        register_scripted(&mut engine, tool)?;
+    }
+    for tool in &config.tools {
+        register_parsed(&mut engine, tool)?;
     }
     Ok(engine)
+}
+
+fn call_configured(tool: &ScriptedTool, args: &Json) -> Result<String, String> {
+    let positional = match args.get("args") {
+        None => Vec::new(),
+        Some(value) => value
+            .as_array()
+            .ok_or("args must be a list")?
+            .iter()
+            .map(arg_value)
+            .collect::<Result<Vec<_>, _>>()?,
+    };
+    let mut kwargs = BTreeMap::new();
+    if let Some(raw) = args.get("kwargs") {
+        let obj = raw.as_object().ok_or("kwargs must be an object")?;
+        for (key, value) in obj {
+            kwargs.insert(key.clone(), arg_value(value)?);
+        }
+    }
+    if let Some(arity) = tool.arity {
+        if positional.len() != arity {
+            return Err(format!(
+                "tool `{}` expects {arity} argument(s), got {}",
+                tool.name,
+                positional.len()
+            ));
+        }
+    }
+    let value = run_behavior(&tool.behavior, tool.result.clone(), tool.delay_ms, &positional, &kwargs)?;
+    Ok(serde_json::to_string_pretty(&value.to_json()).unwrap_or_else(|_| "{}".into()))
+}
+
+fn arg_value(value: &Json) -> Result<Value, String> {
+    if value.as_object().and_then(|obj| obj.get("t")).is_some() {
+        return Value::from_json(value);
+    }
+    match value {
+        Json::Null => Ok(Value::Null),
+        Json::Bool(flag) => Ok(Value::Bool(*flag)),
+        Json::Number(number) => {
+            if let Some(int) = number.as_i64() {
+                Ok(Value::Int(int))
+            } else if let Some(float) = number.as_f64() {
+                Ok(Value::Float(float))
+            } else {
+                Err("number is out of range".into())
+            }
+        }
+        Json::String(text) => Ok(Value::Str(text.clone())),
+        Json::Array(items) => items.iter().map(arg_value).collect::<Result<Vec<_>, _>>().map(Value::List),
+        Json::Object(_) => Err("keyword values must be plain JSON or a tagged Weave value".into()),
+    }
+}
+
+fn parse_scripted(tool: &Json) -> Result<ScriptedTool, String> {
+    let name = tool
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or("tool name must be a string")?
+        .to_string();
+    let effect = match tool.get("effect").and_then(|v| v.as_str()) {
+        None => Effect::Irreversible,
+        Some(text) => Effect::parse(text).ok_or_else(|| {
+            format!("unknown effect `{text}`; use pure, read, reversible, or irreversible")
+        })?,
+    };
+    let behavior = tool
+        .get("behavior")
+        .and_then(|v| v.as_str())
+        .unwrap_or("echo")
+        .to_string();
+    let result = match tool.get("result") {
+        Some(value) => Some(Value::from_json(value).map_err(|err| format!("tool `{name}` result: {err}"))?),
+        None => None,
+    };
+    if behavior == "const" && result.is_none() {
+        return Err(format!("tool `{name}` behavior const needs result"));
+    }
+    if behavior != "echo" && behavior != "const" {
+        return Err(format!("unknown tool behavior `{behavior}`; use echo or const"));
+    }
+    Ok(ScriptedTool {
+        name,
+        description: tool
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Scripted Weave tool")
+            .to_string(),
+        effect,
+        arity: tool.get("arity").and_then(|v| v.as_u64()).map(|n| n as usize),
+        behavior,
+        result,
+        delay_ms: tool.get("delay_ms").and_then(|v| v.as_u64()).unwrap_or(0),
+    })
+}
+
+fn register_parsed(engine: &mut Engine, tool: &ScriptedTool) -> Result<(), String> {
+    let mut spec = ToolSpec::effect(tool.effect);
+    if let Some(arity) = tool.arity {
+        spec = spec.with_arity(arity);
+    }
+    let behavior = tool.behavior.clone();
+    let delay_ms = tool.delay_ms;
+    let constant = tool.result.clone();
+    engine.register(&tool.name, spec, move |args, kwargs| {
+        run_behavior(&behavior, constant.clone(), delay_ms, &args, &kwargs)
+    });
+    Ok(())
+}
+
+fn run_behavior(
+    behavior: &str,
+    constant: Option<Value>,
+    delay_ms: u64,
+    args: &[Value],
+    kwargs: &BTreeMap<String, Value>,
+) -> Result<Value, String> {
+    if delay_ms > 0 {
+        thread::sleep(Duration::from_millis(delay_ms));
+    }
+    match behavior {
+        "const" => Ok(constant.unwrap_or(Value::Null)),
+        "echo" => Ok(echo_value(args, kwargs)),
+        other => Err(format!("unknown tool behavior `{other}`; use echo or const")),
+    }
 }
 
 fn register_scripted(engine: &mut Engine, tool: &Json) -> Result<(), String> {
@@ -339,5 +524,58 @@ mod tests {
         let text = response["result"]["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("`import` is not supported"), "{text}");
         assert_eq!(response["result"]["isError"], true);
+    }
+
+    #[test]
+    fn config_tools_are_listed_and_callable() {
+        let config = ServerConfig::from_json(
+            r#"{"tools":[{"name":"weather","description":"City weather","effect":"read","arity":1,"behavior":"echo"}]}"#,
+        )
+        .unwrap();
+        let listed = handle_with(
+            &json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+            &config,
+        )
+        .unwrap();
+        let names: Vec<&str> = listed["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|tool| tool["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            names,
+            ["weave_check", "weave_run", "weave_replay", "weather"]
+        );
+        let called = handle_with(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "weather", "arguments": {"args": ["Paris"]}}
+            }),
+            &config,
+        )
+        .unwrap();
+        let text = called["result"]["content"][0]["text"].as_str().unwrap();
+        assert_eq!(called["result"]["isError"], false);
+        assert!(text.contains("Paris"), "{text}");
+
+        let ran = handle_with(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "weave_run",
+                    "arguments": {"source": "print(weather(\"Paris\"))\n"}
+                }
+            }),
+            &config,
+        )
+        .unwrap();
+        let body = ran["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(ran["result"]["isError"] == false, "{body}");
+        assert!(body.contains("Paris"), "{body}");
     }
 }

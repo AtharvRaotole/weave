@@ -22,6 +22,41 @@ pub type AsyncToolFn = Arc<
 
 pub type AsyncToolFut = Pin<Box<dyn Future<Output = Result<Value, String>> + Send>>;
 
+pub type IsolatedStart = Arc<
+    dyn Fn(Vec<Value>, BTreeMap<String, Value>) -> Result<IsolatedJob, String> + Send + Sync,
+>;
+
+/// A sync tool call running where the host can destroy it.
+///
+/// `wait` blocks until the call returns. `kill` must make `wait` unblock and
+/// must stop the underlying work. The Python worker pool implements `kill`
+/// with `SIGKILL`. A plain thread cannot do this safely, so Rust sync tools
+/// stay on [`ToolBody::Sync`] unless the host supplies this pair.
+pub struct IsolatedJob {
+    wait: Arc<dyn Fn() -> Result<Value, String> + Send + Sync>,
+    kill: Arc<dyn Fn() + Send + Sync>,
+}
+
+impl IsolatedJob {
+    pub fn new(
+        wait: impl Fn() -> Result<Value, String> + Send + Sync + 'static,
+        kill: impl Fn() + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            wait: Arc::new(wait),
+            kill: Arc::new(kill),
+        }
+    }
+
+    pub(crate) fn waiter(&self) -> Arc<dyn Fn() -> Result<Value, String> + Send + Sync> {
+        self.wait.clone()
+    }
+
+    pub(crate) fn kill(&self) {
+        (self.kill)()
+    }
+}
+
 /// How the host function is invoked.
 #[derive(Clone)]
 pub enum ToolBody {
@@ -31,6 +66,8 @@ pub enum ToolBody {
     Cooperative(CooperativeFn),
     /// Async function. Timeout and cancel drop the future.
     Async(AsyncToolFn),
+    /// Blocking work with a host-provided kill. Timeout and cancel call `kill`.
+    Isolated(IsolatedStart),
 }
 
 /// How a tool is registered. Omitted effect means irreversible. Omitted arity means any arity.
@@ -106,6 +143,10 @@ impl ToolRegistry {
 
     pub fn register_async(&mut self, name: impl Into<String>, spec: ToolSpec, func: AsyncToolFn) {
         self.insert(name, spec, ToolBody::Async(func));
+    }
+
+    pub fn register_isolated(&mut self, name: impl Into<String>, spec: ToolSpec, start: IsolatedStart) {
+        self.insert(name, spec, ToolBody::Isolated(start));
     }
 
     fn insert(&mut self, name: impl Into<String>, spec: ToolSpec, body: ToolBody) {

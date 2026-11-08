@@ -3,25 +3,50 @@ use std::collections::BTreeMap;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
-use weave_core::{CancelToken, Effect, Engine, Session, ToolSpec, Value};
+use weave_core::{
+    CancelToken, Effect, Engine, IsolatedJob, PredictedCall, Session, SpecCache, ToolSpec, Value,
+};
 
 #[pyclass(name = "Engine")]
 struct PyEngine {
     inner: Engine,
+    pool: Option<Py<PyAny>>,
 }
 
 #[pymethods]
 impl PyEngine {
+    /// `worker_pool` starts that many Python interpreters. Tools registered
+    /// with `hard_deadline=True` run there, and a timeout SIGKILLs the worker.
     #[new]
-    fn new() -> Self {
-        Self { inner: Engine::new() }
+    #[pyo3(signature = (worker_pool=None))]
+    fn new(py: Python<'_>, worker_pool: Option<usize>) -> PyResult<Self> {
+        let pool = match worker_pool {
+            None => None,
+            Some(0) => {
+                return Err(PyValueError::new_err(
+                    "worker_pool size must be at least 1",
+                ))
+            }
+            Some(size) => {
+                let module = py.import("weave.workers").map_err(|_| {
+                    PyValueError::new_err(
+                        "weave.workers is not installed; reinstall the weave wheel",
+                    )
+                })?;
+                Some(module.getattr("Pool")?.call1((size,))?.unbind())
+            }
+        };
+        Ok(Self {
+            inner: Engine::new(),
+            pool,
+        })
     }
 
     /// Register a host tool.
     ///
     /// `effect` defaults to `irreversible`. Untagged tools are irreversible.
     /// `arity`, when set, is checked before the script runs.
-    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None))]
+    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false))]
     #[allow(clippy::too_many_arguments)]
     fn tool(
         &mut self,
@@ -32,6 +57,7 @@ impl PyEngine {
         arity: Option<usize>,
         timeout_ms: Option<u64>,
         retries: Option<u32>,
+        hard_deadline: bool,
     ) -> PyResult<()> {
         let effect = match effect.as_deref() {
             None => Effect::Irreversible,
@@ -52,7 +78,25 @@ impl PyEngine {
             spec = spec.with_timeout(std::time::Duration::from_millis(timeout_ms));
         }
         let pass_cancel = wants_cancel(py, &func).unwrap_or(false);
-        if pass_cancel {
+        if hard_deadline {
+            if pass_cancel {
+                return Err(PyValueError::new_err(
+                    "hard_deadline runs the tool in a worker process; pass cancel by polling it in-process, or drop the cancel parameter",
+                ));
+            }
+            let pool = self
+                .pool
+                .as_ref()
+                .ok_or_else(|| {
+                    PyValueError::new_err(
+                        "hard_deadline needs Engine(worker_pool=N) so a timeout can kill the worker",
+                    )
+                })?
+                .clone_ref(py);
+            self.inner.register_isolated(&name, spec, move |args, kwargs| {
+                start_isolated(&pool, &func, &args, &kwargs)
+            });
+        } else if pass_cancel {
             self.inner.register_cooperative(&name, spec, move |args, kwargs, token| {
                 match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, Some(token))) {
                     Some(result) => result.map_err(|err| err.to_string()),
@@ -74,11 +118,76 @@ impl PyEngine {
         self.inner.check(source).into_iter().map(|d| d.to_string()).collect()
     }
 
-    fn run(&self, py: Python<'_>, source: &str) -> PyResult<PyRun> {
+    #[pyo3(signature = (source, speculation=None))]
+    fn run(
+        &self,
+        py: Python<'_>,
+        source: &str,
+        speculation: Option<Py<PySpecCache>>,
+    ) -> PyResult<PyRun> {
         // Release the GIL so tool threads can enter Python (time.sleep does).
         let source = source.to_string();
-        let result = py.detach(|| self.inner.run(&source));
+        let cache = speculation
+            .as_ref()
+            .map(|spec| spec.bind(py).borrow().inner.clone());
+        let result = py.detach(|| self.inner.run_with(&source, cache.as_ref()));
         result.map(PyRun::from_result).map_err(weave_err)
+    }
+
+    /// Pre-run pure and read calls. `calls` is a list of `(name, args)` or
+    /// `(name, args, kwargs)`. The cache key is the tool name plus those
+    /// arguments. Reversible, irreversible, and async tools are rejected.
+    fn speculate(&self, py: Python<'_>, calls: &Bound<'_, PyAny>) -> PyResult<Py<PySpecCache>> {
+        let mut predicted = Vec::new();
+        for item in calls.try_iter()? {
+            predicted.push(parse_predicted(py, &item?)?);
+        }
+        let cache = self.inner.speculate(&predicted);
+        Py::new(py, PySpecCache { inner: cache })
+    }
+
+    /// `predictor.predict(hint)` returns the same list shape as `speculate`.
+    fn speculate_with(
+        &mut self,
+        py: Python<'_>,
+        predictor: &Bound<'_, PyAny>,
+        hint: &str,
+    ) -> PyResult<Py<PySpecCache>> {
+        let calls = predictor.call_method1("predict", (hint,))?;
+        self.speculate(py, &calls)
+    }
+
+    /// Register every function previously marked with `weave.declare`.
+    fn install(&mut self, py: Python<'_>, funcs: &Bound<'_, PyAny>) -> PyResult<()> {
+        for item in funcs.try_iter()? {
+            install_marked(self, py, &item?)?;
+        }
+        Ok(())
+    }
+
+    /// Decorator that registers the function on this engine.
+    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false))]
+    #[allow(clippy::too_many_arguments)]
+    fn declare(
+        slf: Bound<'_, Self>,
+        py: Python<'_>,
+        effect: Option<String>,
+        arity: Option<usize>,
+        timeout_ms: Option<u64>,
+        retries: Option<u32>,
+        hard_deadline: bool,
+    ) -> PyResult<Py<EngineDecl>> {
+        Py::new(
+            py,
+            EngineDecl {
+                engine: slf.unbind(),
+                effect,
+                arity,
+                timeout_ms,
+                retries,
+                hard_deadline,
+            },
+        )
     }
 
     fn replay(&self, py: Python<'_>, source: &str, trace_json: &str) -> PyResult<PyRun> {
@@ -124,6 +233,11 @@ struct PyRun {
     prints: Vec<String>,
     bindings: BTreeMap<String, Value>,
     trace: String,
+    spec_started: u64,
+    spec_hits: u64,
+    spec_misses: u64,
+    spec_wasted: u64,
+    spec_rejected: u64,
 }
 
 #[pymethods]
@@ -150,16 +264,257 @@ impl PyRun {
     fn trace_json(&self) -> &str {
         &self.trace
     }
+
+    #[getter]
+    fn spec_started(&self) -> u64 {
+        self.spec_started
+    }
+
+    #[getter]
+    fn spec_hits(&self) -> u64 {
+        self.spec_hits
+    }
+
+    #[getter]
+    fn spec_misses(&self) -> u64 {
+        self.spec_misses
+    }
+
+    #[getter]
+    fn spec_wasted(&self) -> u64 {
+        self.spec_wasted
+    }
+
+    #[getter]
+    fn spec_rejected(&self) -> u64 {
+        self.spec_rejected
+    }
 }
 
 impl PyRun {
     fn from_result(result: weave_core::RunResult) -> Self {
         let trace = result.trace.to_json().unwrap_or_else(|_| "{}".into());
+        let stats = result.speculation.unwrap_or_default();
         Self {
             prints: result.prints,
             bindings: result.bindings,
             trace,
+            spec_started: stats.started,
+            spec_hits: stats.hits,
+            spec_misses: stats.misses,
+            spec_wasted: stats.wasted,
+            spec_rejected: stats.rejected,
         }
+    }
+}
+
+impl Drop for PyEngine {
+    fn drop(&mut self) {
+        if let Some(pool) = self.pool.take() {
+            Python::try_attach(|py| {
+                let _ = pool.call_method0(py, "close");
+            });
+        }
+    }
+}
+
+#[pyclass(name = "Speculation")]
+struct PySpecCache {
+    inner: SpecCache,
+}
+
+#[pyclass]
+struct EngineDecl {
+    engine: Py<PyEngine>,
+    effect: Option<String>,
+    arity: Option<usize>,
+    timeout_ms: Option<u64>,
+    retries: Option<u32>,
+    hard_deadline: bool,
+}
+
+#[pymethods]
+impl EngineDecl {
+    fn __call__(&self, py: Python<'_>, func: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        let name: String = func.getattr(py, "__name__")?.extract(py)?;
+        self.engine.borrow_mut(py).tool(
+            py,
+            name,
+            func.clone_ref(py),
+            self.effect.clone(),
+            self.arity,
+            self.timeout_ms,
+            self.retries,
+            self.hard_deadline,
+        )?;
+        Ok(func)
+    }
+}
+
+#[pyclass]
+struct MarkDecl {
+    effect: Option<String>,
+    arity: Option<usize>,
+    timeout_ms: Option<u64>,
+    retries: Option<u32>,
+    hard_deadline: bool,
+}
+
+#[pymethods]
+impl MarkDecl {
+    fn __call__(&self, py: Python<'_>, func: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        let meta = PyDict::new(py);
+        meta.set_item("effect", self.effect.clone())?;
+        meta.set_item("arity", self.arity)?;
+        meta.set_item("timeout_ms", self.timeout_ms)?;
+        meta.set_item("retries", self.retries)?;
+        meta.set_item("hard_deadline", self.hard_deadline)?;
+        func.setattr(py, "__weave__", meta)?;
+        Ok(func)
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false))]
+#[allow(clippy::too_many_arguments)]
+fn declare(
+    effect: Option<String>,
+    arity: Option<usize>,
+    timeout_ms: Option<u64>,
+    retries: Option<u32>,
+    hard_deadline: bool,
+) -> MarkDecl {
+    MarkDecl {
+        effect,
+        arity,
+        timeout_ms,
+        retries,
+        hard_deadline,
+    }
+}
+
+fn install_marked(engine: &mut PyEngine, py: Python<'_>, func: &Bound<'_, PyAny>) -> PyResult<()> {
+    let meta = func.getattr("__weave__").map_err(|_| {
+        PyValueError::new_err("install() expects functions decorated with weave.declare")
+    })?;
+    let meta = meta.cast::<PyDict>()?;
+    let name: String = func.getattr("__name__")?.extract()?;
+    engine.tool(
+        py,
+        name,
+        func.clone().unbind(),
+        dict_opt_string(meta, "effect")?,
+        dict_opt_usize(meta, "arity")?,
+        dict_opt_u64(meta, "timeout_ms")?,
+        dict_opt_u32(meta, "retries")?,
+        dict_bool(meta, "hard_deadline")?,
+    )
+}
+
+fn dict_opt_string(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<String>> {
+    match meta.get_item(key)? {
+        Some(value) if !value.is_none() => Ok(Some(value.extract()?)),
+        _ => Ok(None),
+    }
+}
+
+fn dict_opt_usize(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<usize>> {
+    match meta.get_item(key)? {
+        Some(value) if !value.is_none() => Ok(Some(value.extract()?)),
+        _ => Ok(None),
+    }
+}
+
+fn dict_opt_u64(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<u64>> {
+    match meta.get_item(key)? {
+        Some(value) if !value.is_none() => Ok(Some(value.extract()?)),
+        _ => Ok(None),
+    }
+}
+
+fn dict_opt_u32(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<u32>> {
+    match meta.get_item(key)? {
+        Some(value) if !value.is_none() => Ok(Some(value.extract()?)),
+        _ => Ok(None),
+    }
+}
+
+fn dict_bool(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<bool> {
+    match meta.get_item(key)? {
+        Some(value) if !value.is_none() => Ok(value.extract()?),
+        _ => Ok(false),
+    }
+}
+
+fn parse_predicted(py: Python<'_>, item: &Bound<'_, PyAny>) -> PyResult<PredictedCall> {
+    let name: String = item.get_item(0)?.extract()?;
+    let args_obj = item.get_item(1)?;
+    let mut args = Vec::new();
+    for arg in args_obj.try_iter()? {
+        args.push(py_to_value(&arg?)?);
+    }
+    let mut kwargs = BTreeMap::new();
+    if let Ok(raw) = item.get_item(2) {
+        if !raw.is_none() {
+            let dict = raw.cast::<PyDict>()?;
+            for (key, value) in dict.iter() {
+                kwargs.insert(key.extract()?, py_to_value(&value)?);
+            }
+        }
+    }
+    let _ = py;
+    Ok(PredictedCall::new(name, args).with_kwargs(kwargs))
+}
+
+fn start_isolated(
+    pool: &Py<PyAny>,
+    func: &Py<PyAny>,
+    args: &[Value],
+    kwargs: &BTreeMap<String, Value>,
+) -> Result<IsolatedJob, String> {
+    let attached = Python::try_attach(|py| -> PyResult<IsolatedJob> {
+        let py_args = PyList::empty(py);
+        for arg in args {
+            py_args.append(value_to_py(py, arg)?)?;
+        }
+        let py_kwargs = PyDict::new(py);
+        for (key, value) in kwargs {
+            py_kwargs.set_item(key, value_to_py(py, value)?)?;
+        }
+        let job = pool
+            .bind(py)
+            .call_method1("start", (func, &py_args, &py_kwargs))?;
+        let job: Py<PyAny> = job.unbind();
+        let wait_job = job.clone_ref(py);
+        let kill_job = job;
+        Ok(IsolatedJob::new(
+            move || match Python::try_attach(|py| read_job(py, &wait_job)) {
+                Some(Ok(value)) => Ok(value),
+                Some(Err(err)) => Err(err.to_string()),
+                None => Err("Python interpreter is unavailable".into()),
+            },
+            move || {
+                Python::try_attach(|py| {
+                    let _ = kill_job.call_method0(py, "kill");
+                });
+            },
+        ))
+    });
+    match attached {
+        Some(Ok(job)) => Ok(job),
+        Some(Err(err)) => Err(err.to_string()),
+        None => Err("Python interpreter is unavailable".into()),
+    }
+}
+
+fn read_job(py: Python<'_>, job: &Py<PyAny>) -> PyResult<Value> {
+    let pair = job.call_method0(py, "wait")?.into_bound(py);
+    let status: String = pair.get_item(0)?.extract()?;
+    if status == "ok" {
+        py_to_value(&pair.get_item(1)?)
+    } else {
+        let message: String = pair.get_item(1)?.extract()?;
+        Err(PyValueError::new_err(message))
     }
 }
 
@@ -303,10 +658,12 @@ fn py_to_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
 }
 
 #[pymodule]
-fn weave(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCancelToken>()?;
     m.add_class::<PyEngine>()?;
     m.add_class::<PySession>()?;
     m.add_class::<PyRun>()?;
+    m.add_class::<PySpecCache>()?;
+    m.add_function(wrap_pyfunction!(declare, m)?)?;
     Ok(())
 }

@@ -911,6 +911,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "weave-cli"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "weave",
+]
+
+[[package]]
 name = "weave-mcp"
 version = "0.1.0"
 dependencies = [
