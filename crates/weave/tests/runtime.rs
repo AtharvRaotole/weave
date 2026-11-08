@@ -600,3 +600,20 @@ fn append_on_a_non_name_is_still_an_error() {
     let err = engine.run("d = {\"k\": []}\nd[\"k\"].append(1)\n").unwrap_err();
     assert!(err.to_string().contains("append"), "{err}");
 }
+
+#[test]
+fn parse_json_reads_tool_text() {
+    let mut engine = Engine::new();
+    engine.register("read", ToolSpec::effect(Effect::Read).with_arity(1), |_, _| {
+        Ok(Value::str(r#"{"name": "weave", "version": "1.4.2", "tags": [1, 2.5, null, true]}"#))
+    });
+    let result = engine
+        .run("cfg = parse_json(read(\"config.json\"))\nv = \"v\" + cfg[\"version\"]\nn = len(cfg[\"tags\"])\n")
+        .unwrap();
+    assert_eq!(result.bindings["v"], Value::str("v1.4.2"));
+    assert_eq!(result.bindings["n"], Value::int(4));
+    let err = engine.run("x = parse_json(\"{bad\")\n").unwrap_err();
+    assert!(err.to_string().contains("invalid JSON"), "{err}");
+    let caught = engine.run("try:\n    x = parse_json(\"[\")\nexcept:\n    x = 0\n").unwrap();
+    assert_eq!(caught.bindings["x"], Value::int(0));
+}

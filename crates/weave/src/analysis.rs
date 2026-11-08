@@ -123,6 +123,7 @@ pub fn is_builtin(name: &str) -> bool {
             | "any"
             | "all"
             | "list"
+            | "parse_json"
     )
 }
 

@@ -2103,6 +2103,41 @@ fn apply_bin(op: BinOp, left: &Value, right: &Value) -> Result<Value, String> {
     }
 }
 
+/// `parse_json(text)`: plain JSON text to a Weave value. Tool results from MCP
+/// servers are text, so scripts need this to read structured results.
+fn parse_json(args: &[Value]) -> Result<Value, String> {
+    let text = match args.first() {
+        Some(Value::Str(text)) => text,
+        Some(other) => return Err(format!("parse_json() expects a string, got {}", value::type_name(other))),
+        None => return Err("parse_json() takes 1 argument".into()),
+    };
+    let json: serde_json::Value =
+        serde_json::from_str(text.trim()).map_err(|err| format!("parse_json(): invalid JSON: {err}"))?;
+    fn convert(json: &serde_json::Value, depth: usize) -> Result<Value, String> {
+        if depth > crate::limits::MAX_DEPTH {
+            return Err("parse_json(): nesting is too deep".into());
+        }
+        Ok(match json {
+            serde_json::Value::Null => Value::Null,
+            serde_json::Value::Bool(b) => Value::Bool(*b),
+            serde_json::Value::Number(n) => match n.as_i64() {
+                Some(i) => Value::Int(i),
+                None => Value::Float(n.as_f64().unwrap_or(f64::NAN)),
+            },
+            serde_json::Value::String(s) => Value::Str(s.clone()),
+            serde_json::Value::Array(items) => {
+                Value::List(items.iter().map(|v| convert(v, depth + 1)).collect::<Result<_, _>>()?)
+            }
+            serde_json::Value::Object(map) => Value::Dict(
+                map.iter()
+                    .map(|(k, v)| Ok((Value::Str(k.clone()), convert(v, depth + 1)?)))
+                    .collect::<Result<_, String>>()?,
+            ),
+        })
+    }
+    convert(&json, 0)
+}
+
 fn eval_builtin(name: &str, args: &[Value]) -> Result<Value, String> {
     match name {
         "len" => value::len_of(args.first().ok_or("len() takes 1 argument")?),
@@ -2130,6 +2165,7 @@ fn eval_builtin(name: &str, args: &[Value]) -> Result<Value, String> {
         "any" => any_all(args, true),
         "all" => any_all(args, false),
         "list" => as_list_value(args),
+        "parse_json" => parse_json(args),
         other => Err(format!("unknown builtin `{other}`")),
     }
 }
