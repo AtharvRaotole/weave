@@ -565,3 +565,10 @@ fn speculation_serves_pure_calls_and_rejects_irreversible() {
     assert_eq!(stats.hit_rate(), 0.5);
     assert_eq!(calls.load(Ordering::SeqCst), 2, "a hit must not call the tool again");
 }
+
+#[test]
+fn augmented_assignment_in_a_loop_is_carried() {
+    let engine = Engine::new();
+    let src = "n = 0\nfor a in range(3):\n    n += 1\nk = 0\nfor a in range(3):\n    for b in range(4):\n        k += 1\nprint(n, k)\n";
+    assert_eq!(engine.run(src).unwrap().stdout(), "3 12\n");
+}

@@ -8,6 +8,7 @@ use crate::ast::{
     StmtKind, Target, UnaryOp as WUnary,
 };
 use crate::error::{Diagnostic, WeaveError};
+use crate::limits::MAX_DEPTH;
 
 pub struct ParsedProgram {
     pub stmts: Vec<WStmt>,
@@ -26,6 +27,10 @@ pub fn parse_program(source: &str, line_offset: usize) -> Result<Vec<WStmt>, Wea
 /// Lower the module even when individual statements are outside the subset.
 /// A hard syntax failure is still an `Err`.
 pub fn parse_detailed(source: &str, line_offset: usize) -> Result<ParsedProgram, WeaveError> {
+    if let Err((offset, message)) = crate::limits::check_source_shape(source) {
+        let (line, col) = line_col(source, TextSize::new(offset as u32));
+        return Err(WeaveError::static_err(line + line_offset, col, message));
+    }
     let parsed = match parse_module(source) {
         Ok(parsed) => parsed,
         Err(err) => {
@@ -47,25 +52,102 @@ pub fn parse_detailed(source: &str, line_offset: usize) -> Result<ParsedProgram,
     }
     let mut lower = Lowerer {
         source,
+        lines: LineIndex::new(source),
         line_offset,
         errors: Vec::new(),
     };
-    let stmts = parsed.syntax().body.iter().map(|stmt| lower.stmt(stmt)).collect();
+    let stmts: Vec<WStmt> = parsed.syntax().body.iter().map(|stmt| lower.stmt(stmt)).collect();
+    for stmt in &stmts {
+        if stmt_depth(stmt, 1) > MAX_DEPTH {
+            return Err(WeaveError::static_err(
+                stmt.line,
+                stmt.col,
+                format!("code is nested deeper than {MAX_DEPTH} levels; split it into smaller statements"),
+            ));
+        }
+    }
     Ok(ParsedProgram {
         stmts,
         errors: lower.errors,
     })
 }
 
+/// Depth of a statement tree. Stops descending once past [`MAX_DEPTH`], so the
+/// walk itself is bounded.
+fn stmt_depth(stmt: &WStmt, depth: usize) -> usize {
+    if depth > MAX_DEPTH {
+        return depth;
+    }
+    let block = |stmts: &[WStmt]| stmts.iter().map(|s| stmt_depth(s, depth + 1)).max().unwrap_or(depth);
+    match &stmt.kind {
+        StmtKind::Assign { value, .. } | StmtKind::AugAssign { value, .. } | StmtKind::Expr(value) => {
+            expr_depth(value, depth + 1)
+        }
+        StmtKind::If { test, body, orelse } => expr_depth(test, depth + 1).max(block(body)).max(block(orelse)),
+        StmtKind::For { iter, body, .. } => expr_depth(iter, depth + 1).max(block(body)),
+        StmtKind::Try { body, handler } => block(body).max(block(&handler.body)),
+        StmtKind::Pass => depth,
+    }
+}
+
+fn expr_depth(expr: &WExpr, depth: usize) -> usize {
+    if depth > MAX_DEPTH {
+        return depth;
+    }
+    let d = depth + 1;
+    let many = |xs: &[WExpr]| xs.iter().map(|x| expr_depth(x, d)).max().unwrap_or(depth);
+    match &expr.kind {
+        ExprKind::None
+        | ExprKind::Bool(_)
+        | ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Str(_)
+        | ExprKind::Name(_) => depth,
+        ExprKind::List(xs) | ExprKind::Tuple(xs) => many(xs),
+        ExprKind::Dict(items) => items
+            .iter()
+            .map(|(k, v)| expr_depth(k, d).max(expr_depth(v, d)))
+            .max()
+            .unwrap_or(depth),
+        ExprKind::BinOp { left, right, .. } => expr_depth(left, d).max(expr_depth(right, d)),
+        ExprKind::Unary { operand, .. } => expr_depth(operand, d),
+        ExprKind::BoolOp { values, .. } => many(values),
+        ExprKind::Compare { left, comparators, .. } => expr_depth(left, d).max(many(comparators)),
+        ExprKind::Call { func, args, keywords } => expr_depth(func, d)
+            .max(many(args))
+            .max(keywords.iter().map(|k| expr_depth(&k.value, d)).max().unwrap_or(depth)),
+        ExprKind::Attribute { value, .. } => expr_depth(value, d),
+        ExprKind::Subscript { value, index } => expr_depth(value, d).max(expr_depth(index, d)),
+        ExprKind::Slice { lower, upper, step } => [lower, upper, step]
+            .iter()
+            .filter_map(|x| x.as_ref())
+            .map(|x| expr_depth(x, d))
+            .max()
+            .unwrap_or(depth),
+        ExprKind::FString(segs) => segs
+            .iter()
+            .map(|seg| match seg {
+                FSeg::Lit(_) => depth,
+                FSeg::Interp { expr, .. } => expr_depth(expr, d),
+            })
+            .max()
+            .unwrap_or(depth),
+        ExprKind::IfExp { test, body, orelse } => {
+            expr_depth(test, d).max(expr_depth(body, d)).max(expr_depth(orelse, d))
+        }
+    }
+}
+
 struct Lowerer<'a> {
     source: &'a str,
+    lines: LineIndex,
     line_offset: usize,
     errors: Vec<Diagnostic>,
 }
 
 impl<'a> Lowerer<'a> {
     fn loc(&self, offset: TextSize) -> (usize, usize) {
-        let (line, col) = line_col(self.source, offset);
+        let (line, col) = self.lines.line_col(self.source, offset.to_usize());
         (line + self.line_offset, col)
     }
 
@@ -612,6 +694,41 @@ impl<'a> Lowerer<'a> {
             CmpOp::Is => crate::ast::CmpOp::Is,
             CmpOp::IsNot => crate::ast::CmpOp::IsNot,
         })
+    }
+}
+
+/// Line starts plus an ASCII flag per line, so locating a node is a binary
+/// search instead of a scan from the top of the file.
+struct LineIndex {
+    starts: Vec<usize>,
+    ascii: Vec<bool>,
+}
+
+impl LineIndex {
+    fn new(source: &str) -> Self {
+        let mut starts = vec![0];
+        starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
+        let ascii = starts
+            .iter()
+            .enumerate()
+            .map(|(n, &start)| {
+                let end = starts.get(n + 1).copied().unwrap_or(source.len());
+                source.as_bytes()[start..end].is_ascii()
+            })
+            .collect();
+        Self { starts, ascii }
+    }
+
+    fn line_col(&self, source: &str, offset: usize) -> (usize, usize) {
+        let offset = offset.min(source.len());
+        let line = self.starts.partition_point(|&start| start <= offset) - 1;
+        let start = self.starts[line];
+        let col = if self.ascii[line] {
+            offset - start + 1
+        } else {
+            source[start..offset].chars().count() + 1
+        };
+        (line + 1, col)
     }
 }
 
