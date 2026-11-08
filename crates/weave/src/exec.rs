@@ -91,6 +91,7 @@ struct Launch {
     last_observable: ValFut,
     print_barrier: ValFut,
     prior: Vec<ValFut>,
+    path: Vec<usize>,
     env: HashMap<String, ValFut>,
     roots: Vec<ValFut>,
     pending_spawn: Vec<ValFut>,
@@ -137,6 +138,7 @@ struct BarrierSnap {
     last_observable: ValFut,
     print_barrier: ValFut,
     prior: Vec<ValFut>,
+    path: Vec<usize>,
 }
 
 impl BarrierSnap {
@@ -146,6 +148,7 @@ impl BarrierSnap {
             last_observable: g.last_observable.clone(),
             print_barrier: g.print_barrier.clone(),
             prior: g.prior.clone(),
+            path: g.path.clone(),
         }
     }
 
@@ -154,6 +157,7 @@ impl BarrierSnap {
         g.last_observable = self.last_observable.clone();
         g.print_barrier = self.print_barrier.clone();
         g.prior = self.prior.clone();
+        g.path = self.path.clone();
     }
 }
 
@@ -290,6 +294,9 @@ impl Engine {
     }
 
     pub fn replay(&self, source: &str, trace: &Trace) -> Result<RunResult, WeaveError> {
+        if trace.version != crate::trace::TRACE_VERSION || trace.source.trim_end() != source.trim_end() || trace.manifest != self.manifest() {
+            return Err(WeaveError::runtime(0, 0, "replay diverged: exact replay requires trace v2, identical source and tool manifest"));
+        }
         let diags = self.check(source);
         if !diags.is_empty() {
             return Err(WeaveError::new(diags));
@@ -318,6 +325,13 @@ impl Engine {
         self.open(RunMode::Execute, None)
     }
 
+    fn manifest(&self) -> BTreeMap<String, String> {
+        self.tools.names().map(|name| {
+            let spec = &self.tools.get(name).expect("tool").spec;
+            (name.to_string(), format!("{spec:?}"))
+        }).collect()
+    }
+
     fn open(&self, mode: RunMode, speculation: Option<SpecCache>) -> Session {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
@@ -344,6 +358,7 @@ impl Engine {
             last_observable: ready(Value::Null),
             print_barrier: ready(Value::Null),
             prior: Vec::new(),
+            path: Vec::new(),
             env: HashMap::new(),
             roots: Vec::new(),
             pending_spawn: Vec::new(),
@@ -358,6 +373,8 @@ impl Engine {
             tx,
             result_rx,
             buffer: String::new(),
+            source: String::new(),
+            manifest: self.manifest(),
             line_offset: 0,
             defined: HashSet::new(),
             tools: Arc::new(self.tools.clone()),
@@ -377,6 +394,8 @@ pub struct Session {
     tx: tokio::sync::mpsc::UnboundedSender<Msg>,
     result_rx: std::sync::mpsc::Receiver<Result<RunResult, WeaveError>>,
     buffer: String,
+    source: String,
+    manifest: BTreeMap<String, String>,
     line_offset: usize,
     defined: HashSet<String>,
     tools: Arc<ToolRegistry>,
@@ -437,6 +456,7 @@ impl Session {
         if let Some(err) = &self.failed {
             return Err(err.clone());
         }
+        self.source.push_str(chunk);
         self.buffer.push_str(chunk);
         let end = complete_prefix_end(&self.buffer);
         if end == 0 {
@@ -499,7 +519,12 @@ impl Session {
         let timed_out = || self.timed_out.load(std::sync::atomic::Ordering::SeqCst);
         match self.result_rx.recv_timeout(wait) {
             Ok(Err(_)) if timed_out() => Err(self.time_limit_error()),
-            Ok(result) => result,
+            Ok(Ok(mut result)) => {
+                result.trace.source = self.source.clone();
+                result.trace.manifest = self.manifest.clone();
+                Ok(result)
+            }
+            Ok(Err(err)) => Err(err),
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 let _ = self.cancel_tx.send(true);
                 Err(self.time_limit_error())
@@ -713,6 +738,7 @@ fn schedule_if(
     let branch_obs = g.last_observable.clone();
     let branch_print = g.print_barrier.clone();
     let branch_prior = g.prior.clone();
+    let branch_path = g.path.clone();
     let body = body.to_vec();
     let orelse = orelse.to_vec();
     let arc_c = arc.clone();
@@ -727,6 +753,7 @@ fn schedule_if(
             g.last_observable = branch_obs;
             g.print_barrier = branch_print;
             g.prior = branch_prior;
+            g.path = branch_path.clone();
             let mut child = snap;
             let roots = launch_block(&mut g, &arc_c, &branch, &mut child, false);
             let assigned = capture_assigned(&written_task, &child);
@@ -759,6 +786,7 @@ fn schedule_try(
     let branch_obs = g.last_observable.clone();
     let branch_print = g.print_barrier.clone();
     let branch_prior = g.prior.clone();
+    let branch_path = g.path.clone();
     let body = body.to_vec();
     let handler = handler.clone();
     let arc_c = arc.clone();
@@ -773,6 +801,7 @@ fn schedule_try(
             branch_obs.clone(),
             branch_print.clone(),
             branch_prior.clone(),
+            branch_path.clone(),
         )
         .await;
         match tried {
@@ -790,6 +819,7 @@ fn schedule_try(
                     branch_obs,
                     branch_print,
                     branch_prior,
+                    branch_path,
                 )
                 .await.map_err(|(err, _)| err)
             }
@@ -817,6 +847,7 @@ async fn run_caught_block(
     branch_obs: ValFut,
     branch_print: ValFut,
     branch_prior: Vec<ValFut>,
+    branch_path: Vec<usize>,
 ) -> Result<Arc<HashMap<String, Value>>, (WeaveError, HashMap<String, ValFut>)> {
     for stmt in stmts {
         let before = child.clone();
@@ -827,6 +858,7 @@ async fn run_caught_block(
             guard.last_observable = branch_obs.clone();
             guard.print_barrier = branch_print.clone();
             guard.prior = branch_prior.clone();
+            guard.path = branch_path.clone();
             let roots = launch_block(&mut guard, arc, std::slice::from_ref(stmt), &mut child, false);
             let names = assigned_names(std::slice::from_ref(stmt));
             let assigned = capture_assigned(&names, &child);
@@ -876,6 +908,7 @@ fn schedule_for(
     let branch_obs = g.last_observable.clone();
     let branch_print = g.print_barrier.clone();
     let branch_prior = g.prior.clone();
+    let branch_path = g.path.clone();
     let body = body.to_vec();
     let target = target.clone();
     let arc_c = arc.clone();
@@ -888,9 +921,9 @@ fn schedule_for(
         let iter_v = iter_fut.await?;
         let items = iter_items(line, col, iter_v)?;
         if parallel {
-            run_parallel_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, branch_prior, &arc_c).await
+            run_parallel_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, branch_prior, branch_path, &arc_c).await
         } else {
-            run_sequential_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, branch_prior, &arc_c).await
+            run_sequential_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, branch_prior, branch_path, &arc_c).await
         }
     });
     install_placeholders(line, col, &written, &map_fut, env);
@@ -973,6 +1006,7 @@ async fn run_parallel_for(
     branch_obs: ValFut,
     branch_print: ValFut,
     branch_prior: Vec<ValFut>,
+    branch_path: Vec<usize>,
     arc: &Arc<Mutex<Launch>>,
 ) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
     let planned = {
@@ -983,6 +1017,7 @@ async fn run_parallel_for(
         g.last_observable = branch_obs;
         g.print_barrier = branch_print;
             g.prior = branch_prior;
+            g.path = branch_path.clone();
         let mut planned = Vec::new();
         // Inside an iteration, a written name starts unbound. The analysis
         // guarantees a parallel body never reads it before assigning it, so
@@ -996,7 +1031,9 @@ async fn run_parallel_for(
                 base.insert(name.clone(), fail(WeaveError::one(Diagnostic::unbound(line, col, name))));
             }
         }
-        for item in items {
+        for (iteration, item) in items.iter().enumerate() {
+            g.path = branch_path.clone();
+            g.path.extend([line, col, iteration]);
             let mut child = base.clone();
             bind_ready(target, item.clone(), &mut child);
             let roots = launch_block(&mut g, arc, body, &mut child, false);
@@ -1036,6 +1073,7 @@ async fn run_sequential_for(
     branch_obs: ValFut,
     branch_print: ValFut,
     branch_prior: Vec<ValFut>,
+    branch_path: Vec<usize>,
     arc: &Arc<Mutex<Launch>>,
 ) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
     let mut local_mut = branch_mut;
@@ -1047,7 +1085,7 @@ async fn run_sequential_for(
         let g = arc.lock().expect("launch lock");
         charge(&g, items.len(), line, col)?;
     }
-    for item in items {
+    for (iteration, item) in items.iter().enumerate() {
         let (roots, assigned) = {
             let mut g = arc.lock().expect("launch lock");
             let saved = BarrierSnap::capture(&g);
@@ -1055,6 +1093,8 @@ async fn run_sequential_for(
             g.last_observable = local_obs.clone();
             g.print_barrier = local_print.clone();
             g.prior = local_prior.clone();
+            g.path = branch_path.clone();
+            g.path.extend([line, col, iteration]);
             let mut child = snap.clone();
             for (name, value) in &carried {
                 child.insert(name.clone(), ready(value.clone()));
@@ -1628,6 +1668,8 @@ fn schedule_tool(
     let retries = tool.spec.retries;
     let timeout = tool.spec.timeout;
     let tool_name = name.to_string();
+    let mut invocation = g.path.clone();
+    invocation.extend([line, col]);
     let seq = g.seq.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     let mutation = g.last_mutation.clone();
     let prior = g.prior.clone();
@@ -1669,7 +1711,7 @@ fn schedule_tool(
         let mut done = None;
         let outcome = match &mode {
             RunMode::Replay(recorded) => {
-                let (outcome, recorded_done) = replay_tool(line, col, &tool_name, &args, &kwargs, recorded);
+                let (outcome, recorded_done) = replay_tool(line, col, &invocation, &tool_name, &args, &kwargs, recorded);
                 done = recorded_done;
                 outcome
             }
@@ -1706,6 +1748,7 @@ fn schedule_tool(
         trace.lock().expect("trace").record(TraceEvent {
             seq,
             line,
+            invocation,
             tool: tool_name,
             effect: effect.as_str().to_string(),
             args,
@@ -1777,19 +1820,20 @@ fn fmt_call(args: &[Value], kwargs: &BTreeMap<String, Value>) -> String {
 fn replay_tool(
     line: usize,
     col: usize,
+    invocation: &[usize],
     tool_name: &str,
     args: &[Value],
     kwargs: &BTreeMap<String, Value>,
     recorded: &Replay,
 ) -> (Result<Value, WeaveError>, Option<u64>) {
     let mut used = recorded.used.lock().expect("replay state");
-    // Earliest-finished unused identical call. Ties (old traces) go to seq.
+    // Stable source callsite + nested iteration path; completion order is not identity.
     let found = recorded
         .events
         .iter()
         .enumerate()
         .filter(|(index, event)| {
-            !used[*index] && event.tool == tool_name && event.args == args && &event.kwargs == kwargs
+            !used[*index] && event.invocation == invocation && event.tool == tool_name && event.args == args && &event.kwargs == kwargs
         })
         .min_by_key(|(index, event)| (event.done, *index))
         .map(|(index, _)| index);

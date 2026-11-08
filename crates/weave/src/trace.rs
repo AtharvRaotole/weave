@@ -5,18 +5,21 @@ use serde::{Deserialize, Serialize};
 use crate::error::WeaveError;
 use crate::value::Value;
 
-pub const TRACE_VERSION: u32 = 1;
+pub const TRACE_VERSION: u32 = 2;
 
 /// Deterministic record of host tool calls, in program order.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Trace {
     pub version: u32,
     pub events: Vec<TraceEvent>,
+    pub source: String,
+    pub manifest: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TraceEvent {
     pub seq: u64,
+    pub invocation: Vec<usize>,
     pub line: usize,
     pub tool: String,
     pub effect: String,
@@ -27,8 +30,7 @@ pub struct TraceEvent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     /// Completion order of the call within the run (0 = finished first).
-    /// Replay uses it to pick among identical calls. Traces written before
-    /// this field existed read it as 0 and fall back to `seq` order.
+    /// Diagnostic only; replay uses the logical invocation path.
     #[serde(default)]
     pub done: u64,
 }
@@ -37,6 +39,8 @@ impl Trace {
     pub fn empty() -> Self {
         Self {
             version: TRACE_VERSION,
+            source: String::new(),
+            manifest: BTreeMap::new(),
             events: Vec::new(),
         }
     }
@@ -98,6 +102,8 @@ impl TraceBuilder {
         }
         Ok(Trace {
             version: TRACE_VERSION,
+            source: String::new(),
+            manifest: BTreeMap::new(),
             events,
         })
     }

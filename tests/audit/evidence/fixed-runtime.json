@@ -1,0 +1,194 @@
+{
+  "literal_limit": {
+    "error": "ValueError",
+    "message": "L1:C5: value is larger than the 64 limit"
+  },
+  "tool_result_limit": {
+    "error": "ValueError",
+    "message": "L1:C5: value is larger than the 64 limit hint: catch it with `except ToolError` or fix the call"
+  },
+  "output_budget": {
+    "returned": 660
+  },
+  "malformed_source": {
+    "None": {
+      "returned": {
+        "role": "tool",
+        "tool_call_id": "test",
+        "content": "error: source must be a string"
+      }
+    },
+    "42": {
+      "returned": {
+        "role": "tool",
+        "tool_call_id": "test",
+        "content": "error: source must be a string"
+      }
+    },
+    "[]": {
+      "returned": {
+        "role": "tool",
+        "tool_call_id": "test",
+        "content": "error: source must be a string"
+      }
+    },
+    "{}": {
+      "returned": {
+        "role": "tool",
+        "tool_call_id": "test",
+        "content": "error: source must be a string"
+      }
+    }
+  },
+  "duplicate_read_replay": {
+    "mismatches": 0,
+    "runs": [
+      {
+        "original": "10931011927341 10931011955059",
+        "replay": "10931011927341 10931011955059",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931027930654 10931027960931",
+        "replay": "10931027930654 10931027960931",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931043865397 10931043903697",
+        "replay": "10931043865397 10931043903697",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931059650356 10931059730905",
+        "replay": "10931059650356 10931059730905",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931075555932 10931075608010",
+        "replay": "10931075555932 10931075608010",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931091496155 10931091548658",
+        "replay": "10931091496155 10931091548658",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931107520618 10931107599012",
+        "replay": "10931107520618 10931107599012",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931123380217 10931123408643",
+        "replay": "10931123380217 10931123408643",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931139390027 10931139437867",
+        "replay": "10931139390027 10931139437867",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931155204572 10931155232267",
+        "replay": "10931155204572 10931155232267",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931171090624 10931171144955",
+        "replay": "10931171090624 10931171144955",
+        "calls_after_replay": 2
+      },
+      {
+        "original": "10931187003887 10931187092544",
+        "replay": "10931187003887 10931187092544",
+        "calls_after_replay": 2
+      }
+    ]
+  },
+  "write_after_exception": [
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    },
+    {
+      "result": {
+        "returned": "caught\n"
+      },
+      "writes": []
+    }
+  ],
+  "try_environment": {
+    "returned": "1\n1\n"
+  },
+  "keyword_arity": {
+    "error": "ValueError",
+    "message": "L1:C7: tool `echo` takes 1 argument(s), got 0 hint: pass 1 positional argument(s) to `echo`\nL1:C7: tool `echo` does not take keyword arguments"
+  },
+  "unicode_find": "1\nx\n",
+  "async_python_tool": {
+    "error": "ValueError",
+    "message": "L1:C7: tool `async_tool` failed: TypeError: cannot convert coroutine to a Weave value hint: catch it with `except ToolError` or fix the call"
+  }
+}

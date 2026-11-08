@@ -481,7 +481,7 @@ fn check_seed(seed: u64) {
     assert_eq!(unordered(&streaming), unordered(&reference), "{}", ctx("streaming"));
     if let Some(trace) = &stream_trace {
         let world = Arc::default();
-        let replayed = engine_for_replay(&world).replay(&source, trace);
+        let replayed = engine(&world, false, false).replay(&source, trace);
         assert!(replayed.is_ok(), "{}: {:?}", ctx("streaming replay"), replayed.err());
     }
 
