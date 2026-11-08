@@ -59,6 +59,35 @@ impl Limits {
     }
 }
 
+/// Total size of `value` (same units as [`check_value`]), counting at most
+/// `cap + 1` so a huge value is not walked to the end.
+pub fn size_capped(value: &Value, cap: usize) -> usize {
+    let mut size = 0usize;
+    let mut stack = vec![value];
+    while let Some(v) = stack.pop() {
+        size = size.saturating_add(match v {
+            Value::Str(s) => s.len(),
+            Value::List(xs) => xs.len(),
+            Value::Dict(items) => items.len(),
+            _ => 1,
+        });
+        if size > cap {
+            return size;
+        }
+        match v {
+            Value::List(xs) => stack.extend(xs.iter()),
+            Value::Dict(items) => {
+                for (k, x) in items {
+                    stack.push(k);
+                    stack.push(x);
+                }
+            }
+            _ => {}
+        }
+    }
+    size
+}
+
 /// Check a value's total size and nesting without recursion. Stops early once
 /// either limit is exceeded.
 pub fn check_value(value: &Value, max_size: usize) -> Result<(), String> {

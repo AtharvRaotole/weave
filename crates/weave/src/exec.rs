@@ -20,6 +20,7 @@ use crate::error::{Diagnostic, WeaveError};
 use crate::parse::{parse_detailed, parse_program};
 use crate::stream::complete_prefix_end;
 use crate::cancel::{CancelSource, CancelToken};
+use crate::limits::{check_value, Limits};
 use crate::speculate::{PredictedCall, Predictor, SpecCache, SpecStats};
 use crate::tools::{IsolatedJob, IsolatedStart, ToolBody, ToolFn, ToolRegistry, ToolSpec};
 use crate::trace::{Trace, TraceBuilder, TraceEvent};
@@ -93,6 +94,38 @@ struct Launch {
     roots: Vec<ValFut>,
     pending_spawn: Vec<ValFut>,
     speculation: Option<SpecCache>,
+    limits: Limits,
+    steps: Arc<std::sync::atomic::AtomicU64>,
+}
+
+/// Count `n` steps against the run's budget.
+fn charge(g: &Launch, n: usize, line: usize, col: usize) -> Result<(), WeaveError> {
+    charge_steps(&g.steps, g.limits.max_steps, n, line, col)
+}
+
+fn charge_steps(
+    steps: &std::sync::atomic::AtomicU64,
+    max: u64,
+    n: usize,
+    line: usize,
+    col: usize,
+) -> Result<(), WeaveError> {
+    let used = steps.fetch_add(n as u64, std::sync::atomic::Ordering::SeqCst) + n as u64;
+    if used > max {
+        Err(WeaveError::runtime(
+            line,
+            col,
+            format!("step limit of {max} exceeded; loop over less data or split the work"),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+/// Enforce the value size and nesting limits on a freshly built value.
+fn checked(line: usize, col: usize, max_size: usize, value: Value) -> Result<Value, WeaveError> {
+    check_value(&value, max_size).map_err(|msg| WeaveError::runtime(line, col, msg))?;
+    Ok(value)
 }
 
 struct BarrierSnap {
@@ -138,6 +171,7 @@ fn spawn_pending(arc: &Arc<Mutex<Launch>>) {
 
 pub struct Engine {
     tools: ToolRegistry,
+    limits: Limits,
 }
 
 impl Default for Engine {
@@ -150,7 +184,20 @@ impl Engine {
     pub fn new() -> Self {
         Self {
             tools: ToolRegistry::new(),
+            limits: Limits::default(),
         }
+    }
+
+    /// Replace the resource limits for later runs and sessions.
+    pub fn set_limits(&mut self, limits: Limits) {
+        self.limits = Limits {
+            max_value_size: limits.max_value_size.min(crate::limits::HARD_MAX_VALUE_SIZE),
+            ..limits
+        };
+    }
+
+    pub fn limits(&self) -> Limits {
+        self.limits
     }
 
     /// Register a host tool. The default [`ToolSpec`] is irreversible with any arity.
@@ -293,6 +340,8 @@ impl Engine {
             roots: Vec::new(),
             pending_spawn: Vec::new(),
             speculation,
+            limits: self.limits,
+            steps: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         };
         let arc = Arc::new(Mutex::new(launch));
         runtime.spawn(driver(rx, arc, result_tx));
@@ -534,6 +583,13 @@ fn launch_block(
     record_root: bool,
 ) -> Vec<ValFut> {
     let mut roots = Vec::new();
+    if let Some(first) = stmts.first() {
+        if let Err(err) = charge(g, stmts.len(), first.line, first.col) {
+            let fut = fail(err);
+            track(g, fut.clone(), record_root);
+            return vec![fut];
+        }
+    }
     for stmt in stmts {
         match &stmt.kind {
             StmtKind::Pass => {}
@@ -741,7 +797,11 @@ fn schedule_for(
     let target = target.clone();
     let arc_c = arc.clone();
     let written_task = written.clone();
+    let steps = g.steps.clone();
+    let max_steps = g.limits.max_steps;
     let map_fut = share_map(async move {
+        // Once the budget is spent, don't even build the iterable.
+        charge_steps(&steps, max_steps, 0, line, col)?;
         let iter_v = iter_fut.await?;
         let items = iter_items(line, col, iter_v)?;
         if parallel {
@@ -833,6 +893,7 @@ async fn run_parallel_for(
 ) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
     let planned = {
         let mut g = arc.lock().expect("launch lock");
+        charge(&g, items.len(), line, col)?;
         let saved = BarrierSnap::capture(&g);
         g.last_mutation = branch_mut;
         g.last_observable = branch_obs;
@@ -883,6 +944,10 @@ async fn run_sequential_for(
     let mut local_obs = branch_obs;
     let mut local_print = branch_print;
     let mut carried: HashMap<String, Value> = HashMap::new();
+    {
+        let g = arc.lock().expect("launch lock");
+        charge(&g, items.len(), line, col)?;
+    }
     for item in items {
         let (roots, assigned) = {
             let mut g = arc.lock().expect("launch lock");
@@ -1023,12 +1088,14 @@ fn bind_target(target: &Target, value: ValFut, g: &mut Launch, arc: &Arc<Mutex<L
                 fail(WeaveError::one(Diagnostic::unbound(line, col, name)))
             });
             let name_c = name.clone();
+            let max = g.limits.max_value_size;
             let updated = share(async move {
                 let container = old.await?;
                 let index = idx.await?;
                 let value = value.await?;
-                value::set_item(&container, &index, value)
-                    .map_err(|msg| WeaveError::runtime(line, col, msg))
+                let value = value::set_item(&container, &index, value)
+                    .map_err(|msg| WeaveError::runtime(line, col, msg))?;
+                checked(line, col, max, value)
             });
             env.insert(name_c, updated);
         }
@@ -1051,10 +1118,12 @@ fn schedule_aug(
             let rhs = schedule_expr(value, g, arc, env);
             let line = *line;
             let col = *col;
+            let max = g.limits.max_value_size;
             let updated = share(async move {
                 let left = old.await?;
                 let right = rhs.await?;
-                apply_bin(op, &left, &right).map_err(|msg| WeaveError::runtime(line, col, msg))
+                let value = apply_bin(op, &left, &right).map_err(|msg| WeaveError::runtime(line, col, msg))?;
+                checked(line, col, max, value)
             });
             env.insert(name.clone(), updated.clone());
             updated
@@ -1070,13 +1139,15 @@ fn schedule_aug(
             let rhs = schedule_expr(value, g, arc, env);
             let line = *line;
             let col = *col;
+            let max = g.limits.max_value_size;
             let updated = share(async move {
                 let container = old.await?;
                 let index = idx.await?;
                 let current = value::get_item(&container, &index).map_err(|msg| WeaveError::runtime(line, col, msg))?;
                 let right = rhs.await?;
                 let new_value = apply_bin(op, &current, &right).map_err(|msg| WeaveError::runtime(line, col, msg))?;
-                value::set_item(&container, &index, new_value).map_err(|msg| WeaveError::runtime(line, col, msg))
+                let value = value::set_item(&container, &index, new_value).map_err(|msg| WeaveError::runtime(line, col, msg))?;
+                checked(line, col, max, value)
             });
             env.insert(name, updated.clone());
             updated
@@ -1108,24 +1179,15 @@ fn schedule_expr(expr: &Expr, g: &mut Launch, arc: &Arc<Mutex<Launch>>, env: &Ha
         ExprKind::Name(name) => env.get(name).cloned().unwrap_or_else(|| {
             fail(WeaveError::one(Diagnostic::unbound(line, col, name)))
         }),
-        ExprKind::List(xs) => {
+        ExprKind::List(xs) | ExprKind::Tuple(xs) => {
             let parts: Vec<ValFut> = xs.iter().map(|e| schedule_expr(e, g, arc, env)).collect();
+            let max = g.limits.max_value_size;
             share(async move {
                 let mut out = Vec::with_capacity(parts.len());
                 for part in join_all(parts).await {
                     out.push(part?);
                 }
-                Ok(Value::List(out))
-            })
-        }
-        ExprKind::Tuple(xs) => {
-            let parts: Vec<ValFut> = xs.iter().map(|e| schedule_expr(e, g, arc, env)).collect();
-            share(async move {
-                let mut out = Vec::with_capacity(parts.len());
-                for part in join_all(parts).await {
-                    out.push(part?);
-                }
-                Ok(Value::List(out))
+                checked(line, col, max, Value::List(out))
             })
         }
         ExprKind::Dict(items) => {
@@ -1133,6 +1195,7 @@ fn schedule_expr(expr: &Expr, g: &mut Launch, arc: &Arc<Mutex<Launch>>, env: &Ha
                 .iter()
                 .map(|(k, v)| (schedule_expr(k, g, arc, env), schedule_expr(v, g, arc, env)))
                 .collect();
+            let max = g.limits.max_value_size;
             share(async move {
                 let mut out = Vec::with_capacity(parts.len());
                 for (k, v) in parts {
@@ -1140,16 +1203,18 @@ fn schedule_expr(expr: &Expr, g: &mut Launch, arc: &Arc<Mutex<Launch>>, env: &Ha
                     let value = v.await?;
                     value::dict_insert(&mut out, key, value).map_err(|msg| WeaveError::runtime(line, col, msg))?;
                 }
-                Ok(Value::Dict(out))
+                checked(line, col, max, Value::Dict(out))
             })
         }
         ExprKind::BinOp { left, op, right } => {
             let op = *op;
             let left = schedule_expr(left, g, arc, env);
             let right = schedule_expr(right, g, arc, env);
+            let max = g.limits.max_value_size;
             share(async move {
                 let (l, r) = futures::future::join(left, right).await;
-                apply_bin(op, &l?, &r?).map_err(|msg| WeaveError::runtime(line, col, msg))
+                let value = apply_bin(op, &l?, &r?).map_err(|msg| WeaveError::runtime(line, col, msg))?;
+                checked(line, col, max, value)
             })
         }
         ExprKind::Unary { op, operand } => {
@@ -1314,6 +1379,7 @@ fn schedule_fstring(
             }),
         }
     }
+    let max = g.limits.max_value_size;
     share(async move {
         let mut out = String::new();
         for part in parts {
@@ -1335,8 +1401,7 @@ fn schedule_fstring(
                 }
             }
         }
-        let _ = (line, col);
-        Ok(Value::Str(out))
+        checked(line, col, max, Value::Str(out))
     })
 }
 
@@ -1364,25 +1429,29 @@ fn schedule_call(
         ExprKind::Name(name) if name == "print" => schedule_print(line, col, arg_futs, kw_futs, g),
         ExprKind::Name(name) if is_builtin(name) => {
             let name = name.clone();
+            let max = g.limits.max_value_size;
             share(async move {
                 let args = join_values(arg_futs).await?;
                 if !kw_futs.is_empty() {
                     return Err(WeaveError::runtime(line, col, format!("builtin `{name}` does not take keyword arguments")));
                 }
-                eval_builtin(&name, &args).map_err(|msg| WeaveError::runtime(line, col, msg))
+                let value = eval_builtin(&name, &args).map_err(|msg| WeaveError::runtime(line, col, msg))?;
+                checked(line, col, max, value)
             })
         }
         ExprKind::Name(name) => schedule_tool(line, col, name, arg_futs, kw_futs, g),
         ExprKind::Attribute { value, attr } => {
             let recv = schedule_expr(value, g, arc, env);
             let attr = attr.clone();
+            let max = g.limits.max_value_size;
             share(async move {
                 let recv = recv.await?;
                 let args = join_values(arg_futs).await?;
                 if !kw_futs.is_empty() {
                     return Err(WeaveError::runtime(line, col, format!("method `{attr}` does not take keyword arguments")));
                 }
-                call_method(&recv, &attr, &args).map_err(|msg| WeaveError::runtime(line, col, msg))
+                let value = call_method(&recv, &attr, &args).map_err(|msg| WeaveError::runtime(line, col, msg))?;
+                checked(line, col, max, value)
             })
         }
         _ => fail(WeaveError::runtime(
@@ -2169,7 +2238,10 @@ fn make_range(args: &[Value]) -> Result<Value, String> {
         if out.len() > 100_000 {
             return Err("range() is too large".into());
         }
-        i += step;
+        match i.checked_add(step) {
+            Some(next) => i = next,
+            None => break,
+        }
     }
     Ok(Value::List(out))
 }
@@ -2240,6 +2312,11 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
             }
             let old = args[0].as_str().ok_or("replace() old must be str")?;
             let new = args[1].as_str().ok_or("replace() new must be str")?;
+            let hits = if old.is_empty() { s.chars().count() + 1 } else { s.matches(old).count() };
+            let projected = (s.len() as u128) + (hits as u128) * (new.len() as u128);
+            if projected > crate::limits::HARD_MAX_VALUE_SIZE as u128 {
+                return Err(format!("replace() would build a string of {projected} bytes"));
+            }
             Ok(Value::Str(s.replace(old, new)))
         }
         (Value::Str(s), "join") => {
@@ -2250,8 +2327,14 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
                 return Err("join() expects a list of strings".into());
             };
             let mut parts = Vec::with_capacity(xs.len());
+            let mut projected = (s.len() as u128) * (xs.len().saturating_sub(1) as u128);
             for item in xs {
-                parts.push(item.as_str().ok_or("join() expects a list of strings")?.to_string());
+                let part = item.as_str().ok_or("join() expects a list of strings")?;
+                projected += part.len() as u128;
+                parts.push(part);
+            }
+            if projected > crate::limits::HARD_MAX_VALUE_SIZE as u128 {
+                return Err(format!("join() would build a string of {projected} bytes"));
             }
             Ok(Value::Str(parts.join(s)))
         }
