@@ -37,6 +37,7 @@ pub struct UpstreamConfig {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ResultShape {
+    Text,
     Lines,
     Json,
 }
@@ -44,6 +45,7 @@ pub enum ResultShape {
 impl ResultShape {
     pub fn describe(self) -> &'static str {
         match self {
+            Self::Text => "str (text content)",
             Self::Lines => "list of str, one per line",
             Self::Json => "parsed JSON value",
         }
@@ -129,7 +131,7 @@ impl UpstreamConfig {
                 let shape = match shape.as_str() {
                     Some("lines") => ResultShape::Lines,
                     Some("json") => ResultShape::Json,
-                    Some("text") => continue,
+                    Some("text") => ResultShape::Text,
                     _ => return Err(format!("upstream `{name}`: result shape for `{tool}` must be lines, json or text")),
                 };
                 results.insert(tool.clone(), shape);
@@ -296,10 +298,15 @@ impl Upstream {
                 if result.get("isError").and_then(Json::as_bool) == Some(true) {
                     return Err(result.to_string());
                 }
-                if let Some(structured) = result.get("structuredContent") {
-                    return Ok(from_plain_json(structured));
+                if spec_tool.shape.is_none() {
+                    if let Some(structured) = result.get("structuredContent") {
+                        return Ok(from_plain_json(structured));
+                    }
                 }
                 let parts = result.get("content").and_then(Json::as_array).cloned().unwrap_or_default();
+                if parts.is_empty() && result.get("structuredContent").is_some() {
+                    return Err("explicit text shaping requested, but upstream returned structured content only".into());
+                }
                 if parts.iter().any(|p| p.get("type").and_then(Json::as_str) != Some("text")) {
                     return Err("unsupported non-text MCP content; use the direct tool envelope".into());
                 }
@@ -369,7 +376,7 @@ fn truncate(text: &str, max: usize) -> String {
 /// Apply a configured result shape to an upstream tool's text.
 pub fn shape_result(shape: Option<ResultShape>, text: String) -> Result<Value, String> {
     match shape {
-        None => Ok(Value::Str(text)),
+        None | Some(ResultShape::Text) => Ok(Value::Str(text)),
         Some(ResultShape::Lines) => Ok(Value::List(
             text.lines().filter(|line| !line.trim().is_empty()).map(Value::str).collect(),
         )),
@@ -481,7 +488,7 @@ mod shape_tests {
         }))
         .unwrap();
         assert_eq!(config.results.get("list_directory"), Some(&ResultShape::Lines));
-        assert!(!config.results.contains_key("read_text_file"));
+        assert_eq!(config.results["read_text_file"], ResultShape::Text);
         assert_eq!(config.examples["list_directory"], json!({"path": "/tmp"}));
         assert!(UpstreamConfig::parse(&json!({"name": "fs", "command": "x", "results": {"a": "csv"}})).is_err());
     }

@@ -253,11 +253,11 @@ def binary() -> str:
 
 def start(root: Path) -> McpClient:
     fetch_args = os.environ.get("WEAVE_FETCH_ARGS", "").split()
-    fs = {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", str(root)], "prefix": "fs_"}
+    fs = {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", str(root)], "prefix": "fs_", "results": {"read_text_file": "text"}}
     web = {"name": "fetch", "command": "uvx", "args": ["mcp-server-fetch", *fetch_args], "prefix": "web_",
            "effects": {"fetch": "read"}}
     if "structured" in VARIANT:
-        fs["results"] = {"list_directory": "lines", "search_files": "lines", "list_allowed_directories": "lines"}
+        fs["results"].update({"list_directory": "lines", "search_files": "lines", "list_allowed_directories": "lines"})
     if "examples" in VARIANT:
         # One sample per read tool, on paths and a page that no task asks about.
         fs["examples"] = {

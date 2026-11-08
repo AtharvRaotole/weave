@@ -78,6 +78,6 @@ propagation rather than hiding it by weakening acceptance assertions.
 assertion-based offline acceptance tests, included in CI. The Rust full suite
 and clippy must pass before merging; the exact CI link is recorded in the PR.
 
-Final local gate: **89 Rust tests passed**, clippy with `-D warnings` passed,
+Final local gate: **90 Rust tests passed**, clippy with `-D warnings` passed,
 **5000 differential seeds passed**, six installed-SDK adapter checks passed,
 and all five offline audit acceptance scripts passed. See the retained logs.

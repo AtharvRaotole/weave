@@ -205,7 +205,7 @@ returns bindings and a full trace, which may contain sensitive intermediate data
 The v0.1.0 build returns full bindings/trace by default. Error diagnostics may
 also expose arguments; this is not a complete redaction/privacy boundary.
 
-Optional settings include `effects`, text-result shaping with `results` (`lines`
+Optional settings include `effects`, text-result shaping with `results` (`text`, `lines`
 or `json`), and `examples` that make sample read calls at startup. Without an
 override, `readOnlyHint` maps to `read`; other tools default to `irreversible`.
 Treat annotations as declarations from the server, not verified permissions.

@@ -834,3 +834,15 @@ fn failure_boundaries_skip_later_writes_and_keep_completed_bindings() {
     let r = e.run("x=0\ntry:\n    x=1\n    fail()\nexcept ToolError:\n    print(x)\nprint(x)\n").unwrap();
     assert_eq!(r.stdout(), "1\n1\n");
 }
+
+#[test]
+fn suppressed_calls_do_not_leave_replay_identity_holes() {
+    let mut e = Engine::new();
+    e.register("write", ToolSpec::effect(Effect::Irreversible), |_, _| panic!("skipped write ran"));
+    e.register("read", ToolSpec::effect(Effect::Read), |_, _| Ok(Value::int(7)));
+    let src = "try:\n    if True:\n        x=1/0\n        write()\nexcept:\n    print(\"caught\")\nprint(read())\n";
+    let r = e.run(src).unwrap();
+    assert_eq!(r.stdout(), "caught\n7\n");
+    assert_eq!(r.trace.events.len(), 1);
+    assert_eq!(e.replay(src, &r.trace).unwrap().stdout(), r.stdout());
+}

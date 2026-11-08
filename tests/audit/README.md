@@ -24,6 +24,6 @@ required Atharv author/committer identity, without attribution trailers.
 
 The verification ledger is [`docs/audit-status.md`](../../docs/audit-status.md).
 
-Final local logs: 89 Rust tests, 5000 generated differential seeds, clippy,
+Final local logs: 90 Rust tests, 5000 generated differential seeds, clippy,
 six SDK checks, and all five acceptance scripts passed. The existing v0.1.0
 release warning was updated in place; asset count remained 43.

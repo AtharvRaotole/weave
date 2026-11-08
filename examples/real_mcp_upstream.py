@@ -46,7 +46,7 @@ def main() -> None:
         data = data.resolve()
         config = Path(tmp) / "weave-mcp.json"
         config.write_text(json.dumps({"upstreams": [
-            {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", str(data)], "prefix": "fs_"}
+            {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", str(data)], "prefix": "fs_", "results": {"read_text_file": "text", "list_directory": "text"}}
         ]}))
         proc = subprocess.Popen([binary, "--config", str(config)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 
