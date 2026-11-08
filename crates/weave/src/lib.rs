@@ -19,7 +19,7 @@ mod tools;
 mod trace;
 mod value;
 
-pub use cancel::CancelToken;
+pub use cancel::{CancelSource, CancelToken};
 pub use effect::Effect;
 pub use error::{Diagnostic, WeaveError};
 pub use limits::{Limits, MAX_DEPTH};

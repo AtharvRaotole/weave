@@ -1,0 +1,3 @@
+Cancellation: string-ID script/direct forwarding, queued write suppression, cooperative/ignored notification and EOF checks passed; retry policy: 8 registration/effect cases passed
+Replay divergence diagnostic omits actual/recorded argument values
+MCP 16-request admission, active duplicate-ID rejection and responsive ping/cancellation checks passed

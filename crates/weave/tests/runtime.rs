@@ -861,3 +861,20 @@ fn nested_compound_try_keeps_completed_assignments() {
         assert_eq!(e.replay(source,&out.trace).unwrap().stdout(),expected);
     }
 }
+
+#[test]
+fn write_retries_require_explicit_host_idempotency_support() {
+    for effect in [Effect::Pure, Effect::Read, Effect::Reversible, Effect::Irreversible] {
+        for safe in [false, true] {
+            let mut engine = Engine::new();
+            let tries = Arc::new(Mutex::new(0u32));
+            let seen = tries.clone();
+            engine.register("flaky", ToolSpec::effect(effect).with_retries(2).with_retry_safe(safe), move |_, _| {
+                *seen.lock().unwrap() += 1;
+                Err("completion uncertain".into())
+            });
+            assert!(engine.run("flaky()\n").is_err());
+            assert_eq!(*tries.lock().unwrap(), if effect >= Effect::Reversible && !safe {1} else {3});
+        }
+    }
+}

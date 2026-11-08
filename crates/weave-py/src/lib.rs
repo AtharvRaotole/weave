@@ -50,7 +50,7 @@ impl PyEngine {
     /// `reads` / `writes` name the resources the tool touches (a list of
     /// strings, or `"*"`). They default to every resource, so any write drops
     /// every speculated read. Narrow them to keep unrelated cached reads.
-    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None))]
+    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None, retry_safe=false))]
     #[allow(clippy::too_many_arguments)]
     fn tool(
         &mut self,
@@ -64,6 +64,7 @@ impl PyEngine {
         hard_deadline: bool,
         reads: Option<Vec<String>>,
         writes: Option<Vec<String>>,
+    retry_safe: bool,
     ) -> PyResult<()> {
         let effect = match effect.as_deref() {
             None => Effect::Irreversible,
@@ -73,7 +74,7 @@ impl PyEngine {
                 ))
             })?,
         };
-        let mut spec = ToolSpec::effect(effect);
+        let mut spec = ToolSpec::effect(effect).with_retry_safe(retry_safe);
         spec.accepts_kwargs = accepts_keywords(py, &func).unwrap_or(false);
         if let Some(reads) = reads {
             spec = spec.with_reads(footprint_from(py, &func, reads));
@@ -201,7 +202,7 @@ impl PyEngine {
     }
 
     /// Decorator that registers the function on this engine.
-    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None))]
+    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None, retry_safe=false))]
     #[allow(clippy::too_many_arguments)]
     fn declare(
         slf: Bound<'_, Self>,
@@ -213,6 +214,7 @@ impl PyEngine {
         hard_deadline: bool,
         reads: Option<Vec<String>>,
         writes: Option<Vec<String>>,
+    retry_safe: bool,
     ) -> PyResult<Py<EngineDecl>> {
         Py::new(
             py,
@@ -225,6 +227,7 @@ impl PyEngine {
                 hard_deadline,
                 reads,
                 writes,
+                retry_safe,
             },
         )
     }
@@ -379,6 +382,7 @@ struct EngineDecl {
     hard_deadline: bool,
     reads: Option<Vec<String>>,
     writes: Option<Vec<String>>,
+    retry_safe: bool,
 }
 
 #[pymethods]
@@ -396,6 +400,7 @@ impl EngineDecl {
             self.hard_deadline,
             self.reads.clone(),
             self.writes.clone(),
+            self.retry_safe,
         )?;
         Ok(func)
     }
@@ -410,6 +415,7 @@ struct MarkDecl {
     hard_deadline: bool,
     reads: Option<Vec<String>>,
     writes: Option<Vec<String>>,
+    retry_safe: bool,
 }
 
 #[pymethods]
@@ -423,13 +429,14 @@ impl MarkDecl {
         meta.set_item("hard_deadline", self.hard_deadline)?;
         meta.set_item("reads", self.reads.clone())?;
         meta.set_item("writes", self.writes.clone())?;
+        meta.set_item("retry_safe", self.retry_safe)?;
         func.setattr(py, "__weave__", meta)?;
         Ok(func)
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None))]
+#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None, retry_safe=false))]
 #[allow(clippy::too_many_arguments)]
 fn declare(
     effect: Option<String>,
@@ -439,6 +446,7 @@ fn declare(
     hard_deadline: bool,
     reads: Option<Vec<String>>,
     writes: Option<Vec<String>>,
+    retry_safe: bool,
 ) -> MarkDecl {
     MarkDecl {
         effect,
@@ -448,6 +456,7 @@ fn declare(
         hard_deadline,
         reads,
         writes,
+        retry_safe,
     }
 }
 
@@ -468,6 +477,7 @@ fn install_marked(engine: &mut PyEngine, py: Python<'_>, func: &Bound<'_, PyAny>
         dict_bool(meta, "hard_deadline")?,
         dict_opt_strings(meta, "reads")?,
         dict_opt_strings(meta, "writes")?,
+        dict_bool(meta, "retry_safe")?,
     )
 }
 

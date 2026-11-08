@@ -24,7 +24,7 @@ complete property over arbitrary scripts, hosts, protocols, or operating systems
 | W04 | 64-byte limit accepted 4096-byte literals and tool results; output 660 bytes | **Value bypass and aggregate byte accounting fixed in source; not memory isolation.** 63/64/65-byte literal/tool/replay/speculative ingress acceptance tests; 4096 rejected; every expression result checked. Python conversion depth capped at 100, including cyclic results. Source/stdout/compact-trace budgets now default to 1/1/4 MiB, plus 8 MiB MCP frames and 16 KiB headers. See [exact semantics](budgets.md). No process-memory/in-flight-tool cap; conversion/parser/formatting allocations can precede checks. Not host resource isolation. |
 | W05 | Duplicate direct call routed to A, script to B | **Fixed targeted configurations.** Config discovery rejects duplicate final names (error identifies A/B), runtime builtin / weave_* collisions, request override collisions, alias collisions. Both interfaces use the validated discovered names. Accepted unique-prefix config returns the same value through direct/script calls. |
 | W06 | Inspected original unequal endpoints and serial native execution; did NOT rerun models | **Methodology corrected, validation partial.** v2 includes final-model-answer latency/tokens for both, and bounded concurrent native reads in both provider loops (writes remain ordered). Offline tests reject wrong final answers even when stdout is right, count synthesis turns/tokens and run 3x150 ms direct reads concurrently (~152 ms). Mode order alternates. Old JSON untouched and chart/history labelled unequal. No new live measurements or speedup claim; custom script prompt still differs from full public agent SDK loop, and held-out tasks, upstream/model version pinning, p95/cost/error studies remain deferred. |
-| W07 | Synthetic private value appeared in bindings/trace despite summary-only stdout | **Compact default fixed; broader privacy design deferred.** MCP run/replay now default to stdout/status; `debug:true` explicitly opts into full sensitive trace/bindings. Test ensures private value absent from successful default payload. No opaque host-side trace storage, script-only discovery mode, or comprehensive error redaction yet; errors and explicit debug can expose arguments/results. |
+| W07 | Synthetic private value appeared in bindings/trace despite summary-only stdout | **Compact default fixed; broader privacy design deferred.** MCP run/replay now default to stdout/status; `debug:true` explicitly opts into full sensitive trace/bindings. Test ensures private value absent from successful default payload. Replay mismatch values and wholesale upstream script errors now omitted. No opaque host-side trace storage, script-only discovery mode or comprehensive error redaction; host exceptions, direct envelopes, prints, upstream stderr and explicit debug remain sensitive. See cancellation-and-retries.md. |
 | W08 | Second-page tool absent | **Fixed bounded pagination.** Follow cursor with 64-page / 4096-tool caps and repeated-cursor rejection. Second-page tool is callable in local fixture. |
 | W09 | `a_read-file()` parsed as subtraction | **Fixed aliases.** Deterministic ASCII escapes (`a_read_u2d_file`) and keyword aliases; reverse route retains original upstream name. Final alias collisions rejected, not silently overwritten. Acceptance fixture calls hyphen alias. Dots/keywords/alias-collision tests also live in Rust. |
 | W10 | Structured-only direct tool returned empty text | **Fixed tested structured/text cases.** Direct calls preserve original envelope, script calls prefer structured JSON. Unsupported non-text-only script content raises explicit error, not successful empty text. No claim to decode arbitrary multimodal data or validate all outputSchema constraints. |
@@ -54,13 +54,17 @@ both print `1\n1\n`; the original evidence is preserved unchanged.
 
 ## Other scope boundaries
 
-- MCP script calls still block processing of cancellation notifications; no
-  cancellation forwarding or disconnect cleanup guarantee. The original
-  cancellation fixture still completes its synthetic write. Concurrent *direct
-  reads* were added for the native baseline, not full script request concurrency.
-- Effects are host declarations, not authorization or automatic rollback.
-  Retry policy is not idempotency-aware; do not automatically retry arbitrary
-  production writes. Uncertain remote completion is not represented yet.
+- MCP input remains responsive during scripts/direct calls; request-ID cancellation
+  is forwarded best effort to upstream IDs, and EOF cancels active/queued work.
+  Admission is bounded at 16; scripts/writes are exclusive, direct reads can overlap.
+  Sync callbacks/upstreams may continue; parsing/check/replay are not transport-preemptible.
+- Write retries now require explicit host `retry_safe` idempotency support; default
+  Reversible/Irreversible retries are clamped to zero. Effects/opt-in are host
+  declarations, not authorization, rollback or exactly-once guarantees. Errors
+  report cancellation/uncertain completion; no durable reconciliation ledger.
+- Privacy remains partial: replay mismatch values and wholesale script upstream
+  errors are omitted, but host exceptions, direct envelopes, prints, debug/traces
+  and inherited upstream stderr can contain secrets. See [semantics/gaps](cancellation-and-retries.md).
 - Failed runs do not yet expose full partial trace/debugger state. No debugger,
   approval UI, hosted service, language expansion or publishing was substituted
   for audit fixes.
@@ -73,10 +77,19 @@ both print `1\n1\n`; the original evidence is preserved unchanged.
 
 `tests/audit/evidence/baseline-*`, `fixed-*`, `worker-acceptance.log` and
 `differential-5000.log` retain measured outputs. `test_adapters.py`,
-`test_replay.py`, `test_mcp.py`, `test_benchmark.py`, `test_workers.py` are
+`test_replay.py`, `test_mcp.py`, `test_benchmark.py`, `test_workers.py`,
+`test_exceptions.py`, `test_budgets.py`, `test_cancellation.py` are
 assertion-based offline acceptance tests, included in CI. The Rust full suite
 and clippy must pass before merging; the exact CI link is recorded in the PR.
 
-Final local gate: **90 Rust tests passed**, clippy with `-D warnings` passed,
+Initial PR11 local gate: **90 Rust tests passed**, clippy with `-D warnings` passed,
 **5000 differential seeds passed**, six installed-SDK adapter checks passed,
 and all five offline audit acceptance scripts passed. See the retained logs.
+
+Current follow-up gate: **93 Rust tests passed**, including 5000 differential
+seeds; clippy `-D warnings` and all eight offline acceptance scripts passed.
+W13 adds 504 independent CPython programs / 1008 batch-stream executions plus
+exact replays. New cancellation/retry tests cover eight effect/registration cases,
+script/direct string-ID forwarding, ignored upstream cancellation, queued-write
+suppression, EOF, 16-request admission, duplicate IDs and replay error redaction.
+Source changes do not repair already-downloaded v0.1.0 binaries.

@@ -1,0 +1,6 @@
+ok test_definitions_describe_functions_and_rules
+ok test_chat_tool_call_runs_in_parallel
+ok test_sdk_objects_and_responses_items
+ok test_errors_come_back_as_repairable_text
+ok test_irreversible_calls_run_after_reads
+ok test_agents_sdk_tool_when_installed

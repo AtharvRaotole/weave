@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased safety follow-up
+- Responsive MCP request-ID cancellation with best-effort upstream forwarding,
+  EOF cleanup, bounded admission and duplicate active-ID rejection.
+- Reversible/irreversible retries require explicit host idempotency opt-in;
+  cancellations report uncertainty rather than successful completion.
+- Omit replay argument values and wholesale upstream script errors from diagnostics;
+  document still-open host/debug/direct-envelope/stderr privacy gaps.
+
 All notable changes to Weave. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).

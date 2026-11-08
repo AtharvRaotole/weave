@@ -97,16 +97,43 @@ fn reserved_tool_name(name: &str) -> bool {
         "sorted" | "reversed" | "enumerate" | "zip" | "any" | "all" | "list" | "str" | "int" | "parse_json")
 }
 
+/// Per-request cancellation. Remote effects may already have happened.
+#[derive(Clone, Default)]
+pub struct RequestControl(std::sync::Arc<RequestControlInner>);
+#[derive(Default)]
+struct RequestControlInner {
+    cancelled: std::sync::atomic::AtomicBool,
+    source: std::sync::Mutex<Option<weave::CancelSource>>,
+}
+impl RequestControl {
+    pub fn cancel(&self) {
+        self.0.cancelled.store(true, std::sync::atomic::Ordering::SeqCst);
+        if let Some(source) = self.0.source.lock().unwrap().as_ref() { source.cancel(); }
+    }
+    pub fn is_cancelled(&self) -> bool { self.0.cancelled.load(std::sync::atomic::Ordering::SeqCst) }
+    fn attach(&self, source: weave::CancelSource) {
+        let mut slot = self.0.source.lock().unwrap();
+        if self.is_cancelled() { source.cancel(); }
+        *slot = Some(source);
+    }
+}
+
 pub fn handle_message(message: &Json) -> Option<Json> {
     handle_with(message, &ServerConfig::default())
 }
 
 pub fn handle_with(message: &Json, config: &ServerConfig) -> Option<Json> {
+    handle_with_control(message, config, &RequestControl::default())
+}
+
+pub fn handle_with_control(message: &Json, config: &ServerConfig, control: &RequestControl) -> Option<Json> {
     let method = message.get("method").and_then(|m| m.as_str()).unwrap_or("");
     let id = message.get("id").cloned();
     id.as_ref()?;
     let params = message.get("params").cloned().unwrap_or(json!({}));
-    let result = if let Err(err) = config.validate_names() {
+    let result = if control.is_cancelled() {
+        Err((-32800, "request cancelled; completion of already-started effects is uncertain".into()))
+    } else if let Err(err) = config.validate_names() {
         Err((-32602, err))
     } else { match method {
         "initialize" => Ok(json!({
@@ -116,13 +143,14 @@ pub fn handle_with(message: &Json, config: &ServerConfig) -> Option<Json> {
         })),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(tools_list(config)),
-        "tools/call" => tools_call(&params, config),
+        "tools/call" => tools_call(&params, config, control),
         other => Err((
             -32601,
             format!("unknown method `{other}`"),
         )),
     }
     };
+    let result = if control.is_cancelled() { Err((-32800, "request cancelled; completion of already-started effects is uncertain".into())) } else { result };
     Some(match result {
         Ok(value) => json!({
             "jsonrpc": "2.0",
@@ -290,7 +318,7 @@ fn tool_schema() -> Json {
     })
 }
 
-fn tools_call(params: &Json, config: &ServerConfig) -> Result<Json, (i32, String)> {
+fn tools_call(params: &Json, config: &ServerConfig, control: &RequestControl) -> Result<Json, (i32, String)> {
     let name = params
         .get("name")
         .and_then(|v| v.as_str())
@@ -298,7 +326,7 @@ fn tools_call(params: &Json, config: &ServerConfig) -> Result<Json, (i32, String
     let args = params.get("arguments").cloned().unwrap_or(json!({}));
     let text = match name {
         "weave_check" => weave_check(&args, config),
-        "weave_run" => weave_run(&args, config),
+        "weave_run" => weave_run(&args, config, control),
         "weave_replay" => weave_replay(&args, config),
         other => match config.tools.iter().find(|tool| tool.name == other) {
             Some(tool) => call_configured(tool, &args),
@@ -307,7 +335,7 @@ fn tools_call(params: &Json, config: &ServerConfig) -> Result<Json, (i32, String
                 .iter()
                 .find_map(|u| u.tools.iter().find(|t| t.name == other).map(|t| (u, t)))
             {
-                Some((upstream, tool)) => return upstream.request("tools/call", json!({"name": tool.upstream_name, "arguments": args}))
+                Some((upstream, tool)) => return upstream.request_interruptible("tools/call", json!({"name": tool.upstream_name, "arguments": args}), || control.is_cancelled())
                     .map_err(|err| (-32603, err)),
                 None => return Err((-32602, format!("unknown tool `{other}`"))),
             },
@@ -350,10 +378,13 @@ fn weave_check(args: &Json, config: &ServerConfig) -> Result<String, String> {
     }
 }
 
-fn weave_run(args: &Json, config: &ServerConfig) -> Result<String, String> {
+fn weave_run(args: &Json, config: &ServerConfig, control: &RequestControl) -> Result<String, String> {
     let source = source_of(args)?;
     let engine = engine_from_args(args, config)?;
-    let result = engine.run(source).map_err(|err| err.to_string())?;
+    let mut session = engine.session();
+    control.attach(session.cancel_source());
+    session.push(source).map_err(|err| err.to_string())?;
+    let result = session.finish().map_err(|err| err.to_string())?;
     Ok(if args.get("debug").and_then(Json::as_bool) == Some(true) { render_result(&result) }
        else { json!({"stdout": result.stdout(), "status": "ok"}).to_string() })
 }

@@ -58,6 +58,7 @@ impl CancelToken {
 }
 
 impl CancelSource {
+    pub(crate) fn from_sender(tx: watch::Sender<bool>) -> Self { Self { tx } }
     pub fn cancel(&self) {
         let _ = self.tx.send(true);
     }
