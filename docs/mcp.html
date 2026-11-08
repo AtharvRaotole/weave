@@ -18,10 +18,25 @@
     <h1>MCP</h1>
   </header>
   <main>
-    <p><code>weave-mcp</code> speaks MCP over stdio with <code>Content-Length</code> framing. It always exposes <code>weave_check</code>, <code>weave_run</code>, and <code>weave_replay</code>. <code>--config tools.json</code> also exposes each configured tool, and <code>weave_run</code> uses that config when the request does not pass its own <code>tools</code> list.</p>
+    <p><code>weave-mcp</code> speaks MCP over stdio. It reads newline-delimited JSON (the MCP stdio transport) or <code>Content-Length</code> framing, and replies in the framing the client used. It always exposes <code>weave_check</code>, <code>weave_run</code>, and <code>weave_replay</code>. <code>--config tools.json</code> also exposes each configured tool, and <code>weave_run</code> uses that config when the request does not pass its own <code>tools</code> list.</p>
     <pre>cargo run -p weave-mcp -- --config examples/tools.json</pre>
     <p>An existing MCP client can use <a href="../examples/mcp-client-config.json">examples/mcp-client-config.json</a>. <code>examples/mcp_client.py</code> is a small stdio client that lists tools, calls <code>weather</code>, and runs a script through <code>weave_run</code>.</p>
     <p>A configured tool takes <code>args</code> (a list of plain JSON values) and optional <code>kwargs</code>. <code>echo</code> returns the positional argument. <code>const</code> returns the tagged <code>result</code> from the config.</p>
+    <h2>Proxying real MCP servers</h2>
+    <p>An <code>upstreams</code> list in the config starts other MCP servers and lets scripts call their tools. The <code>weave_run</code> description lists them one per line, with parameters in positional order. Parameters that take objects or lists of objects are spelled out, e.g. <code>entities: list[{name: str, entityType: str, observations: list[str]}]</code>.</p>
+<pre>{"upstreams": [
+  {"name": "fs", "command": "npx",
+   "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"],
+   "prefix": "fs_",
+   "results": {"list_directory": "lines"},
+   "examples": {"list_directory": {"path": "/data"}}}
+]}</pre>
+    <ul>
+      <li><code>prefix</code> is prepended to each upstream tool name.</li>
+      <li><code>effects</code> overrides a tool's effect. Without an override, a tool marked <code>readOnlyHint</code> is <code>read</code>, and anything else is <code>irreversible</code>.</li>
+      <li><code>results</code> shapes a text result: <code>lines</code> returns a list of non-empty lines, and <code>json</code> returns the parsed value.</li>
+      <li><code>examples</code> gives sample arguments. Each listed read-only tool is called once at startup, and its truncated output appears in the listing.</li>
+    </ul>
   </main>
 </body>
 </html>

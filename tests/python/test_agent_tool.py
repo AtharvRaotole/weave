@@ -99,3 +99,11 @@ if __name__ == "__main__":
         if name.startswith("test_"):
             fn()
             print("ok", name)
+
+
+def test_version_matches_the_package():
+    import weave
+    from weave.cli import dispatch
+
+    assert weave.__version__ == "0.1.0"
+    assert dispatch(["--version"]) == "weave 0.1.0"

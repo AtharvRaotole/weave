@@ -8,13 +8,16 @@ replays the same output.
 
 ## Quickstart
 
+Build and install the Python package from a checkout (Rust 1.97+ and Python 3.9+):
+
 ```bash
-cargo test --workspace
 python3 -m venv .venv
 .venv/bin/pip install 'maturin>=1.8,<2'
-.venv/bin/maturin develop --release
-.venv/bin/python examples/speedup.py
+.venv/bin/maturin develop --release     # or: maturin build --release && pip install target/wheels/*.whl
+.venv/bin/python examples/speedup.py    # measures sequential vs Weave on this machine
 ```
+
+Run a script over your own Python tools:
 
 ```python
 from weave import Engine
@@ -24,9 +27,33 @@ def weather(city: str) -> str:
 
 engine = Engine()
 engine.tool("weather", weather, effect="read", timeout_ms=1000, retries=1)
-result = engine.run('temp = weather("Paris")\nprint(temp)\n')
+source = 'a = weather("Paris")\nb = weather("Oslo")\nprint(a, b)\n'   # the two reads run together
+result = engine.run(source)
 print(result.stdout)
-engine.replay('temp = weather("Paris")\nprint(temp)\n', result.trace_json())
+engine.replay(source, result.trace_json())                          # same output, no tool calls
+```
+
+Give an agent one tool that runs Weave scripts over your functions
+(`examples/run_weave_tool.py` shows a full OpenAI loop):
+
+```python
+import weave
+
+@weave.declare(effect="read", arity=1)
+def order_total(order_id):
+    """Integer total of one order."""
+    return {"o1": 12, "o2": 30}[order_id]
+
+tool = weave.WeaveTool([order_total])
+tools = [tool.chat_tool()]              # pass to Chat Completions; tool.responses_tool() for Responses
+# for each tool call the model makes:  messages.append(tool.handle(call))
+```
+
+Or put Weave in front of existing MCP servers (see [MCP](#mcp)):
+
+```bash
+cargo build --release -p weave-mcp
+./target/release/weave-mcp --config my-upstreams.json
 ```
 
 `check` returns one diagnostic per line, with a column and a `hint` an LLM
@@ -221,19 +248,56 @@ engine.replay(source, result.trace_json())
 
 ## MCP
 
-`weave-mcp` speaks MCP over stdio with `Content-Length` framing.
+`weave-mcp` is an MCP server over stdio. It accepts both newline-delimited
+JSON (the MCP stdio transport) and `Content-Length` framing, and answers in the
+framing the client used.
 
 ```bash
-cargo run -p weave-mcp --release
+cargo run -p weave-mcp --release -- --config examples/tools.json
 ```
 
 Tools:
 
 - `weave_check` — `{ "source": "..." }` returns `ok`, or one diagnostic per line
-- `weave_run` — runs `source` with scripted tools (`behavior` `echo` or `const`, optional `effect`, `arity`, `delay_ms`, `result`)
-- `weave_replay` — replays `source` from `trace`; pass the same `tools` list so the checker knows their arity
+- `weave_run` — runs `source`; returns `stdout`, `prints`, `bindings`, and the `trace`
+- `weave_replay` — replays `source` from `trace`
 
-`echo` returns the single positional argument. `const` returns the tagged `result`.
+A config's `tools` list declares scripted tools (`behavior` `echo` or
+`const`, optional `effect`, `arity`, `delay_ms`, `result`). `echo` returns the
+single positional argument. `const` returns the tagged `result`. A request
+that omits `tools` uses the config. `examples/mcp-client-config.json` is a
+client entry, and `python examples/mcp_client.py` performs the handshake,
+calls `weather`, and runs a script.
+
+### Proxying real MCP servers
+
+A config's `upstreams` list starts other MCP servers and exposes their tools to
+scripts. Their tools are listed in the `weave_run` description, one line each,
+with parameters in positional order:
+
+```json
+{"upstreams": [
+  {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"],
+   "prefix": "fs_",
+   "results": {"list_directory": "lines"},
+   "examples": {"list_directory": {"path": "/data"}}},
+  {"name": "fetch", "command": "uvx", "args": ["mcp-server-fetch"], "prefix": "web_",
+   "effects": {"fetch": "read"}}
+]}
+```
+
+- `prefix` is prepended to each upstream tool name.
+- `effects` overrides a tool's effect. Without an override, a tool marked
+  `readOnlyHint` is `read`, and anything else is `irreversible`.
+- `results` shapes a tool's text result: `lines` returns a list of non-empty
+  lines, and `json` returns the parsed value.
+- `examples` gives sample arguments. At startup each listed read-only tool is
+  called once, and its truncated output appears in the listing, so a model
+  knows the result format before it writes a parser.
+- Parameters that take objects or lists of objects are spelled out in the
+  listing, e.g. `entities: list[{name: str, entityType: str, observations: list[str]}]`.
+
+`examples/real_mcp_upstream.py` runs a script against the real filesystem server.
 
 ## Measured results
 
@@ -449,10 +513,6 @@ weave trace trace.json
 ```
 
 `cargo run -p weave-cli --` is the same four commands (`check`, `run`, `replay`, `trace`) for echo and const tools. `@weave.declare(...)` marks a function; `engine.install([fn])` registers it. `@engine.declare(...)` registers it immediately.
-
-## MCP
-
-`weave-mcp --config examples/tools.json` lists `weave_check`, `weave_run`, `weave_replay`, and each configured tool. A request that omits `tools` uses the config. `examples/mcp-client-config.json` is a client entry. `python examples/mcp_client.py` performs the handshake, calls `weather`, and runs a script.
 
 ## Layout
 
