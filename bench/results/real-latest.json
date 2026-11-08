@@ -24,14 +24,58 @@
   "summary": [
     {
       "model": "gpt-5.4-mini",
-      "task": "count_urgent",
+      "task": "append_log",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 4.321221592000256,
+      "median_wall_s": 3.728254429000117,
       "median_model_turns": 3,
-      "input_tokens": 19462,
-      "output_tokens": 493
+      "input_tokens": 37670,
+      "output_tokens": 227
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "append_log",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.7106228310003644,
+      "median_model_turns": 1,
+      "input_tokens": 9653,
+      "output_tokens": 150
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 4.215806584999882,
+      "median_model_turns": 3,
+      "input_tokens": 37836,
+      "output_tokens": 249
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.4249445089999426,
+      "median_model_turns": 2,
+      "input_tokens": 19949,
+      "output_tokens": 386
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 4.172289166000155,
+      "median_model_turns": 3,
+      "input_tokens": 38206,
+      "output_tokens": 446
     },
     {
       "model": "gpt-5.4-mini",
@@ -39,10 +83,10 @@
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.8975244749999547,
+      "median_wall_s": 1.2535942700005762,
       "median_model_turns": 1,
-      "input_tokens": 8874,
-      "output_tokens": 366
+      "input_tokens": 13027,
+      "output_tokens": 368
     },
     {
       "model": "gpt-5.4-mini",
@@ -50,10 +94,10 @@
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 3.021716258000197,
+      "median_wall_s": 3.548828295999556,
       "median_model_turns": 2,
-      "input_tokens": 12404,
-      "output_tokens": 117
+      "input_tokens": 24896,
+      "output_tokens": 149
     },
     {
       "model": "gpt-5.4-mini",
@@ -61,65 +105,241 @@
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 1.2067887019993577,
+      "median_wall_s": 1.5828181010001572,
       "median_model_turns": 1,
-      "input_tokens": 6498,
+      "input_tokens": 9619,
+      "output_tokens": 134
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 2.8452269519993933,
+      "median_model_turns": 2,
+      "input_tokens": 25080,
+      "output_tokens": 264
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.7918019119997552,
+      "median_model_turns": 1,
+      "input_tokens": 9635,
+      "output_tokens": 176
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 8.35112738999942,
+      "median_model_turns": 5,
+      "input_tokens": 64896,
+      "output_tokens": 477
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.9163248180002483,
+      "median_model_turns": 1,
+      "input_tokens": 9651,
+      "output_tokens": 266
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_count",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 2.615671258000475,
+      "median_model_turns": 2,
+      "input_tokens": 25297,
       "output_tokens": 128
     },
     {
       "model": "gpt-5.4-mini",
-      "task": "fallback_file",
-      "mode": "native_tools",
-      "runs": 3,
-      "passed": 3,
-      "median_wall_s": 2.686461307999707,
-      "median_model_turns": 2,
-      "input_tokens": 14663,
-      "output_tokens": 246
-    },
-    {
-      "model": "gpt-5.4-mini",
-      "task": "fallback_file",
+      "task": "git_count",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.6304841080000188,
+      "median_wall_s": 1.5347351250002248,
+      "median_model_turns": 2,
+      "input_tokens": 19536,
+      "output_tokens": 215
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 2.505574780000643,
+      "median_model_turns": 2,
+      "input_tokens": 24979,
+      "output_tokens": 131
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.7336306810002498,
       "median_model_turns": 1,
-      "input_tokens": 6498,
+      "input_tokens": 9612,
+      "output_tokens": 117
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 3.0286182050003845,
+      "median_model_turns": 2,
+      "input_tokens": 25199,
+      "output_tokens": 158
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.7288871930004461,
+      "median_model_turns": 1,
+      "input_tokens": 9631,
       "output_tokens": 170
     },
     {
       "model": "gpt-5.4-mini",
-      "task": "sum_notes",
+      "task": "largest_note",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 2.78703774800033,
-      "median_model_turns": 2,
-      "input_tokens": 12658,
-      "output_tokens": 351
-    },
-    {
-      "model": "gpt-5.4-mini",
-      "task": "sum_notes",
-      "mode": "weave",
-      "runs": 3,
-      "passed": 3,
-      "median_wall_s": 0.8970237879993874,
-      "median_model_turns": 1,
-      "input_tokens": 6528,
-      "output_tokens": 261
-    },
-    {
-      "model": "gpt-5.4-mini",
-      "task": "two_pages",
-      "mode": "native_tools",
-      "runs": 3,
-      "passed": 3,
-      "median_wall_s": 4.923134534000383,
+      "median_wall_s": 4.106869208999342,
       "median_model_turns": 3,
-      "input_tokens": 21477,
-      "output_tokens": 396
+      "input_tokens": 38122,
+      "output_tokens": 388
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "largest_note",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.8833742079996227,
+      "median_model_turns": 1,
+      "input_tokens": 9667,
+      "output_tokens": 292
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 2.3908820819997345,
+      "median_model_turns": 2,
+      "input_tokens": 25097,
+      "output_tokens": 141
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 0,
+      "median_wall_s": 2.274281443000291,
+      "median_model_turns": 3,
+      "input_tokens": 29797,
+      "output_tokens": 547
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 2.678708596999968,
+      "median_model_turns": 2,
+      "input_tokens": 25304,
+      "output_tokens": 228
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.4133410360000198,
+      "median_model_turns": 2,
+      "input_tokens": 19794,
+      "output_tokens": 303
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 2.585158696999315,
+      "median_model_turns": 2,
+      "input_tokens": 25280,
+      "output_tokens": 264
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.9301801860001433,
+      "median_model_turns": 3,
+      "input_tokens": 30747,
+      "output_tokens": 510
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 2.9158355150002535,
+      "median_model_turns": 2,
+      "input_tokens": 25166,
+      "output_tokens": 357
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.8668980369993733,
+      "median_model_turns": 1,
+      "input_tokens": 9645,
+      "output_tokens": 260
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 4.898900748999949,
+      "median_model_turns": 3,
+      "input_tokens": 40191,
+      "output_tokens": 378
     },
     {
       "model": "gpt-5.4-mini",
@@ -127,10 +347,10 @@
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 1.5871421060001012,
+      "median_wall_s": 1.3767408630001228,
       "median_model_turns": 1,
-      "input_tokens": 6606,
-      "output_tokens": 221
+      "input_tokens": 9719,
+      "output_tokens": 218
     },
     {
       "model": "gpt-5.4-mini",
@@ -138,10 +358,10 @@
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 7.345128717999614,
+      "median_wall_s": 7.475010723000196,
       "median_model_turns": 5,
-      "input_tokens": 32658,
-      "output_tokens": 450
+      "input_tokens": 63883,
+      "output_tokens": 446
     },
     {
       "model": "gpt-5.4-mini",
@@ -149,10 +369,10 @@
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.8051627940003527,
+      "median_wall_s": 0.9136373569999705,
       "median_model_turns": 1,
-      "input_tokens": 6585,
-      "output_tokens": 296
+      "input_tokens": 9696,
+      "output_tokens": 310
     }
   ],
   "rows": [
@@ -160,10 +380,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2166,
-      "output_tokens": 82,
-      "wall_s": 1.0558411389993125,
+      "input_tokens": 3217,
+      "output_tokens": 88,
+      "wall_s": 1.2501448550001442,
       "attempt_log": [
         {
           "attempt": 1,
@@ -181,9 +400,9 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 3,
-      "input_tokens": 4221,
+      "input_tokens": 8387,
       "output_tokens": 118,
-      "wall_s": 3.141999228999339,
+      "wall_s": 3.18986118399971,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "sum_notes",
@@ -195,10 +414,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2184,
-      "output_tokens": 101,
-      "wall_s": 0.8975244749999547,
+      "input_tokens": 3234,
+      "output_tokens": 104,
+      "wall_s": 1.2535942700005762,
       "attempt_log": [
         {
           "attempt": 1,
@@ -215,10 +433,10 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 3,
-      "tool_calls": 2,
-      "input_tokens": 6505,
-      "output_tokens": 138,
-      "wall_s": 4.321221592000256,
+      "tool_calls": 5,
+      "input_tokens": 12750,
+      "output_tokens": 190,
+      "wall_s": 4.172289166000155,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "count_urgent",
@@ -230,10 +448,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2195,
-      "output_tokens": 96,
-      "wall_s": 0.8051627940003527,
+      "input_tokens": 3227,
+      "output_tokens": 104,
+      "wall_s": 0.9136373569999705,
       "attempt_log": [
         {
           "attempt": 1,
@@ -251,9 +468,9 @@
       "attempts": 1,
       "model_turns": 5,
       "tool_calls": 4,
-      "input_tokens": 10886,
+      "input_tokens": 21301,
       "output_tokens": 150,
-      "wall_s": 7.099973887000488,
+      "wall_s": 7.115191378000418,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "write_version",
@@ -265,10 +482,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2164,
-      "output_tokens": 56,
-      "wall_s": 0.5924209500008146,
+      "input_tokens": 3216,
+      "output_tokens": 60,
+      "wall_s": 0.9917319669993958,
       "attempt_log": [
         {
           "attempt": 1,
@@ -286,9 +502,9 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 2,
-      "input_tokens": 4189,
-      "output_tokens": 86,
-      "wall_s": 2.686461307999707,
+      "input_tokens": 8360,
+      "output_tokens": 88,
+      "wall_s": 2.8452269519993933,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "fallback_file",
@@ -300,10 +516,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2168,
-      "output_tokens": 41,
-      "wall_s": 1.166256768000494,
+      "input_tokens": 3215,
+      "output_tokens": 36,
+      "wall_s": 1.5828181010001572,
       "attempt_log": [
         {
           "attempt": 1,
@@ -321,9 +536,9 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 1,
-      "input_tokens": 4134,
-      "output_tokens": 39,
-      "wall_s": 3.021716258000197,
+      "input_tokens": 8298,
+      "output_tokens": 55,
+      "wall_s": 3.5624899860004007,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "example_heading",
@@ -335,10 +550,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2202,
-      "output_tokens": 74,
-      "wall_s": 1.6275300289998995,
+      "input_tokens": 3239,
+      "output_tokens": 71,
+      "wall_s": 1.3767408630001228,
       "attempt_log": [
         {
           "attempt": 1,
@@ -356,9 +570,9 @@
       "attempts": 1,
       "model_turns": 3,
       "tool_calls": 3,
-      "input_tokens": 7139,
-      "output_tokens": 120,
-      "wall_s": 4.923134534000383,
+      "input_tokens": 13415,
+      "output_tokens": 138,
+      "wall_s": 5.276718756000264,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "two_pages",
@@ -370,10 +584,380 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2184,
-      "output_tokens": 91,
-      "wall_s": 0.7702033670002493,
+      "input_tokens": 3226,
+      "output_tokens": 52,
+      "wall_s": 0.791820643000392,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12562,
+      "output_tokens": 77,
+      "wall_s": 3.728254429000117,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3217,
+      "output_tokens": 100,
+      "wall_s": 0.8833742079996227,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 4,
+      "input_tokens": 12723,
+      "output_tokens": 162,
+      "wall_s": 4.106869208999342,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3213,
+      "output_tokens": 41,
+      "wall_s": 0.7336306810002498,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8321,
+      "output_tokens": 42,
+      "wall_s": 2.505574780000643,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3207,
+      "output_tokens": 51,
+      "wall_s": 0.6319993990000512,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_count",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8426,
+      "output_tokens": 41,
+      "wall_s": 2.615671258000475,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_count",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3209,
+      "output_tokens": 62,
+      "wall_s": 1.1431040390007183,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 2,
+      "input_tokens": 8455,
+      "output_tokens": 82,
+      "wall_s": 3.0936993209998036,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3208,
+      "output_tokens": 78,
+      "wall_s": 0.8261493909994897,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 5,
+      "tool_calls": 4,
+      "input_tokens": 21641,
+      "output_tokens": 165,
+      "wall_s": 12.766243772000053,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": false,
+      "attempts": 3,
+      "model_turns": 3,
+      "input_tokens": 9976,
+      "output_tokens": 206,
+      "wall_s": 2.455874410999968,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor entity in ada[\"entities\"]:\n    if entity[\"name\"] == \"Ada\":\n        for obs in entity[\"observations\"]:\n            if \"lives in\" in obs:\n                city = obs.rsplit(\" \", 1)[-1]\nprint(city)"
+        },
+        {
+          "attempt": 2,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor entity in ada[\"entities\"]:\n    if entity[\"name\"] == \"Ada\":\n        for obs in entity[\"observations\"]:\n            if \"lives in\" in obs:\n                parts = obs.rsplit(\" \", 1)\n                city = parts[-1]\nprint(city)"
+        },
+        {
+          "attempt": 3,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor entity in ada[\"entities\"]:\n    if entity[\"name\"] == \"Ada\":\n        for obs in entity[\"observations\"]:\n            if \"lives in\" in obs:\n                city = obs.split(\"lives in\")[-1].strip()\nprint(city)"
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8367,
+      "output_tokens": 47,
+      "wall_s": 2.5599468850004996,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6590,
+      "output_tokens": 101,
+      "wall_s": 1.6677849519992378,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C1: tool `mem_add_observations` failed: Input validation error: Invalid arguments for tool add_observations: observations.0.contents: Invalid input: expected array, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "mem_add_observations([{\"entityName\": \"Ada\", \"observations\": [\"likes tea\"]}])\nada = mem_open_nodes([\"Ada\"])\nprint(len(ada[\"entities\"][0][\"observations\"]))"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 2,
+      "input_tokens": 8436,
+      "output_tokens": 76,
+      "wall_s": 2.678708596999968,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 3,
+      "model_turns": 3,
+      "input_tokens": 10196,
+      "output_tokens": 150,
+      "wall_s": 1.9301801860001433,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "mem_create_entities([{\"name\":\"Grace\",\"type\":\"person\",\"observations\":[\"works at Navy\"]}])\nmem_create_relations([{\"from\":\"Grace\",\"to\":\"Ada\",\"type\":\"knows\"}])\nprint(\"done\")"
+        },
+        {
+          "attempt": 2,
+          "error": "L2:C1: tool `mem_create_relations` failed: Input validation error: Invalid arguments for tool create_relations: relations.0.relationType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "mem_create_entities([{\"name\":\"Grace\",\"entityType\":\"person\",\"observations\":[\"works at Navy\"]}])\nmem_create_relations([{\"from\":\"Grace\",\"to\":\"Ada\",\"type\":\"knows\"}])\nprint(\"done\")"
+        },
+        {
+          "attempt": 3,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 2,
+      "input_tokens": 8428,
+      "output_tokens": 88,
+      "wall_s": 4.347557713999777,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6639,
+      "output_tokens": 127,
+      "wall_s": 1.3844411070003844,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L4:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "config = fs_read_text_file(\"/tmp/weave-real-huaqkiuc/data/config.json\")\nobj = parse_json(config)\nversion = obj[\"version\"]\nmem_create_entities([{\"name\":\"weave\",\"type\":\"project\",\"observations\":[f\"version {version}\"]}])\nprint(version)"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12622,
+      "output_tokens": 85,
+      "wall_s": 4.215806584999882,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3212,
+      "output_tokens": 85,
+      "wall_s": 0.8668980369993733,
       "attempt_log": [
         {
           "attempt": 1,
@@ -391,9 +975,9 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 3,
-      "input_tokens": 4221,
-      "output_tokens": 118,
-      "wall_s": 2.78703774800033,
+      "input_tokens": 8392,
+      "output_tokens": 121,
+      "wall_s": 2.878192823000063,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "sum_notes",
@@ -405,15 +989,14 @@
       "passed": true,
       "attempts": 2,
       "model_turns": 2,
-      "explore_turns": 0,
-      "input_tokens": 4512,
-      "output_tokens": 205,
-      "wall_s": 1.9277563189998546,
+      "input_tokens": 6572,
+      "output_tokens": 203,
+      "wall_s": 1.7275302079997346,
       "attempt_log": [
         {
           "attempt": 1,
           "error": "The run finished but the result is not correct. Printed output: '1'. Re-read the task and fix the logic.",
-          "source": "items = fs_list_directory(\"/tmp/weave-real-oqwndf_2/data/inbox\")\ncount = 0\nfor item in items:\n    if item.startswith(\"[FILE] \") and item.endswith(\".txt\"):\n        path = \"/tmp/weave-real-oqwndf_2/data/inbox/\" + item.split(\" \", 1)[1]\n        text = fs_read_text_file(path)\n        if \"URGENT\" in text.split():\n            count += 1\nprint(count)"
+          "source": "count = 0\nfor entry in fs_list_directory(\"/tmp/weave-real-_ob85vtd/data/inbox\"):\n    if entry.startswith(\"[FILE] \") and entry.endswith(\".txt\"):\n        path = \"/tmp/weave-real-_ob85vtd/data/inbox/\" + entry.split(\"[FILE] \", 1)[1]\n        text = fs_read_text_file(path)\n        if \"URGENT\" in text.split():\n            count += 1\nprint(count)"
         },
         {
           "attempt": 2,
@@ -430,10 +1013,10 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 3,
-      "tool_calls": 5,
-      "input_tokens": 6474,
-      "output_tokens": 175,
-      "wall_s": 4.4372609629999715,
+      "tool_calls": 2,
+      "input_tokens": 12728,
+      "output_tokens": 128,
+      "wall_s": 5.078302592999535,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "count_urgent",
@@ -445,10 +1028,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2201,
+      "input_tokens": 3244,
       "output_tokens": 107,
-      "wall_s": 1.1340273639998486,
+      "wall_s": 0.9571402909996323,
       "attempt_log": [
         {
           "attempt": 1,
@@ -466,9 +1048,9 @@
       "attempts": 1,
       "model_turns": 5,
       "tool_calls": 4,
-      "input_tokens": 10886,
-      "output_tokens": 150,
-      "wall_s": 7.959507907999978,
+      "input_tokens": 21281,
+      "output_tokens": 146,
+      "wall_s": 7.475010723000196,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "write_version",
@@ -480,10 +1062,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2170,
+      "input_tokens": 3208,
       "output_tokens": 58,
-      "wall_s": 0.6304841080000188,
+      "wall_s": 0.7456429189996925,
       "attempt_log": [
         {
           "attempt": 1,
@@ -499,11 +1080,11 @@
     {
       "passed": true,
       "attempts": 1,
-      "model_turns": 3,
+      "model_turns": 2,
       "tool_calls": 2,
-      "input_tokens": 6290,
-      "output_tokens": 76,
-      "wall_s": 3.3412371939994046,
+      "input_tokens": 8355,
+      "output_tokens": 86,
+      "wall_s": 2.537252201999763,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "fallback_file",
@@ -515,10 +1096,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2162,
-      "output_tokens": 51,
-      "wall_s": 1.317857422999623,
+      "input_tokens": 3197,
+      "output_tokens": 49,
+      "wall_s": 1.222175580000112,
       "attempt_log": [
         {
           "attempt": 1,
@@ -536,9 +1116,9 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 1,
-      "input_tokens": 4136,
-      "output_tokens": 39,
-      "wall_s": 3.059677397000087,
+      "input_tokens": 8298,
+      "output_tokens": 55,
+      "wall_s": 2.963680354999269,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "example_heading",
@@ -550,10 +1130,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2214,
+      "input_tokens": 3245,
       "output_tokens": 73,
-      "wall_s": 1.5871421060001012,
+      "wall_s": 1.3617020669998965,
       "attempt_log": [
         {
           "attempt": 1,
@@ -571,9 +1150,9 @@
       "attempts": 1,
       "model_turns": 3,
       "tool_calls": 3,
-      "input_tokens": 7166,
-      "output_tokens": 138,
-      "wall_s": 5.184512906000236,
+      "input_tokens": 13388,
+      "output_tokens": 120,
+      "wall_s": 4.898900748999949,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "two_pages",
@@ -585,10 +1164,385 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2178,
+      "input_tokens": 3202,
+      "output_tokens": 46,
+      "wall_s": 0.5531034340001497,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12538,
+      "output_tokens": 71,
+      "wall_s": 3.6051950340006442,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3225,
+      "output_tokens": 95,
+      "wall_s": 0.9221289030001572,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12705,
+      "output_tokens": 115,
+      "wall_s": 4.153507333999187,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3210,
+      "output_tokens": 39,
+      "wall_s": 0.7052788910004892,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8332,
+      "output_tokens": 45,
+      "wall_s": 2.487132233000011,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6491,
+      "output_tokens": 58,
+      "wall_s": 1.5347351250002248,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "The run finished but the result is not correct. Printed output: '18'. Re-read the task and fix the logic.",
+          "source": "print(len(git_log(\"/tmp/weave-real-pqoykv9b/data/repo\").splitlines()))"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_count",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8429,
+      "output_tokens": 42,
+      "wall_s": 2.5550981970000066,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_count",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3214,
+      "output_tokens": 52,
+      "wall_s": 0.6741589069997644,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8372,
+      "output_tokens": 38,
+      "wall_s": 3.0286182050003845,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3225,
+      "output_tokens": 98,
+      "wall_s": 0.9163248180002483,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 5,
+      "tool_calls": 4,
+      "input_tokens": 21626,
+      "output_tokens": 154,
+      "wall_s": 7.365771606000635,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": false,
+      "attempts": 3,
+      "model_turns": 3,
+      "input_tokens": 9954,
+      "output_tokens": 197,
+      "wall_s": 2.274281443000291,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor obs in ada[\"entities\"][0][\"observations\"]:\n    if \"lives in\" in obs:\n        city = obs.split(\"lives in\")[-1].strip()\nprint(city)"
+        },
+        {
+          "attempt": 2,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor entity in ada[\"entities\"]:\n    if entity[\"name\"] == \"Ada\":\n        for obs in entity[\"observations\"]:\n            if \"lives in\" in obs:\n                city = obs.rsplit(\"lives in\", 1)[-1].strip()\nprint(city)"
+        },
+        {
+          "attempt": 3,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor entity in ada[\"entities\"]:\n    if entity[\"name\"] == \"Ada\":\n        for obs in entity[\"observations\"]:\n            if \"lives in\" in obs:\n                city = obs.split(\"lives in\", 1)[-1].strip()\nprint(city)"
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8365,
+      "output_tokens": 47,
+      "wall_s": 2.3908820819997345,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6608,
+      "output_tokens": 101,
+      "wall_s": 1.2991305329996976,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C1: tool `mem_add_observations` failed: Input validation error: Invalid arguments for tool add_observations: observations.0.contents: Invalid input: expected array, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "mem_add_observations([{\"entityName\": \"Ada\", \"observations\": [\"likes tea\"]}])\nada = mem_open_nodes([\"Ada\"])\nprint(len(ada[\"entities\"][0][\"observations\"]))"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 2,
+      "input_tokens": 8432,
+      "output_tokens": 76,
+      "wall_s": 2.6283950580000237,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 3,
+      "model_turns": 3,
+      "input_tokens": 10274,
+      "output_tokens": 180,
+      "wall_s": 2.108272438000313,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "mem_create_entities([{\"name\": \"Grace\", \"type\": \"person\", \"observations\": [\"works at Navy\"]}])\nmem_create_relations([{\"from\": \"Grace\", \"to\": \"Ada\", \"type\": \"knows\"}])\nprint(\"done\")"
+        },
+        {
+          "attempt": 2,
+          "error": "L2:C1: tool `mem_create_relations` failed: Input validation error: Invalid arguments for tool create_relations: relations.0.relationType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "mem_create_entities([{\"name\": \"Grace\", \"entityType\": \"person\", \"observations\": [\"works at Navy\"]}])\nmem_create_relations([{\"from\": \"Grace\", \"to\": \"Ada\", \"type\": \"knows\"}])\nprint(\"done\")"
+        },
+        {
+          "attempt": 3,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 2,
+      "input_tokens": 8426,
       "output_tokens": 88,
-      "wall_s": 0.8970237879993874,
+      "wall_s": 2.585158696999315,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6647,
+      "output_tokens": 129,
+      "wall_s": 1.4249445089999426,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L4:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "config = fs_read_text_file(\"/tmp/weave-real-cn52ilj5/data/config.json\")\nobj = parse_json(config)\nversion = obj[\"version\"]\nmem_create_entities([{\"name\":\"weave\",\"type\":\"project\",\"observations\":[f\"version {version}\"]}])\nprint(version)"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12607,
+      "output_tokens": 82,
+      "wall_s": 7.623556651000399,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3216,
+      "output_tokens": 87,
+      "wall_s": 0.7081127139999808,
       "attempt_log": [
         {
           "attempt": 1,
@@ -606,9 +1560,9 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 3,
-      "input_tokens": 4216,
-      "output_tokens": 115,
-      "wall_s": 2.3875588629998674,
+      "input_tokens": 8387,
+      "output_tokens": 118,
+      "wall_s": 2.9158355150002535,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "sum_notes",
@@ -620,10 +1574,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2178,
-      "output_tokens": 60,
-      "wall_s": 0.6931860779995986,
+      "input_tokens": 3221,
+      "output_tokens": 61,
+      "wall_s": 0.767687147000288,
       "attempt_log": [
         {
           "attempt": 1,
@@ -640,10 +1593,10 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 3,
-      "tool_calls": 5,
-      "input_tokens": 6483,
-      "output_tokens": 180,
-      "wall_s": 4.059386044000348,
+      "tool_calls": 2,
+      "input_tokens": 12728,
+      "output_tokens": 128,
+      "wall_s": 3.884885072000543,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "count_urgent",
@@ -655,10 +1608,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2189,
-      "output_tokens": 93,
-      "wall_s": 0.7688167189999149,
+      "input_tokens": 3225,
+      "output_tokens": 99,
+      "wall_s": 0.9126896269999634,
       "attempt_log": [
         {
           "attempt": 1,
@@ -676,9 +1628,9 @@
       "attempts": 1,
       "model_turns": 5,
       "tool_calls": 4,
-      "input_tokens": 10886,
+      "input_tokens": 21301,
       "output_tokens": 150,
-      "wall_s": 7.345128717999614,
+      "wall_s": 8.66479073299979,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "write_version",
@@ -690,10 +1642,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2164,
-      "output_tokens": 56,
-      "wall_s": 0.9848367419999704,
+      "input_tokens": 3211,
+      "output_tokens": 58,
+      "wall_s": 0.7918019119997552,
       "attempt_log": [
         {
           "attempt": 1,
@@ -711,9 +1662,9 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 2,
-      "input_tokens": 4184,
-      "output_tokens": 84,
-      "wall_s": 2.255851308000274,
+      "input_tokens": 8365,
+      "output_tokens": 90,
+      "wall_s": 3.9259479700003794,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "fallback_file",
@@ -725,10 +1676,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2168,
-      "output_tokens": 36,
-      "wall_s": 1.2067887019993577,
+      "input_tokens": 3207,
+      "output_tokens": 49,
+      "wall_s": 1.698267886999929,
       "attempt_log": [
         {
           "attempt": 1,
@@ -746,9 +1696,9 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 1,
-      "input_tokens": 4134,
+      "input_tokens": 8300,
       "output_tokens": 39,
-      "wall_s": 2.7123623019997467,
+      "wall_s": 3.548828295999556,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "example_heading",
@@ -760,10 +1710,9 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "explore_turns": 0,
-      "input_tokens": 2190,
+      "input_tokens": 3235,
       "output_tokens": 74,
-      "wall_s": 1.5825788720003402,
+      "wall_s": 1.4775640239995482,
       "attempt_log": [
         {
           "attempt": 1,
@@ -781,13 +1730,394 @@
       "attempts": 1,
       "model_turns": 3,
       "tool_calls": 3,
-      "input_tokens": 7172,
-      "output_tokens": 138,
-      "wall_s": 4.702500604000306,
+      "input_tokens": 13388,
+      "output_tokens": 120,
+      "wall_s": 4.539647751000302,
       "error": null,
       "model": "gpt-5.4-mini",
       "task": "two_pages",
       "category": "fetch",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3225,
+      "output_tokens": 52,
+      "wall_s": 0.7106228310003644,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12570,
+      "output_tokens": 79,
+      "wall_s": 3.769479821000459,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3225,
+      "output_tokens": 97,
+      "wall_s": 0.8669412729996111,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12694,
+      "output_tokens": 111,
+      "wall_s": 3.904669868000383,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3189,
+      "output_tokens": 37,
+      "wall_s": 0.7613143119997403,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8326,
+      "output_tokens": 44,
+      "wall_s": 2.9407252490000246,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 3,
+      "model_turns": 3,
+      "input_tokens": 9838,
+      "output_tokens": 106,
+      "wall_s": 2.0499511709995204,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "The run finished but the result is not correct. Printed output: '18'. Re-read the task and fix the logic.",
+          "source": "print(len(git_log(\"/tmp/weave-real-bm5_jz68/data/repo\").splitlines()))"
+        },
+        {
+          "attempt": 2,
+          "error": "The run finished but the result is not correct. Printed output: '4'. Re-read the task and fix the logic.",
+          "source": "print(len(git_log(\"/tmp/weave-real-bm5_jz68/data/repo\", max_count=100000).splitlines()) // 4)"
+        },
+        {
+          "attempt": 3,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_count",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8442,
+      "output_tokens": 45,
+      "wall_s": 2.658146406999549,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_count",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3208,
+      "output_tokens": 56,
+      "wall_s": 0.7288871930004461,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8372,
+      "output_tokens": 38,
+      "wall_s": 2.596820161999858,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3218,
+      "output_tokens": 90,
+      "wall_s": 1.1752955760002806,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 5,
+      "tool_calls": 4,
+      "input_tokens": 21629,
+      "output_tokens": 158,
+      "wall_s": 8.35112738999942,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": false,
+      "attempts": 3,
+      "model_turns": 3,
+      "input_tokens": 9867,
+      "output_tokens": 144,
+      "wall_s": 1.9561331169998084,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "The run finished but the result is not correct. Printed output: 'lives in London'. Re-read the task and fix the logic.",
+          "source": "node = mem_open_nodes([\"Ada\"], 1)\nprint(node[\"entities\"][0][\"observations\"][0])"
+        },
+        {
+          "attempt": 2,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "node = mem_open_nodes([\"Ada\"], 10)\ncity = \"\"\nfor obs in node[\"entities\"][0][\"observations\"]:\n    if \"lives in\" in obs:\n        city = obs.rsplit(\"lives in \", 1)[1]\nprint(city)"
+        },
+        {
+          "attempt": 3,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "node = mem_open_nodes([\"Ada\"], 10)\ncity = \"\"\nfor obs in node[\"entities\"][0][\"observations\"]:\n    if \"lives in\" in obs:\n        city = obs.rsplit(\"lives in\", 1)[1].strip()\nprint(city)"
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8365,
+      "output_tokens": 47,
+      "wall_s": 2.1429232400005276,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6596,
+      "output_tokens": 101,
+      "wall_s": 1.4133410360000198,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C1: tool `mem_add_observations` failed: Input validation error: Invalid arguments for tool add_observations: observations.0.contents: Invalid input: expected array, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "mem_add_observations([{\"entityName\": \"Ada\", \"observations\": [\"likes tea\"]}])\nada = mem_open_nodes([\"Ada\"])\nprint(len(ada[\"entities\"][0][\"observations\"]))"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 2,
+      "input_tokens": 8436,
+      "output_tokens": 76,
+      "wall_s": 3.1607712029999675,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 3,
+      "model_turns": 3,
+      "input_tokens": 10277,
+      "output_tokens": 180,
+      "wall_s": 1.9199423049994948,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "mem_create_entities([{\"name\": \"Grace\", \"type\": \"person\", \"observations\": [\"works at Navy\"]}])\nmem_create_relations([{\"from\": \"Grace\", \"to\": \"Ada\", \"type\": \"knows\"}])\nprint(\"done\")"
+        },
+        {
+          "attempt": 2,
+          "error": "L2:C1: tool `mem_create_relations` failed: Input validation error: Invalid arguments for tool create_relations: relations.0.relationType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "mem_create_entities([{\"name\": \"Grace\", \"entityType\": \"person\", \"observations\": [\"works at Navy\"]}])\nmem_create_relations([{\"from\": \"Grace\", \"to\": \"Ada\", \"type\": \"knows\"}])\nprint(\"done\")"
+        },
+        {
+          "attempt": 3,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 2,
+      "input_tokens": 8426,
+      "output_tokens": 88,
+      "wall_s": 2.582372798000506,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6663,
+      "output_tokens": 130,
+      "wall_s": 1.4573649859994475,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L2:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
+          "source": "config = parse_json(fs_read_text_file(path=\"/tmp/weave-real-gdanz_nu/data/config.json\"))\nmem_create_entities([{\"name\": \"weave\", \"type\": \"project\", \"observations\": [f\"version {config[\"version\"]}\"]}])\nprint(config[\"version\"])"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12607,
+      "output_tokens": 82,
+      "wall_s": 3.9033758649993615,
+      "error": null,
+      "model": "gpt-5.4-mini",
+      "task": "config_to_memory",
+      "category": "cross_server",
       "mode": "native_tools",
       "repeat": 2
     }
@@ -804,6 +2134,6 @@
       10.0
     ]
   },
-  "estimated_cost_usd": 0.0656,
+  "estimated_cost_usd": 0.2383,
   "stopped_early": null
 }

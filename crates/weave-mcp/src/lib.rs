@@ -205,6 +205,16 @@ pub fn script_tool_listing(config: &ServerConfig) -> String {
                 tool.effect.as_str(),
                 summary
             ));
+            // Spell out structured parameters (lists of objects, objects):
+            // a script cannot guess their field names the way a native
+            // function call reads them from the JSON schema.
+            let props = tool.input_schema.get("properties").and_then(|v| v.as_object());
+            for param in &tool.params {
+                let Some(schema) = props.and_then(|p| p.get(param)) else { continue };
+                if is_structured(schema) {
+                    lines.push(format!("  {param}: {}", compact_type(schema, 0)));
+                }
+            }
             if let Some(shape) = tool.shape {
                 lines.push(format!("  returns: {}", shape.describe()));
             }
@@ -726,5 +736,74 @@ mod tests {
         let body = ran["result"]["content"][0]["text"].as_str().unwrap();
         assert!(ran["result"]["isError"] == false, "{body}");
         assert!(body.contains("Paris"), "{body}");
+    }
+}
+
+fn is_structured(schema: &Json) -> bool {
+    match schema.get("type").and_then(|t| t.as_str()) {
+        Some("object") => true,
+        Some("array") => schema.get("items").is_some_and(|items| items.get("type").and_then(|t| t.as_str()) != Some("string") || is_structured(items)),
+        _ => false,
+    }
+}
+
+/// A short Python-like type for a JSON schema, e.g.
+/// `list[{name: str, entityType: str, observations: list[str]}]`.
+/// Optional object fields end in `?`.
+pub fn compact_type(schema: &Json, depth: usize) -> String {
+    if depth > 4 {
+        return "...".into();
+    }
+    if let Some(options) = schema.get("anyOf").or_else(|| schema.get("oneOf")).and_then(|v| v.as_array()) {
+        return options.iter().map(|o| compact_type(o, depth + 1)).collect::<Vec<_>>().join(" | ");
+    }
+    if let Some(values) = schema.get("enum").and_then(|v| v.as_array()) {
+        return values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(" | ");
+    }
+    match schema.get("type").and_then(|t| t.as_str()) {
+        Some("string") => "str".into(),
+        Some("integer") => "int".into(),
+        Some("number") => "float".into(),
+        Some("boolean") => "bool".into(),
+        Some("null") => "None".into(),
+        Some("array") => match schema.get("items") {
+            Some(items) => format!("list[{}]", compact_type(items, depth + 1)),
+            None => "list".into(),
+        },
+        Some("object") => {
+            let Some(props) = schema.get("properties").and_then(|v| v.as_object()) else { return "dict".into() };
+            let required: Vec<&str> = schema
+                .get("required")
+                .and_then(|v| v.as_array())
+                .map(|r| r.iter().filter_map(|v| v.as_str()).collect())
+                .unwrap_or_default();
+            let fields: Vec<String> = props
+                .iter()
+                .map(|(name, sub)| {
+                    let mark = if required.contains(&name.as_str()) { "" } else { "?" };
+                    format!("{name}{mark}: {}", compact_type(sub, depth + 1))
+                })
+                .collect();
+            format!("{{{}}}", fields.join(", "))
+        }
+        _ => "any".into(),
+    }
+}
+
+#[cfg(test)]
+mod compact_type_tests {
+    use super::*;
+
+    #[test]
+    fn nested_schema_renders_as_a_python_like_type() {
+        let schema = json!({"type": "array", "items": {"type": "object",
+            "properties": {"name": {"type": "string"}, "observations": {"type": "array", "items": {"type": "string"}},
+                           "weight": {"type": "number"}},
+            "required": ["name", "observations"]}});
+        assert!(is_structured(&schema));
+        assert_eq!(compact_type(&schema, 0), "list[{name: str, observations: list[str], weight?: float}]");
+        assert!(!is_structured(&json!({"type": "array", "items": {"type": "string"}})));
+        assert!(!is_structured(&json!({"type": "string"})));
+        assert_eq!(compact_type(&json!({"enum": ["a", "b"]}), 0), "\"a\" | \"b\"");
     }
 }
