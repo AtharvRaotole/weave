@@ -1,0 +1,514 @@
+{
+  "kind": "real_tools",
+  "measured": true,
+  "machine": {
+    "python": "3.13.5",
+    "platform": "Linux-6.12.113+-x86_64-with-glibc2.41",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 8,
+    "hostname": "grok-bot-vm-405872838"
+  },
+  "models": [
+    "gpt-5.4-mini"
+  ],
+  "servers": [
+    "@modelcontextprotocol/server-filesystem",
+    "mcp-server-fetch"
+  ],
+  "repeats": 3,
+  "variant": [],
+  "summary": [
+    {
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 1,
+      "median_wall_s": 2.5789026950001244,
+      "median_model_turns": 3,
+      "input_tokens": 16883,
+      "output_tokens": 880
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 1,
+      "median_wall_s": 3.3183171200003017,
+      "median_model_turns": 3,
+      "input_tokens": 13925,
+      "output_tokens": 345
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.9026690830000916,
+      "median_model_turns": 1,
+      "input_tokens": 5752,
+      "output_tokens": 176
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.7873742510000739,
+      "median_model_turns": 1,
+      "input_tokens": 5777,
+      "output_tokens": 267
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.3842119769997225,
+      "median_model_turns": 1,
+      "input_tokens": 5845,
+      "output_tokens": 215
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.8830677309997554,
+      "median_model_turns": 1,
+      "input_tokens": 5823,
+      "output_tokens": 277
+    }
+  ],
+  "rows": [
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1927,
+      "output_tokens": 93,
+      "wall_s": 1.734454937999999,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4109,
+      "output_tokens": 194,
+      "wall_s": 2.1954915549999896,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L7:C23: tool `fs_read_text_file` failed: ENOENT: no such file or directory, open '/tmp/weave-real-uj1flebc/data/m1.txt' hint: catch it with `except ToolError` or fix the call",
+          "source": "files = fs_list_directory(\"/tmp/weave-real-uj1flebc/data/inbox\")\ncount = 0\nfor line in files.splitlines():\n    if line.startswith(\"[FILE] \"):\n        name = line[7:]\n        if name.endswith(\".txt\"):\n            content = fs_read_text_file(name)\n            if \"URGENT\" in content:\n                count += 1\nprint(count)"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1941,
+      "output_tokens": 91,
+      "wall_s": 0.8828546879999521,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1918,
+      "output_tokens": 60,
+      "wall_s": 1.034571657000015,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1914,
+      "output_tokens": 48,
+      "wall_s": 1.3290144319998944,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1948,
+      "output_tokens": 72,
+      "wall_s": 2.1152616779995697,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1924,
+      "output_tokens": 84,
+      "wall_s": 0.7873742510000739,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": false,
+      "attempts": 3,
+      "model_turns": 3,
+      "explore_turns": 0,
+      "input_tokens": 6325,
+      "output_tokens": 393,
+      "wall_s": 3.1087686849996317,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "The run finished but the result is not correct. Printed output: '1'. Re-read the task and fix the logic.",
+          "source": "files = fs_list_directory(\"/tmp/weave-real-ymvt_bi1/data/inbox\")\npaths = []\nfor line in files.splitlines():\n    if line.startswith(\"[FILE]\") and line.endswith(\".txt\"):\n        parts = line.split()\n        paths.append(f\"/tmp/weave-real-ymvt_bi1/data/inbox/{parts[-1]}\")\ncontents = fs_read_multiple_files(paths)\ncount = 0\nfor line in contents.splitlines():\n    if line.startswith(\"[FILE]\"):\n        current = \"\"\n    else:\n        current = line\n        if \"URGENT\" in current.split():\n            count += 1\nprint(count)"
+        },
+        {
+          "attempt": 2,
+          "error": "The run finished but the result is not correct. Printed output: '1'. Re-read the task and fix the logic.",
+          "source": "files = fs_list_directory(\"/tmp/weave-real-ymvt_bi1/data/inbox\")\npaths = []\nfor line in files.splitlines():\n    if line.startswith(\"[FILE]\") and line.endswith(\".txt\"):\n        parts = line.split()\n        paths.append(f\"/tmp/weave-real-ymvt_bi1/data/inbox/{parts[-1]}\")\ncount = 0\nfor path in paths:\n    text = fs_read_text_file(path)\n    found = False\n    for line in text.splitlines():\n        if \"URGENT\" in line.split():\n            found = True\n    if found:\n        count += 1\nprint(count)"
+        },
+        {
+          "attempt": 3,
+          "error": "The run finished but the result is not correct. Printed output: '1'. Re-read the task and fix the logic.",
+          "source": "files = fs_list_directory(\"/tmp/weave-real-ymvt_bi1/data/inbox\")\npaths = []\nfor line in files.splitlines():\n    if line.startswith(\"[FILE]\"):\n        parts = line.split()\n        name = parts[-1]\n        if name.endswith(\".txt\"):\n            paths.append(f\"/tmp/weave-real-ymvt_bi1/data/inbox/{name}\")\ncount = 0\nfor path in paths:\n    text = fs_read_text_file(path)\n    if \"URGENT\" in text.split():\n        count += 1\nprint(count)"
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1941,
+      "output_tokens": 91,
+      "wall_s": 0.8830677309997554,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1916,
+      "output_tokens": 56,
+      "wall_s": 0.7419351110002026,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": false,
+      "attempts": 3,
+      "model_turns": 3,
+      "explore_turns": 0,
+      "input_tokens": 5966,
+      "output_tokens": 125,
+      "wall_s": 3.3183171200003017,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "The run finished but the result is not correct. Printed output: 'Contents of https://example.com/:'. Re-read the task and fix the logic.",
+          "source": "page = web_fetch(\"https://example.com\")\nprint(page.splitlines()[0])"
+        },
+        {
+          "attempt": 2,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "page = web_fetch(\"https://example.com\")\nfor line in page.splitlines():\n    if \"<h1>\" in line:\n        print(line.replace(\"<h1>\", \"\").replace(\"</h1>\", \"\").strip())\n        break"
+        },
+        {
+          "attempt": 3,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "page = web_fetch(\"https://example.com\", raw=True)\nfor line in page.splitlines():\n    if \"<h1>\" in line:\n        print(line.replace(\"<h1>\", \"\").replace(\"</h1>\", \"\").strip())\n        break"
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1949,
+      "output_tokens": 71,
+      "wall_s": 1.3842119769997225,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1926,
+      "output_tokens": 90,
+      "wall_s": 0.7446049570003197,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": false,
+      "attempts": 3,
+      "model_turns": 3,
+      "explore_turns": 0,
+      "input_tokens": 6449,
+      "output_tokens": 293,
+      "wall_s": 2.5789026950001244,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L6:C16: tool `fs_read_text_file` failed: ENOENT: no such file or directory, open '/tmp/weave-real-td2qiobp/data/m1.txt' hint: catch it with `except ToolError` or fix the call",
+          "source": "files = fs_list_directory(\"/tmp/weave-real-td2qiobp/data/inbox\")\ncount = 0\nfor line in files.splitlines():\n    if \"[FILE]\" in line and line.endswith(\".txt\"):\n        path = line.split(\" \", 1)[1]\n        text = fs_read_text_file(path)\n        if \"URGENT\" in text.split():\n            count += 1\nprint(count)"
+        },
+        {
+          "attempt": 2,
+          "error": "The run finished but the result is not correct. Printed output: '0'. Re-read the task and fix the logic.",
+          "source": "files = fs_list_directory(\"/tmp/weave-real-td2qiobp/data/inbox\")\ncount = 0\nfor line in files.splitlines():\n    if \"[FILE]\" in line and line.endswith(\".txt\"):\n        path = line.split(\" \", 1)[1]\n        try:\n            text = fs_read_text_file(path)\n            if \"URGENT\" in text.split():\n                count += 1\n        except ToolError:\n            pass\nprint(count)"
+        },
+        {
+          "attempt": 3,
+          "error": "The run finished but the result is not correct. Printed output: '0'. Re-read the task and fix the logic.",
+          "source": "files = fs_list_directory(\"/tmp/weave-real-td2qiobp/data/inbox\")\ncount = 0\nfor line in files.splitlines():\n    if \"[FILE]\" in line and \".txt\" in line:\n        path = line.split(\" \", 1)[1]\n        try:\n            text = fs_read_text_file(path)\n            if \"URGENT\" in text.split():\n                count += 1\n        except ToolError:\n            pass\nprint(count)"
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1941,
+      "output_tokens": 95,
+      "wall_s": 0.8884454599997298,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1918,
+      "output_tokens": 60,
+      "wall_s": 0.9026690830000916,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": false,
+      "attempts": 3,
+      "model_turns": 3,
+      "explore_turns": 0,
+      "input_tokens": 6045,
+      "output_tokens": 172,
+      "wall_s": 3.333651517999897,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "page = web_fetch(\"https://example.com\")\nlines = page.splitlines()\nheading = \"\"\nfor line in lines:\n    if \"<h1>\" in line:\n        heading = line\n        break\nprint(heading)"
+        },
+        {
+          "attempt": 2,
+          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
+          "source": "page = web_fetch(\"https://example.com\", raw=True)\nlines = page.splitlines()\nheading = \"\"\nfor line in lines:\n    if \"<h1>\" in line:\n        heading = line\n        break\nif heading == \"\":\n    print(\"\")\nelse:\n    start = heading.find(\"<h1>\")\n    end = heading.find(\"</h1>\")\n    print(heading[start + 4:end])"
+        },
+        {
+          "attempt": 3,
+          "error": "The run finished but the result is not correct. Printed output: 'tent type text/html; charset=utf-8 cannot be simplified to markdown, but here is the raw content:\\nContents of https://example.com/:\\n<!doctype html><html lang=en><head><meta charset=utf-8><link rel=icon href=data:,><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>Example Domain</title><style>html{color-scheme:light dark;background:light-dark(#eee,#222)}body{font:16px/1.6 system-ui,sans-serif;max-width:26em;margin:auto;padding:25vh 2em 2em;text-align:center}</style></head><body><p>This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it for testing and monitoring purposes.</p><script src=/s.js></script></body></html>'. Re-read the task and fix the logic.",
+          "source": "page = web_fetch(\"https://example.com\", raw=True)\nstart = page.find(\"<h1>\")\nend = page.find(\"</h1>\")\nprint(page[start + 4:end])"
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 1948,
+      "output_tokens": 72,
+      "wall_s": 1.3071337040000799,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 2
+    }
+  ],
+  "prices_per_1m": {
+    "gpt-5.4-mini": [
+      0.75,
+      0.075,
+      4.5
+    ],
+    "gpt-6.1-sol": [
+      2.0,
+      0.1,
+      10.0
+    ]
+  },
+  "estimated_cost_usd": 0.0391,
+  "stopped_early": null
+}

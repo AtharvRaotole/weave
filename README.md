@@ -357,6 +357,62 @@ the median against 2 to 5 for native. Its per-task median wall time in the last
 run ranged from 0.95x of native (`example_heading`, slightly slower) to 6.9x
 faster (`write_version`); overall median 0.935 s against 3.624 s.
 
+### Closing the gap with native (M10)
+
+A Weave script has to parse tool outputs that the model has never seen, while
+native function calling sees each output before it acts. M10 tried four fixes,
+each one measured alone with `WEAVE_EVAL_MODES=weave`. Model `gpt-5.4-mini`,
+18 runs per row; first try means passed in one model turn. Every row is a
+measured run with its JSON in `bench/results/`.
+
+| run (UTC) | variant | Weave passed (first try) | median wall | mean turns | cost |
+|---|---|---|---|---|---|
+| 17:11:27 | none (baseline) | 14/18 (13) | 1.318 s | 1.50 | $0.0391 |
+| 17:12:30 | (a) examples, first version | 18/18 (8) | 1.604 s | 1.56 | $0.0434 |
+| 17:13:13 | (b) structured listings | 17/18 (16) | 1.060 s | 1.17 | $0.0172 |
+| 17:13:56 | (c) hybrid `# continue` | 16/18 (16) | 0.871 s | 1.22 | $0.0359 |
+| 17:14:44 | (d) caught-error lint | 15/18 (13) | 1.094 s | 1.44 | $0.0382 |
+| 17:16:07 | (a) examples, fixed | 17/18 (16) | 1.003 s | 1.17 | $0.0366 |
+| 17:17:02 | (a) + (b) | 18/18 (16) | 0.922 s | 1.17 | $0.0384 |
+| 17:19:54 | (a) + (b), with native | **18/18 (17)** | 1.020 s | 1.06 | $0.0656 |
+
+The native mode in the last run also passed 18/18, with a median of 3.700 s
+and 2.89 mean turns (Weave: 1 median turn, 1.06 mean). The M10 runs cost
+$0.3144 in total.
+
+- **(a) Example outputs (kept).** MCP `outputSchema` does not help here.
+  `server-filesystem` declares `{content: string}` for every tool, and
+  `structuredContent` only wraps the same text. `mcp-server-fetch` declares
+  nothing. Instead, `weave-mcp` takes per-upstream `examples`
+  (`{"tool": {args}}`), calls each listed read-only tool once at startup, and
+  adds the truncated output to the script tool listing. The first version
+  printed the sample call with a JSON dict argument, and the model copied that
+  form (`fs_read_text_file({"path": ...})`), which failed validation. That is
+  why only 8 runs passed on the first try. Writing the sample as a Weave call
+  with keyword arguments fixed it. The samples use paths and a page
+  (`example.org`) that no task asks about.
+- **(b) Structured results (kept).** A per-upstream `results` map
+  (`lines` or `json`) turns `list_directory`, `search_files` and
+  `list_allowed_directories` into lists of lines, and the listing says
+  `returns: list of str`. This removes the "loop over a text listing
+  character by character" failure.
+- **(c) Hybrid (dropped).** The model could end a script with `# continue`
+  to see its output and then write another one. In 18 runs it never did, so the
+  result is just the baseline plus noise.
+- **(d) Lint for swallowed errors (dropped).** On a wrong answer, the feedback
+  listed the tool errors that the script had caught. It did not raise the pass
+  rate (15/18), so it was removed.
+
+With 18 runs per row, a difference of one or two passes is within noise. The
+combined variant passed 18/18 in both of its runs (36 of 36), against 14 to 16
+of 18 without it. Config example:
+
+```json
+{"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"],
+ "prefix": "fs_", "results": {"list_directory": "lines"},
+ "examples": {"list_directory": {"path": "/data"}}}
+```
+
 ### Streaming into a live session
 
 `bench/streaming.py` turns OpenAI chat chunks (`choices[0].delta.content`) and Anthropic events (`content_block_delta` / `delta.text`) into text and pushes each piece into `Session.push`. Safe calls start once their statement is complete, before the rest of the script arrives.
