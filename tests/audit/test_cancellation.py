@@ -67,9 +67,10 @@ print('Cancellation: string-ID script/direct forwarding, queued write suppressio
 # Replay mismatch diagnostics must not echo actual or recorded arguments.
 e=weave.Engine();e.tool('echo',lambda x:x,effect='read')
 source='echo("SENSITIVE_ACTUAL_ARGUMENT")\n';trace=json.loads(e.run(source).trace_json())
-trace['events'][0]['args']=['SENSITIVE_RECORDED_ARGUMENT']
+trace['events'][0]['args'][0]['v']='SENSITIVE_RECORDED_ARGUMENT'
 try:e.replay(source,json.dumps(trace))
 except Exception as exc:
+    assert 'replay diverged' in str(exc),str(exc)
     assert 'SENSITIVE_ACTUAL_ARGUMENT' not in str(exc) and 'SENSITIVE_RECORDED_ARGUMENT' not in str(exc),str(exc)
 else:raise AssertionError('tampered replay accepted')
 print('Replay divergence diagnostic omits actual/recorded argument values')
