@@ -155,7 +155,7 @@ loop and an offline smoke test. The wrapper returns printed output or repairable
 errors; successful output is truncated to 20,000 characters by default.
 
 In v0.1.0, call registered Python tools positionally from scripts and use
-synchronous functions. Rust hosts also have async tool registration.
+synchronous functions. Current source also accepts signature-bound keyword arguments; v0.1.0 does not. Rust hosts also have async tool registration.
 
 ## Connect MCP servers
 
@@ -200,8 +200,10 @@ upstream and review its tools and directory permissions before connecting it.
 
 The proxy exposes `weave_check`, `weave_run`, and `weave_replay`, **plus upstream
 tools**. To give a model only the script interface, filter the tool list in your
-host. `weave_run` returns output, bindings, and the full trace, so intermediate
-results can reach the model.
+host. Current source returns only stdout/status by default. Explicit `debug: true`
+returns bindings and a full trace, which may contain sensitive intermediate data.
+The v0.1.0 build returns full bindings/trace by default. Error diagnostics may
+also expose arguments; this is not a complete redaction/privacy boundary.
 
 Optional settings include `effects`, text-result shaping with `results` (`lines`
 or `json`), and `examples` that make sample read calls at startup. Without an
@@ -253,6 +255,11 @@ baselines, streaming, and speculation. The Gemini smoke test is too small to
 establish cross-provider results.
 
 ## Execution boundaries
+
+The audit-fix checkout differs from the v0.1.0 wheel/tag. Read the
+[17-finding verification ledger](docs/audit-status.md) for reproduced cases,
+acceptance evidence, partial fixes, and deferred work. No blanket safety claim
+is made. v0.1.0 downloads have **not** been rebuilt.
 
 v0.1.0 is experimental. These boundaries matter when deciding where to use it:
 

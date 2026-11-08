@@ -4,7 +4,7 @@ Weave runs code written by a language model, so the sandbox boundary matters.
 
 ## Supported versions
 
-Security fixes go to the latest release. Weave is at 0.1.x.
+Weave is experimental. v0.1.0 has confirmed correctness defects documented in its release notes. Audit fixes are currently source-only; downloads have not been rebuilt. Use isolated, read-only fixtures, not production write tools. See docs/audit-status.md.
 
 ## Reporting a vulnerability
 

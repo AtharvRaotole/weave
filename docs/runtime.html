@@ -18,6 +18,7 @@
     <h1>Runtime</h1>
   </header>
   <main>
+    <p><strong>Experimental source checkout; not a hardened isolation boundary.</strong> See the audit verification ledger in <code>docs/audit-status.md</code>. Trace v2 exact replay requires identical source (except trailing whitespace), tool declarations and stable invocation paths; old v1 traces are rejected. Host function code/remote schema identity is not attested by this manifest.</p>
     <h2>Effects</h2>
     <p>Untagged tools are irreversible. Pure and read calls start when their inputs are ready. Reversible calls wait for earlier observable work. Irreversible calls also wait until the whole script has arrived.</p>
     <h2>Timeouts</h2>
@@ -25,7 +26,7 @@
       <li>Async host tools are futures. Timeout and cancel drop the future.</li>
       <li>Cooperative tools, including Python functions with a <code>cancel</code> parameter or <code>**kwargs</code>, receive a <code>CancelToken</code>. Weave stops waiting. It does not kill the thread.</li>
       <li>Plain sync tools only abandon the wait. The thread is not signalled.</li>
-      <li><code>Engine(worker_pool=N)</code> plus <code>hard_deadline=True</code> runs a sync Python tool in a spawn worker. Timeout and cancel <code>SIGKILL</code> that worker and start a replacement.</li>
+      <li><code>Engine(worker_pool=N)</code> plus <code>hard_deadline=True</code> runs a sync Python tool in a spawn worker with cancellable queue acquisition. Timeout/cancel request local process termination and asynchronous replacement; this is not a real-time guarantee and cannot undo remote effects. Rust isolated start callbacks must be nonblocking.</li>
     </ul>
     <p>A killed worker does not run <code>finally</code>. Work that already left the process is not undone. The function and its values must be pickleable, so define tools at module scope and keep <code>Engine(...)</code> inside <code>if __name__ == "__main__"</code>. Closures are not sendable. One call occupies one worker; extra calls wait for a free slot.</p>
     <h2>Speculative pre-execution</h2>
@@ -54,12 +55,12 @@ result.spec_hits, result.spec_misses, result.spec_wasted</pre>
     <ul>
       <li><strong>Steps</strong> (default 1,000,000): every executed statement and every loop iteration counts. Nested loops fail fast once the budget is spent.</li>
       <li><strong>Value size</strong> (default 16 MiB): string bytes plus container elements, counted through nested values. <code>*</code> repetition, <code>str.replace</code>, and <code>str.join</code> are refused before allocating when the result would pass a hard 256 MiB cap; other results are checked as they are built.</li>
-      <li><strong>Wall time</strong> (default 30 s): measured from when the script first reaches the scheduler, so time spent waiting for streamed code is not counted. At the limit the run is cancelled and fails with <code>time limit of Nms exceeded</code>. Async tools and compute loops stop at once; a plain sync Python tool cannot be interrupted, so it is abandoned and keeps running in the background while the run returns.</li>
+      <li><strong>Wall time</strong> (default 30 s): measured from when the script first reaches the scheduler, so time spent waiting for streamed code is not counted. At the limit the run is cancelled and fails with <code>time limit of Nms exceeded</code>. Async futures are dropped and compute loops poll cancellation; a plain sync Python tool cannot be interrupted, so it is abandoned and keeps running in the background while the run returns.</li>
       <li><strong>Depth</strong> (fixed at 100): bracket nesting, block nesting, expression nesting, and value nesting. A lexical pre-check also rejects any statement with more than 1,000 operators before the parser runs, so deep or long expressions return an error instead of overflowing the stack.</li>
     </ul>
     <pre>engine.set_limits(max_steps=100_000, max_value_size=1_000_000, max_wall_time_ms=5_000)</pre>
     <p>In Rust: <code>engine.set_limits(Limits::default().with_max_steps(100_000).with_max_wall_time(Duration::from_secs(5)))</code>.</p>
-    <p>Not covered: no process-wide memory cap (the value limit bounds each value, and the step limit bounds how many are built), and nothing limits what a host tool does once called. Errors from limits are ordinary runtime errors that <code>try/except</code> can catch.</p>
+    <p>Not covered: no process-wide memory cap, total-output/trace budget, or source/frame-size budget; conversion and parsing may allocate before checks, and nothing limits what a host tool does once called. Errors from limits are ordinary runtime errors that <code>try/except</code> can catch.</p>
   </main>
 </body>
 </html>

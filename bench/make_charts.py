@@ -82,8 +82,8 @@ def diagram_svg() -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">',
         "<style>.t{font-size:15px;font-weight:600;fill:#111827}.s{font-size:12px;fill:#374151}.c{font-size:11px;fill:#ffffff;font-family:ui-monospace,Menlo,Consolas,monospace}.k{font-size:11px;fill:#111827;font-family:ui-monospace,Menlo,Consolas,monospace}</style>",
         f'<rect width="{w}" height="{h}" fill="#ffffff"/>',
-        '<text x="20" y="28" class="t">Native tool calling: a model turn per step</text>',
-        '<text x="20" y="294" class="s">Illustration. Measured turns are in the chart below.</text>',
+        '<text x="20" y="28" class="t">Illustration: sequential tool loop</text>',
+        '<text x="20" y="294" class="s">Native APIs can also batch independent calls.</text>',
         '<text x="400" y="28" class="t">Weave: one script, independent calls together</text>',
         '<line x1="380" y1="14" x2="380" y2="286" stroke="#e5e7eb" stroke-width="2"/>',
     ]

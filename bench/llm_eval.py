@@ -565,13 +565,14 @@ def by_mode(rows: list[dict]) -> list[dict]:
 
 
 def main() -> int:
+    print("WARNING: legacy mock model harness has unequal endpoints/serial native calls; not an apples-to-apples speedup benchmark", file=sys.stderr)
     found = providers()
     out_dir = ROOT / "bench" / "results"
     out_dir.mkdir(parents=True, exist_ok=True)
     task_ids = [task.id for task in TASKS]
     if not found:
         payload = {
-            "kind": "llm",
+            "methodology_version": 1, "legacy_unequal_endpoints": True, "kind": "llm",
             "skipped": True,
             "measured": False,
             "reason": (
@@ -606,7 +607,7 @@ def main() -> int:
             stopped = str(exc)
         passed = sum(1 for row in rows if row["passed"])
         payload = {
-            "kind": "llm",
+            "methodology_version": 1, "legacy_unequal_endpoints": True, "kind": "llm",
             "skipped": False,
             "measured": True,
             "machine": machine_info(),

@@ -6,6 +6,23 @@ All notable changes to Weave. The format follows
 
 ## [Unreleased]
 
+### Audit remediation (experimental source only)
+- Preserve PR10 README improvements; remove unequal-endpoint speedup framing.
+- Gate writes on prior computation success; execute exception regions in order.
+- Trace v2 exact identity/source/declaration replay, with v1 rejection.
+- Check literal, tool, speculative and replay value ingress; cap Python conversion depth.
+- Make process-worker queues cancellation-aware; preserve slots after pickle failures.
+- Reject MCP final-name collisions; paginate discovery; alias invalid script names;
+  preserve structured results and compact successful model output by default.
+- Repair Python keyword support, malformed source errors, SDK event-loop blocking,
+  CLI typo exits and Unicode find indexes.
+- Benchmark v2 uses final-model-answer endpoints for both modes and bounded native
+  parallel reads; no new live API measurements. Legacy mock LLM harness is labelled unequal.
+- See `docs/audit-status.md` for all 17 findings and remaining/deferred limitations,
+  especially partial nested exception binding state, aggregate resource budgets,
+  script cancellation forwarding, and idempotency-aware write retry policy.
+- No rebuilt release downloads or PyPI publication.
+
 ### Documentation
 - Reorganize the README around installation, a runnable workflow, agent and MCP
   integration, and execution boundaries. Clarify package naming, release wheels,
