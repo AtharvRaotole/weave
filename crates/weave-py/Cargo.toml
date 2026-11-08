@@ -1,0 +1,15 @@
+[package]
+name = "weave-py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Python bindings for the Weave runtime"
+
+[lib]
+name = "weave_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.30", features = ["extension-module"] }
+weave_core = { package = "weave", path = "../weave" }

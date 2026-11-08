@@ -1,0 +1,19 @@
+[package]
+name = "weave-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Minimal MCP server for checking, running, and replaying Weave scripts"
+
+[lib]
+name = "weave_mcp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "weave-mcp"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"
+weave = { path = "../weave" }

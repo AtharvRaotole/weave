@@ -1,0 +1,14 @@
+[build-system]
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
+
+[project]
+name = "weave"
+version = "0.1.0"
+description = "Parallel runtime for a small Python-like language aimed at agent tool calls"
+requires-python = ">=3.9"
+readme = "README.md"
+
+[tool.maturin]
+manifest-path = "crates/weave-py/Cargo.toml"
+module-name = "weave"
