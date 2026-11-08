@@ -205,6 +205,28 @@ pub fn script_tool_listing(config: &ServerConfig) -> String {
                 tool.effect.as_str(),
                 summary
             ));
+            if let Some(shape) = tool.shape {
+                lines.push(format!("  returns: {}", shape.describe()));
+            }
+            if let Some((arguments, output)) = &tool.example {
+                let output = match tool.shape {
+                    Some(shape) => match crate::upstream::shape_result(Some(shape), output.clone()) {
+                        Ok(value) => value.to_string(),
+                        Err(_) => output.clone(),
+                    },
+                    None => format!("{output:?}"),
+                };
+                // Show the sample as a Weave call with keyword arguments.
+                let call_args: Vec<String> = arguments
+                    .as_object()
+                    .map(|map| {
+                        map.iter()
+                            .map(|(k, v)| format!("{k}={}", crate::upstream::from_plain_json(v)))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                lines.push(format!("  example: {}({}) -> {}", tool.name, call_args.join(", "), output));
+            }
         }
     }
     lines.join("\n")

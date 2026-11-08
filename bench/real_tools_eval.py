@@ -13,7 +13,10 @@ the OpenAI Responses API. Every run gets fresh files.
 Optional: OPENAI_MODELS (default gpt-5.4-mini), WEAVE_EVAL_REPEATS (3),
 WEAVE_EVAL_BUDGET (USD, default 1.0), WEAVE_MCP (path to the binary),
 WEAVE_FETCH_ARGS (extra mcp-server-fetch flags, e.g. --allow-private-ips when
-DNS resolves through a proxy).
+DNS resolves through a proxy), WEAVE_EVAL_MODES (weave,native_tools),
+WEAVE_EVAL_VARIANT (comma-separated, default examples,structured; set to "none" for neither):
+  examples    weave-mcp samples each read tool once at startup and shows the output
+  structured  listing tools return a list of lines instead of one string
 """
 
 from __future__ import annotations
@@ -39,6 +42,7 @@ from bench.prompts import few_shot_messages, repair_message, system_message  # n
 
 MAX_ATTEMPTS = 3
 MAX_TURNS = 10
+VARIANT = frozenset(v for v in os.environ.get("WEAVE_EVAL_VARIANT", "examples,structured").split(",") if v)
 
 
 @dataclass(frozen=True)
@@ -125,13 +129,21 @@ def binary() -> str:
 
 def start(root: Path) -> McpClient:
     fetch_args = os.environ.get("WEAVE_FETCH_ARGS", "").split()
-    config = {
-        "upstreams": [
-            {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", str(root)], "prefix": "fs_"},
-            {"name": "fetch", "command": "uvx", "args": ["mcp-server-fetch", *fetch_args], "prefix": "web_",
-             "effects": {"fetch": "read"}},
-        ]
-    }
+    fs = {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", str(root)], "prefix": "fs_"}
+    web = {"name": "fetch", "command": "uvx", "args": ["mcp-server-fetch", *fetch_args], "prefix": "web_",
+           "effects": {"fetch": "read"}}
+    if "structured" in VARIANT:
+        fs["results"] = {"list_directory": "lines", "search_files": "lines", "list_allowed_directories": "lines"}
+    if "examples" in VARIANT:
+        # One sample per read tool, on paths and a page that no task asks about.
+        fs["examples"] = {
+            "list_directory": {"path": str(root)},
+            "search_files": {"path": str(root), "pattern": "*.json"},
+            "read_text_file": {"path": str(root / "config.json")},
+            "list_allowed_directories": {},
+        }
+        web["examples"] = {"fetch": {"url": "https://example.org", "max_length": 300}}
+    config = {"upstreams": [fs, web]}
     path = root.parent / "weave-mcp.json"
     path.write_text(json.dumps(config))
     return McpClient([binary(), "--config", str(path)])
@@ -152,16 +164,20 @@ def graded(task: RealTask, answer: str, root: Path) -> bool:
 
 
 def run_weave(model: str, task: RealTask, client: McpClient, tools: list[dict], root: Path) -> dict:
+    returns = "Tools (results are strings unless a tool says otherwise)" if "structured" in VARIANT else "Tools (all return strings)"
     prompt = (
-        f"Tools (all return strings):\n{tool_listing(tools)}\n"
+        f"{returns}:\n{tool_listing(tools)}\n"
         f"All files are under {root}; pass absolute paths.\n"
         f"Task: {task.instruction}\nWrite a Weave script only. Print the final answer."
     )
     messages = [system_message(), *few_shot_messages(), {"role": "user", "content": prompt}]
     log, usage_in, usage_out, passed = [], 0, 0, False
+    attempt = turns = 0
     started = time.perf_counter()
-    for attempt in range(1, MAX_ATTEMPTS + 1):
+    while attempt < MAX_ATTEMPTS:
         text, usage = llm_eval.complete("openai", model, messages)
+        turns += 1
+        attempt += 1
         usage_in += usage["input_tokens"] or 0
         usage_out += usage["output_tokens"] or 0
         source = llm_eval._strip_fence(text)
@@ -178,7 +194,7 @@ def run_weave(model: str, task: RealTask, client: McpClient, tools: list[dict], 
         feedback = llm_eval.wrong_answer(stdout)
         log.append({"attempt": attempt, "error": feedback, "source": source})
         messages += [{"role": "assistant", "content": source}, {"role": "user", "content": feedback + "\nReply with only the corrected Weave script."}]
-    return {"passed": passed, "attempts": len(log), "model_turns": len(log), "input_tokens": usage_in,
+    return {"passed": passed, "attempts": attempt, "model_turns": turns, "input_tokens": usage_in,
             "output_tokens": usage_out, "wall_s": time.perf_counter() - started, "attempt_log": log}
 
 
@@ -232,7 +248,7 @@ def main() -> int:
         for repeat in range(repeats):
             for model in models:
                 for task in tasks:
-                    for mode in ("weave", "native_tools"):
+                    for mode in os.environ.get("WEAVE_EVAL_MODES", "weave,native_tools").split(","):
                         tmp = Path(tempfile.mkdtemp(prefix="weave-real-"))
                         root = tmp / "data"
                         root.mkdir()
@@ -265,7 +281,7 @@ def main() -> int:
                         "output_tokens": sum(r["output_tokens"] for r in group)})
     payload = {"kind": "real_tools", "measured": True, "machine": machine_info(), "models": models,
                "servers": ["@modelcontextprotocol/server-filesystem", "mcp-server-fetch"],
-               "repeats": repeats, "summary": summary, "rows": rows, "prices_per_1m": llm_eval.PRICES,
+               "repeats": repeats, "variant": sorted(VARIANT), "summary": summary, "rows": rows, "prices_per_1m": llm_eval.PRICES,
                "estimated_cost_usd": round(llm_eval.SPENT["usd"], 4), "stopped_early": stopped}
     out = ROOT / "bench" / "results"
     text = json.dumps(payload, indent=2) + "\n"

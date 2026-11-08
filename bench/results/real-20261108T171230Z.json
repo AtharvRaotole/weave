@@ -1,0 +1,517 @@
+{
+  "kind": "real_tools",
+  "measured": true,
+  "machine": {
+    "python": "3.13.5",
+    "platform": "Linux-6.12.113+-x86_64-with-glibc2.41",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 8,
+    "hostname": "grok-bot-vm-405872838"
+  },
+  "models": [
+    "gpt-5.4-mini"
+  ],
+  "servers": [
+    "@modelcontextprotocol/server-filesystem",
+    "mcp-server-fetch"
+  ],
+  "repeats": 3,
+  "variant": [
+    "examples"
+  ],
+  "summary": [
+    {
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.8940888610000002,
+      "median_model_turns": 1,
+      "input_tokens": 6471,
+      "output_tokens": 316
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.8130831230000695,
+      "median_model_turns": 1,
+      "input_tokens": 8744,
+      "output_tokens": 168
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.4243565920000947,
+      "median_model_turns": 2,
+      "input_tokens": 11137,
+      "output_tokens": 310
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.6617758799998228,
+      "median_model_turns": 2,
+      "input_tokens": 13685,
+      "output_tokens": 542
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 2.2448831609999615,
+      "median_model_turns": 2,
+      "input_tokens": 13849,
+      "output_tokens": 438
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.8472082759999466,
+      "median_model_turns": 1,
+      "input_tokens": 8945,
+      "output_tokens": 399
+    }
+  ],
+  "rows": [
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4541,
+      "output_tokens": 170,
+      "wall_s": 1.5468257729999095,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C9: tool `fs_read_text_file` failed: Input validation error: Invalid arguments for tool read_text_file: path: Invalid input: expected string, received object hint: catch it with `except ToolError` or fix the call",
+          "source": "a = int(fs_read_text_file({\"path\":\"/tmp/weave-real-inkt_6_r/data/notes/a.txt\"}))\nb = int(fs_read_text_file({\"path\":\"/tmp/weave-real-inkt_6_r/data/notes/b.txt\"}))\nc = int(fs_read_text_file({\"path\":\"/tmp/weave-real-inkt_6_r/data/notes/c.txt\"}))\nprint(a + b + c)"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 2159,
+      "output_tokens": 110,
+      "wall_s": 0.892255453999951,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4611,
+      "output_tokens": 201,
+      "wall_s": 1.7475397960001828,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C10: tool `fs_read_text_file` failed: Input validation error: Invalid arguments for tool read_text_file: path: Invalid input: expected string, received object hint: catch it with `except ToolError` or fix the call",
+          "source": "config = fs_read_text_file({\"path\":\"/tmp/weave-real-tv69bqu1/data/config.json\"})\nobj = parse_json(config)\nfs_create_directory({\"path\":\"/tmp/weave-real-tv69bqu1/data/out\"})\nfs_write_file({\"path\":\"/tmp/weave-real-tv69bqu1/data/out/version.txt\", \"content\":f\"v{obj['version']}\"})\nprint(fs_read_text_file({\"path\":\"/tmp/weave-real-tv69bqu1/data/out/version.txt\"}))"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4515,
+      "output_tokens": 130,
+      "wall_s": 2.1263411310001175,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L4:C15: tool `fs_read_text_file` failed: Input validation error: Invalid arguments for tool read_text_file: path: Invalid input: expected string, received object hint: catch it with `except ToolError` or fix the call",
+          "source": "try:\n    content = fs_read_text_file({\"path\": \"/tmp/weave-real-6zjcw4a2/data/missing.txt\"})\nexcept ToolError:\n    content = fs_read_text_file({\"path\": \"/tmp/weave-real-6zjcw4a2/data/fallback.txt\"})\nprint(content)"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 2143,
+      "output_tokens": 38,
+      "wall_s": 1.4783401949998733,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4617,
+      "output_tokens": 148,
+      "wall_s": 2.597255721000238,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C11: tool `web_fetch` failed: Error executing tool fetch: 1 validation error for fetchArguments\nurl\n  URL input should be a string or URL [type=url_type, input_value={'url': 'https://example.com', 'max_length': 800}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/url_type hint: catch it with `except ToolError` or fix the call",
+          "source": "example = web_fetch({\"url\":\"https://example.com\",\"max_length\":800})\nrfc = web_fetch({\"url\":\"https://www.rfc-editor.org/rfc/rfc2606.txt\",\"max_length\":800})\nif (\"documentation\" in example) and (\"Eastlake\" in rfc):\n    print(\"yes\")\nelse:\n    print(\"no\")"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4545,
+      "output_tokens": 177,
+      "wall_s": 1.6802022409997335,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C5: tool `fs_read_text_file` failed: Input validation error: Invalid arguments for tool read_text_file: path: Invalid input: expected string, received object hint: catch it with `except ToolError` or fix the call",
+          "source": "a = fs_read_text_file({\"path\":\"/tmp/weave-real-a79bjhgm/data/notes/a.txt\"})\nb = fs_read_text_file({\"path\":\"/tmp/weave-real-a79bjhgm/data/notes/b.txt\"})\nc = fs_read_text_file({\"path\":\"/tmp/weave-real-a79bjhgm/data/notes/c.txt\"})\nprint(int(a.strip()) + int(b.strip()) + int(c.strip()))"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 2159,
+      "output_tokens": 106,
+      "wall_s": 0.8940888610000002,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 2170,
+      "output_tokens": 99,
+      "wall_s": 0.8412110129997927,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 2139,
+      "output_tokens": 58,
+      "wall_s": 0.5930070119998163,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 2131,
+      "output_tokens": 53,
+      "wall_s": 1.83736991700016,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4603,
+      "output_tokens": 142,
+      "wall_s": 2.107655530000102,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C11: tool `web_fetch` failed: Error executing tool fetch: 1 validation error for fetchArguments\nurl\n  URL input should be a string or URL [type=url_type, input_value={'url': 'https://example.com', 'max_length': 800}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/url_type hint: catch it with `except ToolError` or fix the call",
+          "source": "example = web_fetch({\"url\":\"https://example.com\",\"max_length\":800})\nrfc = web_fetch({\"url\":\"https://www.rfc-editor.org/rfc/rfc2606.txt\",\"max_length\":800})\nif \"documentation\" in example and \"Eastlake\" in rfc:\n    print(\"yes\")\nelse:\n    print(\"no\")"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4599,
+      "output_tokens": 195,
+      "wall_s": 1.6617758799998228,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C5: tool `fs_read_text_file` failed: Input validation error: Invalid arguments for tool read_text_file: path: Invalid input: expected string, received object hint: catch it with `except ToolError` or fix the call",
+          "source": "a = fs_read_text_file({\"path\":\"/tmp/weave-real-6r1ob7q8/data/notes/a.txt\"})\nb = fs_read_text_file({\"path\":\"/tmp/weave-real-6r1ob7q8/data/notes/b.txt\"})\nc = fs_read_text_file({\"path\":\"/tmp/weave-real-6r1ob7q8/data/notes/c.txt\"})\nprint(int(a.strip()) + int(b.strip()) + int(c.strip()))"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 2153,
+      "output_tokens": 100,
+      "wall_s": 1.0318467429997327,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "count_urgent",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "explore_turns": 0,
+      "input_tokens": 2164,
+      "output_tokens": 99,
+      "wall_s": 0.8472082759999466,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "write_version",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4483,
+      "output_tokens": 122,
+      "wall_s": 1.4243565920000947,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L4:C15: tool `fs_read_text_file` failed: Input validation error: Invalid arguments for tool read_text_file: path: Invalid input: expected string, received object hint: catch it with `except ToolError` or fix the call",
+          "source": "try:\n    content = fs_read_text_file({\"path\":\"/tmp/weave-real-8ph46to6/data/missing.txt\"})\nexcept ToolError:\n    content = fs_read_text_file({\"path\":\"/tmp/weave-real-8ph46to6/data/fallback.txt\"})\nprint(content)"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4470,
+      "output_tokens": 77,
+      "wall_s": 1.8130831230000695,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C8: tool `web_fetch` failed: Error executing tool fetch: 1 validation error for fetchArguments\nurl\n  URL input should be a string or URL [type=url_type, input_value={'url': 'https://example.com', 'max_length': 500}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/url_type hint: catch it with `except ToolError` or fix the call",
+          "source": "page = web_fetch({\"url\":\"https://example.com\",\"max_length\":500})\nfor line in page.splitlines():\n    if line.startswith(\"# \"):\n        print(line[2:])\n        break"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "explore_turns": 0,
+      "input_tokens": 4629,
+      "output_tokens": 148,
+      "wall_s": 2.2448831609999615,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L1:C11: tool `web_fetch` failed: Error executing tool fetch: 1 validation error for fetchArguments\nurl\n  URL input should be a string or URL [type=url_type, input_value={'url': 'https://example.com', 'max_length': 800}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/url_type hint: catch it with `except ToolError` or fix the call",
+          "source": "example = web_fetch({\"url\":\"https://example.com\",\"max_length\":800})\nrfc = web_fetch({\"url\":\"https://www.rfc-editor.org/rfc/rfc2606.txt\",\"max_length\":800})\nif (\"documentation\" in example) and (\"Eastlake\" in rfc):\n    print(\"yes\")\nelse:\n    print(\"no\")"
+        },
+        {
+          "attempt": 2,
+          "ok": true
+        }
+      ],
+      "model": "gpt-5.4-mini",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 2
+    }
+  ],
+  "prices_per_1m": {
+    "gpt-5.4-mini": [
+      0.75,
+      0.075,
+      4.5
+    ],
+    "gpt-6.1-sol": [
+      2.0,
+      0.1,
+      10.0
+    ]
+  },
+  "estimated_cost_usd": 0.0434,
+  "stopped_early": null
+}
