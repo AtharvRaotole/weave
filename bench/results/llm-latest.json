@@ -1,0 +1,14 @@
+{
+  "kind": "llm",
+  "skipped": true,
+  "measured": false,
+  "reason": "Set OPENAI_API_KEY, ANTHROPIC_API_KEY, and/or GEMINI_API_KEY (or GOOGLE_API_KEY), then run python bench/llm_eval.py.",
+  "machine": {
+    "python": "3.12.3",
+    "platform": "Linux-6.12.113+-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 4,
+    "hostname": "cursor"
+  }
+}
