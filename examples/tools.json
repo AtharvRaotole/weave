@@ -1,0 +1,11 @@
+{
+  "tools": [
+    {
+      "name": "weather",
+      "description": "Echo the city name. Stand-in for a weather lookup.",
+      "effect": "read",
+      "arity": 1,
+      "behavior": "echo"
+    }
+  ]
+}

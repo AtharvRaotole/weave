@@ -48,6 +48,13 @@ Cancellation is not caught.
   has already moved on.
 - **Plain sync tools** that do not take a token only have the wait abandoned.
   Their thread is not signalled.
+- **Hard deadlines** opt in with `Engine(worker_pool=N)` and
+  `hard_deadline=True`. The call runs in a spawned Python worker. Timeout and
+  cancel `SIGKILL` that worker and start a replacement. `finally` inside the
+  worker does not run, and side effects that already left the process are not
+  undone. The function must be pickleable and defined at module scope; create
+  the engine under `if __name__ == "__main__"` so workers do not start another
+  pool on import. Closures are not sendable. See `python/weave/workers.py`.
 
 ```python
 def slow(name, cancel):
@@ -259,10 +266,40 @@ A deterministic demo sleeps 12 ms between 4-character chunks and 80 ms inside ea
 
 `bench/prompts.py` is the system prompt and few-shot examples. `bench/llm_eval.py` uses them, plus `repair_message`, on the tasks in `bench/dataset.py`. Weave and an ordered JSON tool-call baseline are graded the same way. Without an API key the eval writes a skip record and no pass rate.
 
+### Speculative pre-execution
+
+An optional predictor pre-runs pure and read calls and stores each result under the tool name plus canonical arguments, the tool cache from Nichols et al., [arXiv 2512.15834](https://arxiv.org/abs/2512.15834). Reversible and irreversible calls are rejected. Data-dependent calls are not guessed. One unused prediction per task is included so wasted work is measured. Generation is an 80 ms sleep; the predictor returns after 10 ms; tool sleep is 40 ms. Three repeats, medians, from [`bench/results/spec-20261108T023548Z.json`](bench/results/spec-20261108T023548Z.json):
+
+| Task | After generate (s) | Speculative (s) | Hits | Misses | Wasted | Hit rate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| research_brief | 0.142365 | 0.101583 | 4 | 1 | 1 | 0.800 |
+| trip_plan | 0.182730 | 0.142256 | 2 | 4 | 1 | 0.333 |
+| support_ticket | 0.223358 | 0.182742 | 2 | 3 | 1 | 0.400 |
+
+Hit rate is `hits / (hits + misses)` over the pure and read calls the program made. Every repeat was correct. Machine: Linux 6.12.113+ x86_64, 4 CPUs, Python 3.12.3, hostname `cursor`.
+
+## CLI and docs
+
+`docs/` is a small static site. After `maturin develop` or a wheel install:
+
+```bash
+weave check examples/hello.weave --tool name=weather,effect=read,arity=1
+weave run examples/hello.weave --tool name=weather,effect=read,behavior=echo
+weave trace trace.json
+```
+
+`cargo run -p weave-cli --` is the same four commands (`check`, `run`, `replay`, `trace`) for echo and const tools. `@weave.declare(...)` marks a function; `engine.install([fn])` registers it. `@engine.declare(...)` registers it immediately.
+
+## MCP
+
+`weave-mcp --config examples/tools.json` lists `weave_check`, `weave_run`, `weave_replay`, and each configured tool. A request that omits `tools` uses the config. `examples/mcp-client-config.json` is a client entry. `python examples/mcp_client.py` performs the handshake, calls `weather`, and runs a script.
+
 ## Layout
 
 - `crates/weave` — parser, checker, scheduler, trace
 - `crates/weave-py` — PyO3 module
 - `crates/weave-mcp` — MCP server
 - `examples/speedup.py` — measured comparison with sequential calls
-- `bench/` — mock suite, optional real-model eval, and `bench/results`
+- `bench/` — mock suite, speculation measurement, optional real-model eval, and `bench/results`
+- `docs/` — static docs
+- `crates/weave-cli` — `weave` command for scripted tools

@@ -3,7 +3,6 @@
 use std::io::{self, BufRead, Write};
 
 use serde_json::Value as Json;
-use weave_mcp::handle_message;
 
 fn main() {
     if let Err(err) = serve() {
@@ -13,6 +12,7 @@ fn main() {
 }
 
 fn serve() -> Result<(), String> {
+    let config = config_from_args()?;
     let stdin = io::stdin();
     let mut input = stdin.lock();
     let stdout = io::stdout();
@@ -21,9 +21,30 @@ fn serve() -> Result<(), String> {
         let Some(message) = read_message(&mut input)? else {
             return Ok(());
         };
-        if let Some(response) = handle_message(&message) {
+        if let Some(response) = weave_mcp::handle_with(&message, &config) {
             write_message(&mut output, &response)?;
         }
+    }
+}
+
+fn config_from_args() -> Result<weave_mcp::ServerConfig, String> {
+    let mut args = std::env::args().skip(1);
+    let mut path = None;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--config" => {
+                path = Some(args.next().ok_or("--config needs a path")?);
+            }
+            "-h" | "--help" => {
+                println!("weave-mcp [--config tools.json]");
+                std::process::exit(0);
+            }
+            other => return Err(format!("unknown argument `{other}`")),
+        }
+    }
+    match path {
+        Some(path) => weave_mcp::ServerConfig::load(std::path::Path::new(&path)),
+        None => Ok(weave_mcp::ServerConfig::default()),
     }
 }
 

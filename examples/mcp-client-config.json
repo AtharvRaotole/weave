@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "weave": {
+      "command": "weave-mcp",
+      "args": ["--config", "examples/tools.json"]
+    }
+  }
+}
