@@ -198,7 +198,7 @@ impl<'a> Lowerer<'a> {
                     StmtKind::Pass
                 }
             },
-            Stmt::Expr(s) => StmtKind::Expr(self.expr(&s.value)),
+            Stmt::Expr(s) => desugar_list_mutation(self.expr(&s.value)),
             Stmt::If(s) => self.lower_if(s),
             Stmt::For(s) => {
                 if s.is_async {
@@ -748,4 +748,35 @@ pub fn line_col(source: &str, offset: TextSize) -> (usize, usize) {
         }
     }
     (line, col)
+}
+
+/// `xs.append(v)` and `xs.extend(ys)` on a plain name become `xs += [v]` and
+/// `xs += ys`. Weave values are immutable, so this is the only way these calls
+/// can mean what the model intended, and the loop analysis already treats
+/// `+=` as a loop-carried dependency.
+fn desugar_list_mutation(expr: crate::ast::Expr) -> StmtKind {
+    if let crate::ast::ExprKind::Call { func, args, keywords } = &expr.kind {
+        if let crate::ast::ExprKind::Attribute { value, attr } = &func.kind {
+            if let (crate::ast::ExprKind::Name(name), true, 1) = (&value.kind, keywords.is_empty(), args.len()) {
+                let item = args[0].clone();
+                let value = match attr.as_str() {
+                    "append" => Some(crate::ast::Expr {
+                        line: item.line,
+                        col: item.col,
+                        kind: crate::ast::ExprKind::List(vec![item]),
+                    }),
+                    "extend" => Some(item),
+                    _ => None,
+                };
+                if let Some(value) = value {
+                    return StmtKind::AugAssign {
+                        target: crate::ast::Target::Name { line: expr.line, col: expr.col, name: name.clone() },
+                        op: crate::ast::BinOp::Add,
+                        value,
+                    };
+                }
+            }
+        }
+    }
+    StmtKind::Expr(expr)
 }
