@@ -4,7 +4,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
 use weave_core::{
-    CancelToken, Effect, Engine, IsolatedJob, PredictedCall, Session, SpecCache, ToolSpec, Value,
+    CancelToken, Effect, Engine, Footprint, IsolatedJob, PredictedCall, Session, SpecCache, ToolSpec, Value,
 };
 
 #[pyclass(name = "Engine")]
@@ -46,7 +46,11 @@ impl PyEngine {
     ///
     /// `effect` defaults to `irreversible`. Untagged tools are irreversible.
     /// `arity`, when set, is checked before the script runs.
-    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false))]
+    ///
+    /// `reads` / `writes` name the resources the tool touches (a list of
+    /// strings, or `"*"`). They default to every resource, so any write drops
+    /// every speculated read. Narrow them to keep unrelated cached reads.
+    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None))]
     #[allow(clippy::too_many_arguments)]
     fn tool(
         &mut self,
@@ -58,6 +62,8 @@ impl PyEngine {
         timeout_ms: Option<u64>,
         retries: Option<u32>,
         hard_deadline: bool,
+        reads: Option<Vec<String>>,
+        writes: Option<Vec<String>>,
     ) -> PyResult<()> {
         let effect = match effect.as_deref() {
             None => Effect::Irreversible,
@@ -68,6 +74,12 @@ impl PyEngine {
             })?,
         };
         let mut spec = ToolSpec::effect(effect);
+        if let Some(reads) = reads {
+            spec = spec.with_reads(Footprint::parse(&reads.join(",")));
+        }
+        if let Some(writes) = writes {
+            spec = spec.with_writes(Footprint::parse(&writes.join(",")));
+        }
         if let Some(arity) = arity {
             spec = spec.with_arity(arity);
         }
@@ -136,7 +148,7 @@ impl PyEngine {
 
     /// Pre-run pure and read calls. `calls` is a list of `(name, args)` or
     /// `(name, args, kwargs)`. The cache key is the tool name plus those
-    /// arguments. Reversible, irreversible, and async tools are rejected.
+    /// arguments. Reversible and irreversible tools are rejected.
     fn speculate(&self, py: Python<'_>, calls: &Bound<'_, PyAny>) -> PyResult<Py<PySpecCache>> {
         let mut predicted = Vec::new();
         for item in calls.try_iter()? {

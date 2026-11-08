@@ -396,6 +396,12 @@ fn register_scripted(engine: &mut Engine, tool: &Json) -> Result<(), String> {
         })?,
     };
     let mut spec = ToolSpec::effect(effect);
+    if let Some(reads) = footprint_field(tool, "reads")? {
+        spec = spec.with_reads(reads);
+    }
+    if let Some(writes) = footprint_field(tool, "writes")? {
+        spec = spec.with_writes(writes);
+    }
     if let Some(arity) = tool.get("arity").and_then(|v| v.as_u64()) {
         spec = spec.with_arity(arity as usize);
     }
@@ -577,5 +583,25 @@ mod tests {
         let body = ran["result"]["content"][0]["text"].as_str().unwrap();
         assert!(ran["result"]["isError"] == false, "{body}");
         assert!(body.contains("Paris"), "{body}");
+    }
+}
+
+/// `"reads"` / `"writes"`: `"*"` or a list of resource names.
+fn footprint_field(tool: &Json, key: &str) -> Result<Option<weave::Footprint>, String> {
+    match tool.get(key) {
+        None => Ok(None),
+        Some(Json::String(text)) => Ok(Some(weave::Footprint::parse(text))),
+        Some(Json::Array(items)) => {
+            let mut names = Vec::new();
+            for item in items {
+                names.push(
+                    item.as_str()
+                        .ok_or_else(|| format!("`{key}` entries must be strings"))?
+                        .to_string(),
+                );
+            }
+            Ok(Some(weave::Footprint::parse(&names.join(","))))
+        }
+        Some(_) => Err(format!("`{key}` must be \"*\" or a list of strings")),
     }
 }
