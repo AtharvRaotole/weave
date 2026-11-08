@@ -41,7 +41,7 @@ jobs:
           args: --release --out dist --find-interpreter
           manylinux: auto
       - name: smoke test the native wheel
-        if: matrix.target == 'x86_64' || matrix.target == 'x64' || (matrix.os == 'macos-latest' && matrix.target == 'aarch64')
+        if: (matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64') || matrix.os == 'windows-latest' || (matrix.os == 'macos-latest' && matrix.target == 'aarch64')
         shell: bash
         run: |
           python -m pip install --no-index --find-links dist weave
