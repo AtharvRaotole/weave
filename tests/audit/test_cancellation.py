@@ -39,6 +39,9 @@ for direct,honor,disconnect in [(False,True,False),(True,True,False),(False,Fals
         p=subprocess.Popen([str(ROOT/'target/debug/weave-mcp'),'--config',str(config)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
         def send(req):p.stdin.write(json.dumps(dict(jsonrpc='2.0',**req))+'\n');p.stdin.flush()
         def events():return [json.loads(x) for x in log.read_text().splitlines()] if log.exists() else []
+        send({'id':'preflight','method':'tools/call','params':{'name':'weave_run','arguments':{'source':'t_write()\nbad('}}})
+        rejected=json.loads(p.stdout.readline())
+        assert rejected['result']['isError'] and not events(),(rejected,events())
         send({'id':'req-string','method':'tools/call','params':{'name':'t_slow' if direct else 'weave_run','arguments':{} if direct else {'source':'t_slow()\nt_write()\n'}}})
         started=wait_for(lambda:next((id for k,id in events() if k=='start'),None))
         before=time.monotonic()

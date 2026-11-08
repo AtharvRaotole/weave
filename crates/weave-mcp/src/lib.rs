@@ -381,6 +381,12 @@ fn weave_check(args: &Json, config: &ServerConfig) -> Result<String, String> {
 fn weave_run(args: &Json, config: &ServerConfig, control: &RequestControl) -> Result<String, String> {
     let source = source_of(args)?;
     let engine = engine_from_args(args, config)?;
+    // Preserve Engine::run full-source preflight before opening an executable
+    // streaming session: an incomplete final statement must not follow a write.
+    let diagnostics = engine.check(source);
+    if !diagnostics.is_empty() {
+        return Err(diagnostics.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n"));
+    }
     let mut session = engine.session();
     control.attach(session.cancel_source());
     session.push(source).map_err(|err| err.to_string())?;

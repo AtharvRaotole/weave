@@ -1,20 +1,24 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+   Compiling weave v0.1.0 (/workspace/weave/crates/weave)
+   Compiling weave-mcp v0.1.0 (/workspace/weave/crates/weave-mcp)
+   Compiling weave-cli v0.1.0 (/workspace/weave/crates/weave-cli)
+   Compiling weave-py v0.1.0 (/workspace/weave/crates/weave-py)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.57s
      Running unittests src/lib.rs (target/debug/deps/weave-caaeed6e1d0bfff1)
 
 running 13 tests
-test stream::tests::else_keeps_if_open ... ok
-test stream::tests::full_program_including_if_is_complete ... ok
-test stream::tests::one_line_if_is_complete ... ok
-test stream::tests::open_if_stays_buffered ... ok
-test stream::tests::fstring_with_inner_quotes ... ok
-test stream::tests::else_program_is_complete_once_closed ... ok
-test stream::tests::parentheses_hold_the_statement ... ok
-test stream::tests::nested_if_with_follower_is_complete ... ok
-test stream::tests::nested_if_without_closer_stays_open ... ok
 test stream::tests::header_without_body_stays_open ... ok
-test stream::tests::statement_before_open_if_is_released ... ok
-test stream::tests::simple_statement_needs_newline ... ok
+test stream::tests::fstring_with_inner_quotes ... ok
+test stream::tests::nested_if_with_follower_is_complete ... ok
+test stream::tests::else_keeps_if_open ... ok
+test stream::tests::open_if_stays_buffered ... ok
+test stream::tests::full_program_including_if_is_complete ... ok
+test stream::tests::else_program_is_complete_once_closed ... ok
+test stream::tests::one_line_if_is_complete ... ok
+test stream::tests::nested_if_without_closer_stays_open ... ok
+test stream::tests::parentheses_hold_the_statement ... ok
 test stream::tests::partial_else_keyword_keeps_if_open ... ok
+test stream::tests::simple_statement_needs_newline ... ok
+test stream::tests::statement_before_open_if_is_released ... ok
 
 test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
@@ -25,35 +29,35 @@ test generator_produces_writes_after_reads ... ok
 test generator_produces_break_and_continue ... ok
 test random_programs_agree_across_execution_modes ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.21s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.93s
 
      Running tests/limits.rs (target/debug/deps/limits-63a9c2a8104d16f0)
 
 running 12 tests
 test range_near_i64_max_does_not_overflow ... ok
-test no_escape_hatches ... ok
 test huge_repetition_is_refused_before_allocating ... ok
+test no_escape_hatches ... ok
 test value_size_limit_stops_doubling ... ok
 test value_nesting_is_capped ... ok
-test step_limit_allows_work_under_budget ... ok
 test deep_source_is_rejected_without_overflowing ... ok
+test step_limit_allows_work_under_budget ... ok
 test long_flat_literals_are_fine ... ok
 test wall_time_limit_cancels_slow_tools ... ok
 test wall_time_limit_stops_compute_loops ... ok
 test wall_time_does_not_count_streaming_wait ... ok
 test step_limit_stops_nested_loops ... ok
 
-test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
 
      Running tests/runtime.rs (target/debug/deps/runtime-ef0145ba8331ccb0)
 
 running 40 tests
 test break_outside_a_loop_is_a_static_error ... ok
-test bare_except_catches_runtime_errors ... ok
 test append_on_a_non_name_is_still_an_error ... ok
+test augmented_assignment_in_a_loop_is_carried ... ok
+test bare_except_catches_runtime_errors ... ok
 test arithmetic_fstring_if_and_for ... ok
 test errors_include_a_fix_hint ... ok
-test augmented_assignment_in_a_loop_is_carried ... ok
 test extra_builtins_and_methods ... ok
 test audited_value_ingress_and_unicode_find ... ok
 test failure_boundaries_skip_later_writes_and_keep_completed_bindings ... ok
@@ -61,14 +65,14 @@ test break_and_continue_follow_python ... ok
 test list_append_and_extend_on_a_name_accumulate_in_loops ... ok
 test loops_with_break_stop_calling_tools_and_replay ... ok
 test nested_compound_try_keeps_completed_assignments ... ok
-test cancel_prevents_irreversible_tool ... ok
 test async_timeout_drops_the_in_flight_call ... ok
+test cancel_prevents_irreversible_tool ... ok
 test parse_json_reads_tool_text ... ok
 test replay_detects_divergence ... ok
 test parallel_loop_keeps_the_last_conditional_assignment ... ok
+test isolated_timeout_kills_the_job ... ok
 test cooperative_timeout_signals_the_token ... ok
 test short_circuit_skips_the_second_call ... ok
-test isolated_timeout_kills_the_job ... ok
 test single_character_tool_argument_failure_hints_at_splitlines ... ok
 test split_accepts_sep_and_maxsplit_keywords ... ok
 test static_errors_are_short ... ok
@@ -89,19 +93,19 @@ test independent_reads_overlap ... ok
 test sequential_baseline_is_slower_than_weave ... ok
 test errors_inside_try_are_caught_under_nested_blocks ... ok
 
-test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.43s
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s
 
      Running tests/speculation.rs (target/debug/deps/speculation-323afcae791eb694)
 
 running 8 tests
-test footprint_parse_and_overlap ... ok
 test footprint_templates_resolve ... ok
+test footprint_parse_and_overlap ... ok
 test async_tools_are_speculated ... ok
-test write_before_read_invalidates_default_footprint ... ok
 test argument_footprints_only_drop_the_written_key ... ok
-test disjoint_footprints_keep_the_cached_read ... ok
-test read_before_write_still_hits_and_sees_old_value ... ok
 test default_footprint_write_drops_unrelated_reads_too ... ok
+test write_before_read_invalidates_default_footprint ... ok
+test read_before_write_still_hits_and_sees_old_value ... ok
+test disjoint_footprints_keep_the_cached_read ... ok
 
 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
@@ -122,14 +126,14 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 running 12 tests
 test framing::tests::writes_in_the_requested_framing ... ok
-test framing::tests::reads_both_framings ... ok
 test compact_type_tests::nested_schema_renders_as_a_python_like_type ... ok
-test tests::parsed_config_reads_footprints ... ok
-test upstream::shape_tests::json_shape_parses_plain_json ... ok
-test upstream::shape_tests::config_reads_results_and_examples ... ok
-test upstream::shape_tests::aliases_are_identifiers_and_collisions_remain_visible ... ok
 test tests::check_reports_a_short_error ... ok
+test framing::tests::reads_both_framings ... ok
+test upstream::shape_tests::aliases_are_identifiers_and_collisions_remain_visible ... ok
+test tests::parsed_config_reads_footprints ... ok
 test upstream::shape_tests::lines_shape_drops_blank_lines ... ok
+test upstream::shape_tests::config_reads_results_and_examples ... ok
+test upstream::shape_tests::json_shape_parses_plain_json ... ok
 test tests::config_tools_are_listed_and_callable ... ok
 test tests::lists_and_runs_an_echo_tool ... ok
 test framing::budget_tests::byte_boundaries_and_malicious_lengths ... ok
