@@ -846,3 +846,18 @@ fn suppressed_calls_do_not_leave_replay_identity_holes() {
     assert_eq!(r.trace.events.len(), 1);
     assert_eq!(e.replay(src, &r.trace).unwrap().stdout(), r.stdout());
 }
+
+#[test]
+fn nested_compound_try_keeps_completed_assignments() {
+    let mut e = Engine::new();
+    e.register("fail", ToolSpec::effect(Effect::Read), |_, _| Err("expected".into()));
+    for (source, expected) in [
+        ("x=0\ntry:\n    if True:\n        x=1\n        fail()\nexcept ToolError:\n    print(x)\nprint(x)\n", "1\n1\n"),
+        ("x=0\ntry:\n    for i in [1,2,3]:\n        x=i\n        if i==2:\n            fail()\nexcept ToolError:\n    print(x)\nprint(x)\n", "2\n2\n"),
+        ("x=0\ntry:\n    try:\n        x=1\n        fail()\n    except ToolError:\n        x=2\n        fail()\nexcept ToolError:\n    print(x)\nprint(x)\n", "2\n2\n"),
+    ] {
+        let out=e.run(source).unwrap();
+        assert_eq!(out.stdout(),expected);
+        assert_eq!(e.replay(source,&out.trace).unwrap().stdout(),expected);
+    }
+}
