@@ -265,11 +265,33 @@ Machine: Linux 6.12.113+ x86_64, 4 CPUs, Python 3.12.3, hostname `cursor`.
 Pydantic Monty 1.5.0 executed the same Python calls one at a time inside a warm worker.
 The hand-written `asyncio.gather` for `trip_plan` waits for weather before flights and hotels; the DAG runner and Weave overlap those three calls.
 
-No `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY` was set, so the real-model eval did not call a provider and did not record a pass rate. See [`bench/results/llm-latest.json`](bench/results/llm-latest.json). To measure tokens, pass rate, and retries of models writing Weave versus ordered JSON tool calls:
+### Real-model eval (OpenAI `gpt-5.4-mini`)
+
+Measured 2026-11-08 with `OPENAI_MODEL=gpt-5.4-mini python bench/llm_eval.py`: 3 tasks × 3 modes × 3 repeats, every tool call sleeping 40 ms in every mode. Latency is wall time from the first model request to the graded answer, including model calls and retries. Raw rows: [`bench/results/llm-20261108T142334Z.json`](bench/results/llm-20261108T142334Z.json).
+
+- `weave`: the model writes one Weave script (prompt pack + few-shot), Weave runs it.
+- `native_tools`: standard OpenAI function calling. One model round trip per turn; the tools the model asks for run one after another.
+- `json_tool_calls`: the model writes one ordered JSON list of calls. It has no way to pass one call's result into another, so dependent tasks only pass if the model guesses the value, usually from the repair message.
+
+| Task | Mode | Passed | Median latency (s) | Median model turns | Input tokens (3 runs) | Output tokens (3 runs) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| research_four | weave | 3/3 | 0.727 | 1 | 1,260 | 153 |
+| research_four | native_tools | 3/3 | 2.187 | 3 | 3,627 | 386 |
+| research_four | json_tool_calls | 3/3 | 2.497 | 3 | 4,920 | 601 |
+| weather_paris | weave | 3/3 | 0.609 | 1 | 1,209 | 39 |
+| weather_paris | native_tools | 3/3 | 1.686 | 3 | 2,019 | 126 |
+| weather_paris | json_tool_calls | 3/3 | 1.243 | 2 | 2,747 | 168 |
+| support_draft | weave | 3/3 | 0.693 | 1 | 1,284 | 69 |
+| support_draft | native_tools | 3/3 | 1.778 | 3 | 2,562 | 246 |
+| support_draft | json_tool_calls | 2/3 | 1.705 | 2 | 3,541 | 282 |
+
+Weave passed 9/9 on the first attempt, with a median latency 2.6–3.0× lower than native function calling on these tasks and fewer than half the tokens. The run used 23,169 input and 2,070 output tokens in total; at the list price checked on 2026-11-08 ($0.75 / $4.50 per 1M) that is about $0.027. These are three small mock tasks with fast tools, one model, and one machine (Linux x86_64, 8 CPUs, Python 3.13.5), so they show the round-trip effect, not general accuracy. Failure seen: the JSON baseline emitted placeholders like `$0/$1` for dependent values; it passed only after the repair message, which states the expected output, so its pass rate overstates what it can do.
+
+To run it yourself:
 
 ```bash
 export OPENAI_API_KEY=...   # or ANTHROPIC_API_KEY, or GEMINI_API_KEY
-# optional: OPENAI_MODEL, ANTHROPIC_MODEL, GEMINI_MODEL
+# optional: OPENAI_MODEL, ANTHROPIC_MODEL, GEMINI_MODEL, WEAVE_EVAL_REPEATS, WEAVE_EVAL_TOOL_DELAY
 python bench/llm_eval.py
 ```
 
@@ -286,7 +308,7 @@ A deterministic demo sleeps 12 ms between 4-character chunks and 80 ms inside ea
 | streaming `Session.push` | 0.049319 | 0.166217 |
 | `Engine.run` after the same gaps | 0.146334 | 0.227328 |
 
-`bench/prompts.py` is the system prompt and few-shot examples. `bench/llm_eval.py` uses them, plus `repair_message`, on the tasks in `bench/dataset.py`. Weave and an ordered JSON tool-call baseline are graded the same way. Without an API key the eval writes a skip record and no pass rate.
+`bench/prompts.py` is the system prompt and few-shot examples. `bench/llm_eval.py` uses them, plus `repair_message`, on the tasks in `bench/dataset.py`. Weave, an ordered JSON tool-call baseline, and (for OpenAI) native function calling are graded on the same tasks. Without an API key the eval writes a skip record and no pass rate.
 
 ### Speculative pre-execution
 

@@ -1,8 +1,15 @@
 {
   "kind": "llm",
-  "skipped": true,
-  "measured": false,
-  "reason": "Set OPENAI_API_KEY, ANTHROPIC_API_KEY, and/or GEMINI_API_KEY (or GOOGLE_API_KEY), then run python bench/llm_eval.py.",
+  "skipped": false,
+  "measured": true,
+  "machine": {
+    "python": "3.13.5",
+    "platform": "Linux-6.12.94+-x86_64-with-glibc2.41",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 8,
+    "hostname": "grok-bot-vm-405872838"
+  },
   "tasks": [
     "research_four",
     "weather_paris",
@@ -10,14 +17,826 @@
   ],
   "modes": [
     "weave",
-    "json_tool_calls"
+    "json_tool_calls",
+    "native_tools"
   ],
-  "machine": {
-    "python": "3.12.3",
-    "platform": "Linux-6.12.113+-x86_64-with-glibc2.39",
-    "machine": "x86_64",
-    "processor": "x86_64",
-    "cpu_count": 4,
-    "hostname": "cursor"
-  }
+  "tool_delay_s": 0.04,
+  "repeats": 3,
+  "cases": 27,
+  "summary": [
+    {
+      "model": "gpt-5.4-mini",
+      "task": "research_four",
+      "mode": "json_tool_calls",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 2.496936543000629,
+      "median_model_turns": 3,
+      "input_tokens": 4920,
+      "output_tokens": 601
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "research_four",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 2.187122025003191,
+      "median_model_turns": 3,
+      "input_tokens": 3627,
+      "output_tokens": 386
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "research_four",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.7273975769930985,
+      "median_model_turns": 1,
+      "input_tokens": 1260,
+      "output_tokens": 153
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "support_draft",
+      "mode": "json_tool_calls",
+      "runs": 3,
+      "passed": 2,
+      "median_wall_s": 1.7045231369993417,
+      "median_model_turns": 2,
+      "input_tokens": 3541,
+      "output_tokens": 282
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "support_draft",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.7777729270019336,
+      "median_model_turns": 3,
+      "input_tokens": 2562,
+      "output_tokens": 246
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "support_draft",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.6933188940020045,
+      "median_model_turns": 1,
+      "input_tokens": 1284,
+      "output_tokens": 69
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "weather_paris",
+      "mode": "json_tool_calls",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.243103944012546,
+      "median_model_turns": 2,
+      "input_tokens": 2747,
+      "output_tokens": 168
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "weather_paris",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.6859206200024346,
+      "median_model_turns": 3,
+      "input_tokens": 2019,
+      "output_tokens": 126
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "task": "weather_paris",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 0.6088651069876505,
+      "median_model_turns": 1,
+      "input_tokens": 1209,
+      "output_tokens": 39
+    }
+  ],
+  "passed": 26,
+  "pass_rate": 0.9629629629629629,
+  "rows": [
+    {
+      "task": "research_four",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 420,
+      "output_tokens": 51,
+      "model_turns": 1,
+      "wall_s": 0.7273975769930985,
+      "model_s": 0.6430136879935162,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 420,
+            "output_tokens": 51
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "research_four",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "json_tool_calls",
+      "passed": true,
+      "attempts": 3,
+      "retries": 2,
+      "input_tokens": 1669,
+      "output_tokens": 215,
+      "model_turns": 3,
+      "wall_s": 2.5987984680105,
+      "model_s": 2.1974399059836287,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 444,
+            "output_tokens": 79
+          },
+          "error": "Expecting value: line 1 column 1 (char 0)"
+        },
+        {
+          "attempt": 2,
+          "ok": false,
+          "usage": {
+            "input_tokens": 553,
+            "output_tokens": 66
+          },
+          "error": "output was '$1|$2|$3|$4', expected 'hit:q1|hit:q2|hit:q3|hit:q4'"
+        },
+        {
+          "attempt": 3,
+          "ok": true,
+          "usage": {
+            "input_tokens": 672,
+            "output_tokens": 70
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "research_four",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "native_tools",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 1775,
+      "output_tokens": 124,
+      "model_turns": 6,
+      "tool_calls": 5,
+      "wall_s": 3.729209932993399,
+      "model_s": 3.5282992420106893,
+      "error": null
+    },
+    {
+      "task": "weather_paris",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 403,
+      "output_tokens": 13,
+      "model_turns": 1,
+      "wall_s": 0.6088651069876505,
+      "model_s": 0.5271783979987958,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 403,
+            "output_tokens": 13
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "weather_paris",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "json_tool_calls",
+      "passed": true,
+      "attempts": 2,
+      "retries": 1,
+      "input_tokens": 919,
+      "output_tokens": 58,
+      "model_turns": 2,
+      "wall_s": 1.243103944012546,
+      "model_s": 1.0825022630015155,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 427,
+            "output_tokens": 33
+          },
+          "error": "output was 'wx:<result of geo>', expected 'wx:geo:Paris'"
+        },
+        {
+          "attempt": 2,
+          "ok": true,
+          "usage": {
+            "input_tokens": 492,
+            "output_tokens": 25
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "weather_paris",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "native_tools",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 673,
+      "output_tokens": 42,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "wall_s": 1.718541310998262,
+      "model_s": 1.638243510009488,
+      "error": null
+    },
+    {
+      "task": "support_draft",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 428,
+      "output_tokens": 23,
+      "model_turns": 1,
+      "wall_s": 0.769700503005879,
+      "model_s": 0.6881283640104812,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 428,
+            "output_tokens": 23
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "support_draft",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "json_tool_calls",
+      "passed": true,
+      "attempts": 2,
+      "retries": 1,
+      "input_tokens": 979,
+      "output_tokens": 82,
+      "model_turns": 2,
+      "wall_s": 1.7045231369993417,
+      "model_s": 1.4638581680046627,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 452,
+            "output_tokens": 43
+          },
+          "error": "output was '$1/$2', expected 'user:u1/policy:standard'"
+        },
+        {
+          "attempt": 2,
+          "ok": true,
+          "usage": {
+            "input_tokens": 527,
+            "output_tokens": 39
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "support_draft",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "native_tools",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 854,
+      "output_tokens": 82,
+      "model_turns": 3,
+      "tool_calls": 3,
+      "wall_s": 1.8451580359978834,
+      "model_s": 1.7243742069986183,
+      "error": null
+    },
+    {
+      "task": "research_four",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 420,
+      "output_tokens": 51,
+      "model_turns": 1,
+      "wall_s": 0.7808984089933801,
+      "model_s": 0.6984343539952533,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 420,
+            "output_tokens": 51
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "research_four",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "json_tool_calls",
+      "passed": true,
+      "attempts": 3,
+      "retries": 2,
+      "input_tokens": 1626,
+      "output_tokens": 193,
+      "model_turns": 3,
+      "wall_s": 2.496936543000629,
+      "model_s": 2.0948050750012044,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 444,
+            "output_tokens": 57
+          },
+          "error": "Expecting value: line 1 column 1 (char 0)"
+        },
+        {
+          "attempt": 2,
+          "ok": false,
+          "usage": {
+            "input_tokens": 531,
+            "output_tokens": 66
+          },
+          "error": "output was 'q1|q2|q3|q4', expected 'hit:q1|hit:q2|hit:q3|hit:q4'"
+        },
+        {
+          "attempt": 3,
+          "ok": true,
+          "usage": {
+            "input_tokens": 651,
+            "output_tokens": 70
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "research_four",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "native_tools",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 926,
+      "output_tokens": 131,
+      "model_turns": 3,
+      "tool_calls": 5,
+      "wall_s": 2.1056373309984338,
+      "model_s": 1.9044726680003805,
+      "error": null
+    },
+    {
+      "task": "weather_paris",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 403,
+      "output_tokens": 13,
+      "model_turns": 1,
+      "wall_s": 0.5268627259938512,
+      "model_s": 0.4453927100112196,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 403,
+            "output_tokens": 13
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "weather_paris",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "json_tool_calls",
+      "passed": true,
+      "attempts": 2,
+      "retries": 1,
+      "input_tokens": 914,
+      "output_tokens": 55,
+      "model_turns": 2,
+      "wall_s": 1.465097747000982,
+      "model_s": 1.3045226840040414,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 427,
+            "output_tokens": 30
+          },
+          "error": "output was 'wx:$1', expected 'wx:geo:Paris'"
+        },
+        {
+          "attempt": 2,
+          "ok": true,
+          "usage": {
+            "input_tokens": 487,
+            "output_tokens": 25
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "weather_paris",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "native_tools",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 673,
+      "output_tokens": 42,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "wall_s": 1.631729760003509,
+      "model_s": 1.551297924001119,
+      "error": null
+    },
+    {
+      "task": "support_draft",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 428,
+      "output_tokens": 23,
+      "model_turns": 1,
+      "wall_s": 0.6933188940020045,
+      "model_s": 0.6105007769947406,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 428,
+            "output_tokens": 23
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "support_draft",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "json_tool_calls",
+      "passed": true,
+      "attempts": 2,
+      "retries": 1,
+      "input_tokens": 979,
+      "output_tokens": 82,
+      "model_turns": 2,
+      "wall_s": 1.57158277000417,
+      "model_s": 1.3302857979870168,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 452,
+            "output_tokens": 43
+          },
+          "error": "output was '$1/$2', expected 'user:u1/policy:standard'"
+        },
+        {
+          "attempt": 2,
+          "ok": true,
+          "usage": {
+            "input_tokens": 527,
+            "output_tokens": 39
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "support_draft",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "native_tools",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 854,
+      "output_tokens": 82,
+      "model_turns": 3,
+      "tool_calls": 3,
+      "wall_s": 1.7777729270019336,
+      "model_s": 1.6574592039833078,
+      "error": null
+    },
+    {
+      "task": "research_four",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 420,
+      "output_tokens": 51,
+      "model_turns": 1,
+      "wall_s": 0.6806629600032466,
+      "model_s": 0.5977462590089999,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 420,
+            "output_tokens": 51
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "research_four",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "json_tool_calls",
+      "passed": true,
+      "attempts": 3,
+      "retries": 2,
+      "input_tokens": 1625,
+      "output_tokens": 193,
+      "model_turns": 3,
+      "wall_s": 2.352936490002321,
+      "model_s": 1.9515312449948397,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 444,
+            "output_tokens": 57
+          },
+          "error": "Expecting value: line 1 column 1 (char 0)"
+        },
+        {
+          "attempt": 2,
+          "ok": false,
+          "usage": {
+            "input_tokens": 531,
+            "output_tokens": 66
+          },
+          "error": "output was '$0|$1|$2|$3', expected 'hit:q1|hit:q2|hit:q3|hit:q4'"
+        },
+        {
+          "attempt": 3,
+          "ok": true,
+          "usage": {
+            "input_tokens": 650,
+            "output_tokens": 70
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "research_four",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "native_tools",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 926,
+      "output_tokens": 131,
+      "model_turns": 3,
+      "tool_calls": 5,
+      "wall_s": 2.187122025003191,
+      "model_s": 1.986205377994338,
+      "error": null
+    },
+    {
+      "task": "weather_paris",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 403,
+      "output_tokens": 13,
+      "model_turns": 1,
+      "wall_s": 0.7359508490044391,
+      "model_s": 0.6534301719948417,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 403,
+            "output_tokens": 13
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "weather_paris",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "json_tool_calls",
+      "passed": true,
+      "attempts": 2,
+      "retries": 1,
+      "input_tokens": 914,
+      "output_tokens": 55,
+      "model_turns": 2,
+      "wall_s": 1.2009267329995055,
+      "model_s": 1.039985710012843,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 427,
+            "output_tokens": 30
+          },
+          "error": "output was 'wx:$1', expected 'wx:geo:Paris'"
+        },
+        {
+          "attempt": 2,
+          "ok": true,
+          "usage": {
+            "input_tokens": 487,
+            "output_tokens": 25
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "weather_paris",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "native_tools",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 673,
+      "output_tokens": 42,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "wall_s": 1.6859206200024346,
+      "model_s": 1.6056274669972481,
+      "error": null
+    },
+    {
+      "task": "support_draft",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "weave",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 428,
+      "output_tokens": 23,
+      "model_turns": 1,
+      "wall_s": 0.6556815529911546,
+      "model_s": 0.573235324001871,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true,
+          "usage": {
+            "input_tokens": 428,
+            "output_tokens": 23
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "task": "support_draft",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "json_tool_calls",
+      "passed": false,
+      "attempts": 3,
+      "retries": 2,
+      "input_tokens": 1583,
+      "output_tokens": 118,
+      "model_turns": 3,
+      "wall_s": 2.0938034439896,
+      "model_s": 1.7326632589974906,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "usage": {
+            "input_tokens": 452,
+            "output_tokens": 43
+          },
+          "error": "output was '$0/$1', expected 'user:u1/policy:standard'"
+        },
+        {
+          "attempt": 2,
+          "ok": false,
+          "usage": {
+            "input_tokens": 527,
+            "output_tokens": 37
+          },
+          "error": "output was 'user:u1/standard', expected 'user:u1/policy:standard'"
+        },
+        {
+          "attempt": 3,
+          "ok": false,
+          "usage": {
+            "input_tokens": 604,
+            "output_tokens": 38
+          },
+          "error": "output was '$0/policy:$1', expected 'user:u1/policy:standard'"
+        }
+      ]
+    },
+    {
+      "task": "support_draft",
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "mode": "native_tools",
+      "passed": true,
+      "attempts": 1,
+      "retries": 0,
+      "input_tokens": 854,
+      "output_tokens": 82,
+      "model_turns": 3,
+      "tool_calls": 3,
+      "wall_s": 1.685821400009445,
+      "model_s": 1.5646978019940434,
+      "error": null
+    }
+  ]
 }
