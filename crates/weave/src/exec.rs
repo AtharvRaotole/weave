@@ -516,6 +516,7 @@ impl Drop for Session {
         // Don't block on abandoned sync tool threads (for example after a
         // timeout or the wall-clock limit). They finish in the background and
         // their results are dropped.
+        let _ = self.cancel_tx.send(true);
         if let Some(runtime) = self.runtime.take() {
             runtime.shutdown_background();
         }
@@ -2037,9 +2038,12 @@ async fn invoke_cooperative(
         }
     };
     tokio::select! {
-        result = rx => match result {
-            Ok(value) => value,
-            Err(_) => Err(format!("tool `{tool_name}` panicked")),
+        result = rx => {
+            owned.0.take();
+            match result {
+                Ok(value) => value,
+                Err(_) => Err(format!("tool `{tool_name}` panicked")),
+            }
         },
         _ = timeout_sleep => {
             source.cancel();
@@ -2060,7 +2064,16 @@ async fn invoke_isolated(
     session: watch::Receiver<bool>,
     tool_name: &str,
 ) -> Result<Value, String> {
-    let job = start(args, kwargs)?;
+    struct OwnedJob(Option<IsolatedJob>);
+    impl Drop for OwnedJob {
+        fn drop(&mut self) {
+            if let Some(job) = &self.0 { job.kill(); }
+        }
+    }
+    // IsolatedStart must be nonblocking; Python queues immediately. Keep a
+    // cancellation guard even when the session/future is dropped mid-call.
+    let mut owned = OwnedJob(Some(start(args, kwargs)?));
+    let job = owned.0.as_ref().expect("owned job");
     let (tx, rx) = tokio::sync::oneshot::channel();
     let wait = job.waiter();
     std::thread::spawn(move || {
@@ -2090,11 +2103,9 @@ async fn invoke_isolated(
             Err(_) => Err(format!("tool `{tool_name}` panicked")),
         },
         _ = timeout_sleep => {
-            job.kill();
             Err(format!("timed out after {}ms", limit.unwrap_or_default().as_millis()))
         }
         _ = session_hit => {
-            job.kill();
             Err("execution was cancelled".into())
         }
     }
