@@ -25,7 +25,7 @@ python3 -m venv .venv
 .venv/bin/pip install 'maturin&gt;=1.8,&lt;2'
 .venv/bin/maturin develop --release
 .venv/bin/weave check examples/hello.weave --tool name=weather,effect=read,arity=1</pre>
-    <p>The package metadata is ready for crates.io and PyPI. Nothing in this repository publishes a release.</p>
+    <p>Experimental v0.1.0 wheels and source are available on GitHub, with an audit warning. They have not been rebuilt with subsequent source fixes. Nothing is published to PyPI; the name weave belongs to another project.</p>
     <h2>A script</h2>
     <pre>city = "Paris"
 temp = weather(city)

@@ -59,8 +59,8 @@ def benchmark_svg() -> str:
         "<style>.h{font-size:15px;font-weight:600;fill:#111827}.m{font-size:13px;fill:#374151}.v{font-size:12px;fill:#111827}.n{font-size:11px;fill:#6b7280}</style>",
         f'<rect width="{width}" height="{height}" fill="#ffffff"/>',
     ]
-    parts += bars("Median wall time per task (lower is better)", "median_s", " s", data, 30, 420 / max_s)
-    parts += bars("Mean model turns per task (lower is better)", "mean_turns", "", data, 210, 420 / max_t)
+    parts += bars("Historical unequal endpoints (not a runtime speedup)", "median_s", " s", data, 30, 420 / max_s)
+    parts += bars("Historical model turns (native includes final answer)", "mean_turns", "", data, 210, 420 / max_t)
     lx = 24
     for _, label, color in MODES:
         parts.append(f'<rect x="{lx}" y="{height - 36}" width="12" height="12" rx="2" fill="{color}"/>')
@@ -82,8 +82,8 @@ def diagram_svg() -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">',
         "<style>.t{font-size:15px;font-weight:600;fill:#111827}.s{font-size:12px;fill:#374151}.c{font-size:11px;fill:#ffffff;font-family:ui-monospace,Menlo,Consolas,monospace}.k{font-size:11px;fill:#111827;font-family:ui-monospace,Menlo,Consolas,monospace}</style>",
         f'<rect width="{w}" height="{h}" fill="#ffffff"/>',
-        '<text x="20" y="28" class="t">Native tool calling: a model turn per step</text>',
-        '<text x="20" y="294" class="s">Illustration. Measured turns are in the chart below.</text>',
+        '<text x="20" y="28" class="t">Illustration: sequential tool loop</text>',
+        '<text x="20" y="294" class="s">Native APIs can also batch independent calls.</text>',
         '<text x="400" y="28" class="t">Weave: one script, independent calls together</text>',
         '<line x1="380" y1="14" x2="380" y2="286" stroke="#e5e7eb" stroke-width="2"/>',
     ]

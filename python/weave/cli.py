@@ -51,7 +51,7 @@ def dispatch(args: list[str]) -> str:
         return cmd_replay(rest)
     if cmd == "trace":
         return cmd_trace(rest)
-        raise RuntimeError(f"unknown command `{cmd}`\n{HELP}")
+    raise RuntimeError(f"unknown command `{cmd}`\n{HELP}")
 
 
 def parse_flags(args: list[str], need_trace: bool) -> dict:

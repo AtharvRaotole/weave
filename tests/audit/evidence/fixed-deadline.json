@@ -1,0 +1,16 @@
+[
+  {
+    "mode": "saturation",
+    "watchdog_timeout": false,
+    "exit": 0,
+    "stdout": "{\"mode\": \"saturation\", \"elapsed_s\": 0.05361152499972377, \"status\": \"L1:C5: tool `slow` failed after 1 attempt(s): timed out after 50ms hint: catch it with `except ToolError` or fix the call\"}\n{\"markers\": []}\n",
+    "stderr": ""
+  },
+  {
+    "mode": "pickle",
+    "watchdog_timeout": false,
+    "exit": 0,
+    "stdout": "{\"mode\": \"pickle\", \"error\": \"AttributeError\", \"idle_slots_after_rejected_call\": 1, \"expected_slots\": 1}\n",
+    "stderr": ""
+  }
+]

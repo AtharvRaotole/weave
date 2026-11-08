@@ -63,13 +63,38 @@ impl ServerConfig {
         for item in upstream_list {
             upstreams.push(Upstream::connect(UpstreamConfig::parse(item)?)?);
         }
-        Ok(Self { tools: parsed, upstreams })
+        let config = Self { tools: parsed, upstreams };
+        config.validate_names()?;
+        Ok(config)
+    }
+
+    fn validate_names(&self) -> Result<(), String> {
+        let mut owners = BTreeMap::new();
+        let mut insert = |name: &str, owner: &str| -> Result<(), String> {
+            if reserved_tool_name(name) {
+                return Err(format!("tool `{name}` from `{owner}` collides with a reserved runtime name"));
+            }
+            if let Some(old) = owners.insert(name.to_string(), owner.to_string()) {
+                return Err(format!("duplicate tool `{name}` from `{old}` and `{owner}`; use unique prefixes"));
+            }
+            Ok(())
+        };
+        for tool in &self.tools { insert(&tool.name, "scripted tools")?; }
+        for upstream in &self.upstreams {
+            for tool in &upstream.tools { insert(&tool.name, &upstream.config.name)?; }
+        }
+        Ok(())
     }
 
     pub fn load(path: &std::path::Path) -> Result<Self, String> {
         let text = std::fs::read_to_string(path).map_err(|err| format!("{}: {err}", path.display()))?;
         Self::from_json(&text)
     }
+}
+
+fn reserved_tool_name(name: &str) -> bool {
+    name.starts_with("weave_") || name.starts_with("__weave_") || matches!(name, "print" | "len" | "range" | "sum" | "min" | "max" |
+        "sorted" | "reversed" | "enumerate" | "zip" | "any" | "all" | "list" | "str" | "int" | "parse_json")
 }
 
 pub fn handle_message(message: &Json) -> Option<Json> {
@@ -81,7 +106,9 @@ pub fn handle_with(message: &Json, config: &ServerConfig) -> Option<Json> {
     let id = message.get("id").cloned();
     id.as_ref()?;
     let params = message.get("params").cloned().unwrap_or(json!({}));
-    let result = match method {
+    let result = if let Err(err) = config.validate_names() {
+        Err((-32602, err))
+    } else { match method {
         "initialize" => Ok(json!({
             "protocolVersion": negotiated_version(&params),
             "capabilities": {"tools": {"listChanged": false}},
@@ -94,6 +121,7 @@ pub fn handle_with(message: &Json, config: &ServerConfig) -> Option<Json> {
             -32601,
             format!("unknown method `{other}`"),
         )),
+    }
     };
     Some(match result {
         Ok(value) => json!({
@@ -125,6 +153,7 @@ fn tools_list(config: &ServerConfig) -> Json {
                 "type": "object",
                 "properties": {
                     "source": {"type": "string"},
+                    "debug": {"type": "boolean", "description": "Include bindings and full trace (may contain sensitive intermediate data); default false"},
                     "tools": {"type": "array", "items": tool_schema()}
                 },
                 "required": ["source"]
@@ -137,6 +166,7 @@ fn tools_list(config: &ServerConfig) -> Json {
                 "type": "object",
                 "properties": {
                     "source": {"type": "string"},
+                    "debug": {"type": "boolean", "description": "Include bindings and full trace (may contain sensitive intermediate data); default false"},
                     "tools": {"type": "array", "items": tool_schema()}
                 },
                 "required": ["source"]
@@ -149,6 +179,7 @@ fn tools_list(config: &ServerConfig) -> Json {
                 "type": "object",
                 "properties": {
                     "source": {"type": "string"},
+                    "debug": {"type": "boolean", "description": "Include bindings and full trace (may contain sensitive intermediate data); default false"},
                     "trace": {"type": "object"}
                 },
                 "required": ["source", "trace"]
@@ -159,6 +190,7 @@ fn tools_list(config: &ServerConfig) -> Json {
         tools.push(json!({
             "name": tool.name,
             "description": tool.description,
+            "annotations": {"readOnlyHint": tool.effect <= Effect::Read},
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -174,6 +206,7 @@ fn tools_list(config: &ServerConfig) -> Json {
                 "name": tool.name,
                 "description": tool.description,
                 "inputSchema": tool.input_schema,
+                "annotations": {"readOnlyHint": tool.effect <= Effect::Read},
             }));
         }
     }
@@ -274,7 +307,8 @@ fn tools_call(params: &Json, config: &ServerConfig) -> Result<Json, (i32, String
                 .iter()
                 .find_map(|u| u.tools.iter().find(|t| t.name == other).map(|t| (u, t)))
             {
-                Some((upstream, tool)) => upstream.call(&tool.upstream_name, args.clone()),
+                Some((upstream, tool)) => return upstream.request("tools/call", json!({"name": tool.upstream_name, "arguments": args}))
+                    .map_err(|err| (-32603, err)),
                 None => return Err((-32602, format!("unknown tool `{other}`"))),
             },
         },
@@ -320,7 +354,8 @@ fn weave_run(args: &Json, config: &ServerConfig) -> Result<String, String> {
     let source = source_of(args)?;
     let engine = engine_from_args(args, config)?;
     let result = engine.run(source).map_err(|err| err.to_string())?;
-    Ok(render_result(&result))
+    Ok(if args.get("debug").and_then(Json::as_bool) == Some(true) { render_result(&result) }
+       else { json!({"stdout": result.stdout(), "status": "ok"}).to_string() })
 }
 
 fn weave_replay(args: &Json, config: &ServerConfig) -> Result<String, String> {
@@ -333,7 +368,8 @@ fn weave_replay(args: &Json, config: &ServerConfig) -> Result<String, String> {
     let trace = weave::Trace::from_json(&trace_json).map_err(|err| err.to_string())?;
     let engine = engine_from_args(args, config)?;
     let result = engine.replay(source, &trace).map_err(|err| err.to_string())?;
-    Ok(render_result(&result))
+    Ok(if args.get("debug").and_then(Json::as_bool) == Some(true) { render_result(&result) }
+       else { json!({"stdout": result.stdout(), "status": "ok"}).to_string() })
 }
 
 fn render_result(result: &weave::RunResult) -> String {
@@ -351,14 +387,18 @@ fn render_result(result: &weave::RunResult) -> String {
 }
 
 fn engine_from_args(args: &Json, config: &ServerConfig) -> Result<Engine, String> {
+    config.validate_names()?;
     let mut engine = Engine::new();
     for upstream in &config.upstreams {
         upstream.register_all(&mut engine);
     }
     if let Some(tools) = args.get("tools") {
         let tools = tools.as_array().ok_or("tools must be a list")?;
-        for tool in tools {
-            register_scripted(&mut engine, tool)?;
+        let parsed = tools.iter().map(parse_scripted).collect::<Result<Vec<_>, _>>()?;
+        let request_config = ServerConfig { tools: parsed, upstreams: config.upstreams.clone() };
+        request_config.validate_names()?;
+        for tool in &request_config.tools {
+            register_parsed(&mut engine, tool)?;
         }
         return Ok(engine);
     }
@@ -503,54 +543,6 @@ fn run_behavior(
     }
 }
 
-fn register_scripted(engine: &mut Engine, tool: &Json) -> Result<(), String> {
-    let name = tool
-        .get("name")
-        .and_then(|v| v.as_str())
-        .ok_or("tool name must be a string")?
-        .to_string();
-    let effect = match tool.get("effect").and_then(|v| v.as_str()) {
-        None => Effect::Irreversible,
-        Some(text) => Effect::parse(text).ok_or_else(|| {
-            format!("unknown effect `{text}`; use pure, read, reversible, or irreversible")
-        })?,
-    };
-    let mut spec = ToolSpec::effect(effect);
-    if let Some(reads) = footprint_field(tool, "reads")? {
-        spec = spec.with_reads(reads);
-    }
-    if let Some(writes) = footprint_field(tool, "writes")? {
-        spec = spec.with_writes(writes);
-    }
-    if let Some(arity) = tool.get("arity").and_then(|v| v.as_u64()) {
-        spec = spec.with_arity(arity as usize);
-    }
-    let behavior = tool
-        .get("behavior")
-        .and_then(|v| v.as_str())
-        .unwrap_or("echo")
-        .to_string();
-    let delay_ms = tool.get("delay_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-    let constant = match tool.get("result") {
-        Some(value) => Some(Value::from_json(value).map_err(|err| format!("tool `{name}` result: {err}"))?),
-        None => None,
-    };
-    if behavior == "const" && constant.is_none() {
-        return Err(format!("tool `{name}` behavior const needs result"));
-    }
-    engine.register(&name, spec, move |args, kwargs| {
-        if delay_ms > 0 {
-            thread::sleep(Duration::from_millis(delay_ms));
-        }
-        match behavior.as_str() {
-            "const" => Ok(constant.clone().unwrap_or(Value::Null)),
-            "echo" => Ok(echo_value(&args, &kwargs)),
-            other => Err(format!("unknown tool behavior `{other}`; use echo or const")),
-        }
-    });
-    Ok(())
-}
-
 fn echo_value(args: &[Value], kwargs: &BTreeMap<String, Value>) -> Value {
     if kwargs.is_empty() && args.len() == 1 {
         args[0].clone()
@@ -634,7 +626,7 @@ mod tests {
             "method": "tools/call",
             "params": {
                 "name": "weave_run",
-                "arguments": {
+                "arguments": {"debug": true,
                     "source": "a = fetch(\"x\")\nb = fetch(\"y\")\nprint(a)\nprint(b)\n",
                     "tools": [{"name": "fetch", "effect": "read", "arity": 1, "behavior": "echo"}]
                 }
@@ -653,7 +645,7 @@ mod tests {
             "method": "tools/call",
             "params": {
                 "name": "weave_replay",
-                "arguments": {
+                "arguments": {"debug": true,
                     "source": "a = fetch(\"x\")\nb = fetch(\"y\")\nprint(a)\nprint(b)\n",
                     "trace": trace,
                     "tools": [{"name": "fetch", "effect": "read", "arity": 1, "behavior": "echo"}]

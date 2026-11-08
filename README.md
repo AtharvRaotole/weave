@@ -2,215 +2,314 @@
 
 # Weave
 
-**Let an LLM agent write one short script instead of making one tool call per turn.**
+**Write a tool workflow. Run independent calls together.**
 
-Weave is a small Python-like language and a Rust runtime for LLM-written tool code.
-Independent calls run together, irreversible calls wait until the script is complete,
-and every run writes a trace that replays the same output.
+A Rust runtime for agent-written workflows, with a small Python-like language,
+Python bindings, and an MCP proxy.
 
-[![CI](https://github.com/AtharvRaotole/weave/actions/workflows/ci.yml/badge.svg)](https://github.com/AtharvRaotole/weave/actions/workflows/ci.yml)
+[![CI](https://github.com/AtharvRaotole/weave/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AtharvRaotole/weave/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/AtharvRaotole/weave)](https://github.com/AtharvRaotole/weave/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Python 3.9–3.13](https://img.shields.io/badge/python-3.9%E2%80%933.13-blue.svg)
-![Rust 1.97+](https://img.shields.io/badge/rust-1.97%2B-orange.svg)
+![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)
 
-[Quickstart](#quickstart) · [Docs](docs/index.html) · [Benchmarks](docs/benchmarks.md) · [MCP proxy](#use-it-with-mcp-servers) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
-
-<img src="assets/benchmark.svg" alt="Bar chart: median wall time per task, Weave 0.85 s vs native 3.11 s on gpt-5.4-mini and 1.83 s vs 4.92 s on gpt-6.1-sol; mean model turns 1.10 vs 2.65 and 1.15 vs 2.75" width="720">
-
-<sub>16 tasks × 3 repeats on four real MCP servers (filesystem, fetch, git, memory), measured 2026-11-08.
-Both modes passed 48/48 on both models. Data: <a href="bench/results/real-20261108T175251Z.json"><code>real-20261108T175251Z.json</code></a>,
-<a href="bench/results/real-20261108T175500Z.json"><code>real-20261108T175500Z.json</code></a>; chart drawn by <a href="bench/make_charts.py"><code>bench/make_charts.py</code></a>.</sub>
+[Quickstart](#quickstart) · [Agent integration](#give-your-agent-one-workflow-tool) · [MCP](#connect-mcp-servers) · [Benchmarks](#benchmarks) · [Execution boundaries](#execution-boundaries) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
-## Highlights
+Weave lets an agent express tool calls, dependencies, branches, and loops in one
+script. The runtime runs independent reads concurrently and applies ordering
+rules to tools that change state. You keep your existing Python functions or
+stdio MCP servers.
 
-- **Fewer round trips.** On real MCP servers the model needed 1.10 turns per task with Weave against 2.65 with native function calling (gpt-5.4-mini), and 1.15 against 2.75 (gpt-6.1-sol). [Details](docs/benchmarks.md#does-it-generalize-m11-16-tasks-4-servers-2-models)
-- **Faster end to end.** Median wall time per task was 0.849 s against 3.108 s (3.7x lower) and 1.833 s against 4.923 s (2.7x lower), at the same 48/48 pass rate.
-- **Parallel by default, safe by construction.** Every tool declares an effect (`pure`, `read`, `reversible`, `irreversible`). Reads overlap; writes keep their order; irreversible calls never start before the script is complete.
-- **Replayable.** Each run records a JSON trace. Replay reproduces the prints and bindings without calling a tool.
-- **Sandboxed.** No imports, files, network, or function definitions. Host tools are the only way out, with step, size, depth, and wall-clock limits.
-- **Drop-in for MCP.** `weave-mcp` sits in front of existing MCP servers and gives the model one `weave_run` tool over all of them.
+Use it to fetch several records, combine their results, and make decisions in
+code. Tasks that need fresh model reasoning after each result can still use
+several model turns. Native function calling can also batch independent calls;
+Weave adds local control flow and scheduling across a script.
 
-## How it works
-
-<p align="center"><img src="assets/how-it-works.svg" alt="Diagram: native tool calling alternates model and tool steps; Weave has the model write one script whose independent reads run together" width="760"></p>
-
-With native function calling the model sees each result before it picks the next call, so a task with three dependent-free reads still costs several model round trips. With Weave the model writes the whole plan once. The runtime parses it, builds a dataflow graph, runs independent calls together, and holds anything irreversible until the last line has arrived.
-
-## Install
-
-Weave is not on PyPI yet. Build it from a checkout (Rust 1.97+ and Python 3.9+), or install a wheel from the
-[GitHub release](https://github.com/AtharvRaotole/weave/releases):
-
-```bash
-git clone https://github.com/AtharvRaotole/weave && cd weave
-python3 -m venv .venv
-.venv/bin/pip install 'maturin>=1.8,<2'
-.venv/bin/maturin develop --release
-```
+> **Experimental release (not production-ready):** v0.1.0 is available as source and release wheels. Start with
+> read-only tools in an isolated development environment. Review the
+> [execution boundaries](#execution-boundaries) before connecting production systems.
 
 ## Quickstart
 
-Run a script over your own Python tools:
+No model account or API key is needed for this example.
 
-```python
-from weave import Engine
+### Install
 
-def weather(city: str) -> str:
-    return f"18C {city}"
+**Prebuilt wheels:** download the wheel matching your Python version, operating
+system, and architecture from [v0.1.0](https://github.com/AtharvRaotole/weave/releases/tag/v0.1.0).
+In a virtual environment, run `python -m pip install /path/to/downloaded.whl`,
+replacing the path with the actual filename. The release includes CPython
+3.9–3.13 wheels for Linux x86_64/aarch64, macOS Intel/Apple Silicon, and Windows
+x64. Wheels do not require Rust.
 
-engine = Engine()
-engine.tool("weather", weather, effect="read", timeout_ms=1000, retries=1)
-source = 'a = weather("Paris")\nb = weather("Oslo")\nprint(a, b)\n'   # the two reads run together
-result = engine.run(source)
-print(result.stdout)                                                # 18C Paris 18C Oslo
-engine.replay(source, result.trace_json())                          # same output, no tool calls
+**From source — macOS/Linux:** install [Rust via rustup](https://rustup.rs/) and
+Python 3.9–3.13 first. The checkout pins Rust 1.99.1; the declared minimum is 1.97.
+
+```bash
+git clone https://github.com/AtharvRaotole/weave.git
+cd weave
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install "maturin>=1.8,<2"
+maturin develop --release --locked
 ```
 
-Give an agent one tool that runs Weave scripts over your functions
-([`examples/run_weave_tool.py`](examples/run_weave_tool.py) is a full OpenAI loop):
+<details>
+<summary>From source — Windows PowerShell</summary>
+
+Install Rust via rustup, its required C++ build tools, and Python 3.9–3.13, then:
+
+```powershell
+git clone https://github.com/AtharvRaotole/weave.git
+cd weave
+py -m venv .venv
+.\.venv\Scripts\python -m pip install "maturin>=1.8,<2"
+.\.venv\Scripts\maturin build --release --locked --out dist
+.\.venv\Scripts\python -m pip install --no-index --find-links dist weave
+```
+
+Run the example below with `.\.venv\Scripts\python`.
+
+</details>
+
+**Package name:** this project is not published on PyPI. `pip install weave`
+installs [Weights & Biases Weave](https://github.com/wandb/weave), a different
+project. Both use the import name `weave`; use a separate virtual environment.
+
+### Run your first workflow
+
+Save this as `demo.py` and run `python demo.py`:
+
+```python
+import time
+from weave import Engine
+
+def stock(product: str) -> int:
+    time.sleep(0.1)  # Stand-in for an I/O-bound API call.
+    return {"keyboard": 8, "mouse": 12}[product]
+
+engine = Engine()
+engine.tool("stock", stock, effect="read", arity=1, timeout_ms=1000)
+
+source = """
+keyboards = stock("keyboard")
+mice = stock("mouse")
+print(keyboards + mice)
+"""
+
+result = engine.run(source)
+print(result.stdout, end="")  # 20
+
+# Replay uses recorded results; it does not call stock again.
+replayed = engine.replay(source, result.trace_json())
+assert replayed.stdout == result.stdout
+```
+
+The two `stock` calls can overlap; `print` waits for both results. Run
+`python examples/speedup.py` from a checkout for a timed comparison and replay check.
+
+## How execution works
+
+```mermaid
+flowchart LR
+    A[Agent writes a script] --> B[Parse and check]
+    B --> C[Schedule dependencies]
+    C --> D[Independent reads overlap]
+    C --> E[Writes follow effect ordering]
+    D --> F[Output and tool trace]
+    E --> F
+```
+
+- **Local control flow:** branches, loops, and result processing run in the runtime.
+- **Concurrent I/O:** independent `pure` and `read` tool calls can run together.
+- **Effect ordering:** tools declare how they interact with external state.
+- **Recorded calls:** JSON traces capture arguments, results, and handled tool errors.
+- **Streaming:** `Session.push()` accepts incremental source; irreversible calls wait for `finish()`.
+
+The restricted language is implemented in Rust. Scripts are not evaluated with
+Python's `eval` or `exec`. Registered host tools provide external access.
+
+## Give your agent one workflow tool
+
+`WeaveTool` exposes your Python functions through one function-calling tool:
 
 ```python
 import weave
 
 @weave.declare(effect="read", arity=1)
 def order_total(order_id):
-    """Integer total of one order."""
+    """Return an order's integer total."""
     return {"o1": 12, "o2": 30}[order_id]
 
 tool = weave.WeaveTool([order_total])
-tools = [tool.chat_tool()]              # pass to Chat Completions; tool.responses_tool() for Responses
-# for each tool call the model makes:  messages.append(tool.handle(call))
+tools = [tool.chat_tool()]
+# Pass `tools` to Chat Completions.
+# For a returned tool call: messages.append(tool.handle(call))
 ```
 
-`python examples/speedup.py` times four delayed reads sequentially and through Weave on your machine, and checks that replay matches.
+Use `tool.responses_tool()` for a Responses definition, or `tool.agents_tool()`
+with the optional `openai-agents` package.
+[`examples/run_weave_tool.py`](examples/run_weave_tool.py) contains a complete
+loop and an offline smoke test. The wrapper returns printed output or repairable
+errors; successful output is truncated to 20,000 characters by default.
 
-## Use it with MCP servers
+In v0.1.0, call registered Python tools positionally from scripts and use
+synchronous functions. Current source also accepts signature-bound keyword arguments; v0.1.0 does not. Rust hosts also have async tool registration.
 
-`weave-mcp` is an MCP server over stdio. Point it at the servers you already use and the model gets one script tool over all of them:
+## Connect MCP servers
+
+`weave-mcp` proxies local **stdio** MCP servers. Build it separately from the Python wheel:
 
 ```bash
-cargo build --release -p weave-mcp
-./target/release/weave-mcp --config my-upstreams.json
+cargo build --release --locked -p weave-mcp
 ```
+
+Save this as `upstreams.json`, replacing `/absolute/path/to/data` with an existing
+directory you intend to expose. This example requires Node.js/npx:
 
 ```json
-{"upstreams": [
-  {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"],
-   "prefix": "fs_",
-   "results": {"list_directory": "lines"},
-   "examples": {"list_directory": {"path": "/data"}}},
-  {"name": "fetch", "command": "uvx", "args": ["mcp-server-fetch"], "prefix": "web_",
-   "effects": {"fetch": "read"}}
-]}
+{
+  "upstreams": [
+    {
+      "name": "filesystem",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/to/data"],
+      "prefix": "fs_",
+      "results": {"list_directory": "lines"}
+    }
+  ]
+}
 ```
 
-- `prefix` is prepended to each upstream tool name.
-- `effects` overrides a tool's effect. Without an override, a tool marked
-  `readOnlyHint` is `read`, and anything else is `irreversible`.
-- `results` shapes a tool's text result: `lines` returns a list of non-empty
-  lines, and `json` returns the parsed value.
-- `examples` gives sample arguments. At startup each listed read-only tool is
-  called once, and its truncated output appears in the listing, so a model
-  knows the result format before it writes a parser.
-- Parameters that take objects or lists of objects are spelled out in the
-  listing, e.g. `entities: list[{name: str, entityType: str, observations: list[str]}]`.
-It exposes `weave_check`, `weave_run`, and `weave_replay`. [`examples/real_mcp_upstream.py`](examples/real_mcp_upstream.py) runs a script against the real filesystem server; [docs/mcp.html](docs/mcp.html) covers the protocol details.
+Configure your MCP client to launch the binary with absolute paths:
 
-## How it compares
-
-| | Native function calling | Hand-written `asyncio.gather` / DAG | **Weave** |
-| --- | --- | --- | --- |
-| Who plans the calls | the model, one turn at a time | you, in code | the model, in one script |
-| Model turns per task (real MCP, gpt-5.4-mini) | 2.65 mean | — | **1.10 mean** |
-| Independent calls overlap | only within one turn | yes | yes, from the dataflow graph |
-| Branches and loops on results | across turns | yes | yes, in the script |
-| Irreversible calls held until the plan is complete | no | up to you | yes |
-| Replayable trace | no | no | yes |
-| `research_brief`, mock tools at 40 ms | — | 0.064 s (gather), 0.064 s (DAG) | **0.062 s** (sequential: 0.181 s) |
-
-Turn counts are from [`real-20261108T175251Z.json`](bench/results/real-20261108T175251Z.json); mock timings are medians of three repeats from [`mock-20261108T021733Z.json`](bench/results/mock-20261108T021733Z.json). On the mock suite Weave matched the best hand-written schedule on all three tasks; the full tables are in [docs/benchmarks.md](docs/benchmarks.md).
-
-## The language
-
-Scripts are a subset of Python, parsed with `ruff_python_parser`:
-
-```python
-city = "Paris"
-temp = weather(city)
-air = air_quality(city)
-print(f"{city}: {temp}, {air}")
-if "bad" in air:
-    page(city)
+```json
+{
+  "mcpServers": {
+    "weave": {
+      "command": "/absolute/path/to/weave/target/release/weave-mcp",
+      "args": ["--config", "/absolute/path/to/upstreams.json"]
+    }
+  }
+}
 ```
 
-`weather` and `air_quality` start together. `page` is irreversible, so it runs only after the whole script has been received and its inputs are ready.
+On Windows, use `weave-mcp.exe` and Windows paths. Use a unique prefix for each
+upstream and review its tools and directory permissions before connecting it.
 
-Supported: assignment (including unpacking and `+=`), calls with keyword arguments, `if`/`elif`/`else`, conditional expressions, `for` with `break` and `continue`, `try`/`except ToolError`, lists, dicts, f-strings, common `str`/`list`/`dict` methods, and builtins such as `len`, `range`, `sorted`, `enumerate`, `zip`, and `parse_json`. `import`, `def`, `class`, `while`, `with`, `lambda`, comprehensions, and `await` are rejected with a one-line error an LLM can fix. Full reference: [docs/language.html](docs/language.html).
+The proxy exposes `weave_check`, `weave_run`, and `weave_replay`, **plus upstream
+tools**. To give a model only the script interface, filter the tool list in your
+host. Current source returns only stdout/status by default. Explicit `debug: true`
+returns bindings and a full trace, which may contain sensitive intermediate data.
+The v0.1.0 build returns full bindings/trace by default. Error diagnostics may
+also expose arguments; this is not a complete redaction/privacy boundary.
 
-`check` runs before any tool does. Each diagnostic is one line with a location and a hint an LLM can apply:
+Optional settings include `effects`, text-result shaping with `results` (`text`, `lines`
+or `json`), and `examples` that make sample read calls at startup. Without an
+override, `readOnlyHint` maps to `read`; other tools default to `irreversible`.
+Treat annotations as declarations from the server, not verified permissions.
 
-```python
-import os
-result = serch("q")
-page = fetch("a", "b")
-print(missing)
-missing = 1
-```
+Run `python examples/real_mcp_upstream.py` for a filesystem smoke test using
+temporary data. See [MCP reference](docs/mcp.html) for configuration details.
 
-```text
-L1:C1: `import` is not supported hint: inline values or fetch them with a tool
-L2:C10: unknown tool `serch` hint: did you mean `fetch`?
-L3:C8: tool `fetch` takes 1 argument(s), got 2 hint: pass 1 positional argument(s) to `fetch`
-L4:C7: name `missing` is used before assignment hint: assign `missing` on an earlier line, on every branch that reaches here
-```
+## Effects and language
 
-## Effects
-
-Every tool has an effect. A tool registered with no effect is irreversible.
-
-| Effect | When it runs |
+| Effect | Scheduling rule |
 | --- | --- |
-| `pure` | As soon as its arguments are ready. Independent pure calls overlap. |
-| `read` | As soon as its arguments are ready and earlier writes that could change what it observes have finished. Independent reads overlap. |
-| `reversible` | After earlier reads and writes it could conflict with. It may run before the script is finished, because the host can undo it. |
-| `irreversible` | Only after the script is complete, and after earlier observable work. |
+| `pure` | Runs when arguments are ready; promises no observable external effects. |
+| `read` | Waits for earlier writes; independent reads can overlap. |
+| `reversible` | Waits for earlier observable calls; can run while source is still streaming. |
+| `irreversible` | Also waits until the complete script has arrived. This is the default. |
 
-`and`, `or`, and conditional expressions stay lazy. Loop iterations with no carried assignment and no writes run together; `total = total + n` stays sequential.
+Effects control scheduling, not permissions, transactions, or automatic rollback.
+The host is responsible for compensating `reversible` operations. Resource
+footprints guide speculative cache invalidation; they do not parallelize writes.
 
-## More features
+The language supports assignment, `if`/`elif`/`else`, `for`, `break`, `continue`,
+`try`/`except ToolError`, lists, dictionaries, f-strings, and selected builtins and
+methods. Imports, user-defined functions, classes, `while`, comprehensions, and
+`await` are rejected. This is a Python-like subset with its own value semantics.
+See the [language reference](docs/language.html).
 
-- **Streaming.** `Session.push` runs each completed top-level statement while the model is still generating; irreversible calls wait for `finish`. In a deterministic demo the first tool started after 0.049 s instead of 0.146 s ([data](bench/results/stream-20261108T022244Z.json)).
-- **Traces and replay.** Values are tagged so integers and dict order round-trip. Replay matches calls by tool and arguments and stops with `replay diverged` if the script asks for something the trace doesn't have. [docs/runtime.html](docs/runtime.html)
-- **Timeouts, retries, cancellation.** Async tools are dropped on timeout; cooperative tools get a `CancelToken`; `Engine(worker_pool=N)` with `hard_deadline=True` runs a call in a worker process that is killed on timeout. [docs/runtime.html](docs/runtime.html)
-- **Speculative pre-execution.** An optional predictor pre-runs reads while the model is generating and drops cached results a later write could change. [Measured hit rates](docs/benchmarks.md#speculative-pre-execution)
-- **Rust, Python, CLI.** The `weave` crate (`Engine::register`, `run`, `replay`, `session`), a PyO3 module that releases the GIL, and a `weave` command (`check`, `run`, `replay`, `trace`). [docs/cli.html](docs/cli.html)
+## Benchmarks
 
-## Correctness
+Committed evaluations cover 16 tasks across filesystem, fetch, git, and memory
+MCP servers, with three repeats per model and mode on 2026-11-08.
 
-`cargo test` runs a differential fuzzer ([`crates/weave/tests/differential.rs`](crates/weave/tests/differential.rs)) that generates random programs over a key-value store and runs each five ways: an independent tree-walking oracle, Weave forced sequential, parallel Weave with jittered delays, a streamed session fed in random chunks, and a speculative run. Prints, bindings, the final store, the irreversible log, and the multiset of calls must match, and every trace must replay. 300 seeds run by default; set `WEAVE_DIFF_SEEDS` for more.
+| Model | Weave: script generation + execution | Native: tool loop + final model answer | Passes, Weave / native |
+| --- | ---: | ---: | ---: |
+| `gpt-5.4-mini` | 0.849 s median | 3.108 s median | 48/48 / 48/48 |
+| `gpt-6.1-sol` | 1.833 s median | 4.923 s median | 48/48 / 48/48 |
 
-## Limitations
+These are **different completion boundaries**: Weave's printed result is graded
+directly, while native mode makes a final model response. The native harness
+also executes calls within a turn sequentially. These results do not establish a
+general speedup over tuned parallel native calling or an equivalent end-to-end
+agent loop.
 
-- Not on PyPI yet; install from source or a release wheel. The name `weave` on PyPI belongs to another project, so the PyPI package will need a different name ([docs/releasing.md](docs/releasing.md)).
-- Benchmarks so far use OpenAI models only, on 16 real-server tasks and 16 mock tasks. With 48 runs per row, a difference of one or two passes is within noise.
-- Cooperative cancellation cannot stop a sync Python tool that ignores its token; use `hard_deadline=True` for that.
-- The language is deliberately small: no user-defined functions, no `while`, no comprehensions.
+Raw results: [gpt-5.4-mini](bench/results/real-20261108T175251Z.json) and
+[gpt-6.1-sol](bench/results/real-20261108T175500Z.json).
+[Methodology and history](docs/benchmarks.md) includes unsuccessful runs, mock
+baselines, streaming, and speculation. The Gemini smoke test is too small to
+establish cross-provider results.
 
-## Repository layout
+## Execution boundaries
 
-- `crates/weave` — parser, checker, scheduler, trace
-- `crates/weave-py` — PyO3 module (`python/weave` is the Python package)
-- `crates/weave-mcp` — MCP server and upstream proxy
-- `crates/weave-cli` — `weave` command for scripted tools
-- `bench/` — mock suite, real-model and real-server evals, results
-- `docs/` — static docs and [benchmarks](docs/benchmarks.md)
+The audit-fix checkout differs from the v0.1.0 wheel/tag. Read the
+[17-finding verification ledger](docs/audit-status.md) for reproduced cases,
+acceptance evidence, partial fixes, and deferred work. No blanket safety claim
+is made. v0.1.0 downloads have **not** been rebuilt.
 
-## Contributing
+v0.1.0 is experimental. These boundaries matter when deciding where to use it:
 
-Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the build and test commands, and [SECURITY.md](SECURITY.md) to report a sandbox escape privately.
+- **Permissions and writes:** host tools control external access. Completing a
+  script is not human approval. Errors do not roll back effects, and known
+  exception-ordering cases can allow a later independent write after an earlier
+  expression fails. Keep production writes out of initial trials.
+- **Resource control:** step, wall-clock, value-size, and depth controls exist,
+  but value-limit coverage has gaps and there is no total memory or output budget.
+  Use process isolation for untrusted workloads.
+- **Cancellation and retries:** synchronous tools can outlive timeouts. Worker
+  processes support hard deadlines, with known pool-saturation edge cases in
+  this release. Retrying a tool can repeat side effects.
+- **Replay and data:** replay makes no live calls, but repeated identical reads
+  returning different values can replay in the wrong order. Traces contain tool
+  arguments and results; review them before sharing.
+- **MCP compatibility:** stdio text results are the current focus. Remote HTTP,
+  paginated discovery, cancellation forwarding, and full structured/multimodal
+  result preservation need further work.
 
-## License
+See [runtime reference](docs/runtime.html) for API details and
+[SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
-[MIT](LICENSE). Speculative pre-execution follows the tool cache from Nichols et al., [arXiv 2512.15834](https://arxiv.org/abs/2512.15834).
+## Documentation and development
+
+The reference pages are static HTML. Serve them from a checkout:
+
+```bash
+python -m http.server 8000 --bind 127.0.0.1 --directory docs
+```
+
+Open [the local documentation](http://127.0.0.1:8000). References:
+[language](docs/language.html), [runtime](docs/runtime.html), [CLI](docs/cli.html),
+[MCP](docs/mcp.html), and [release process](docs/releasing.md).
+
+Core code is in `crates/weave`; Python bindings in `crates/weave-py` and
+`python/weave`; the proxy and CLI in `crates/weave-mcp` and `crates/weave-cli`.
+
+```bash
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+python tests/python/test_agent_tool.py
+```
+
+The Rust suite includes differential tests against an independent interpreter
+across sequential, parallel, streamed, speculative, and replayed execution.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and longer runs. Small bug
+reproductions are welcome; check traces for sensitive data before attaching them.
+
+## License and research
+
+[MIT](LICENSE). The speculative cache draws on Nichols et al.,
+[Optimizing Agentic Language Model Inference via Speculative Tool Calls](https://arxiv.org/abs/2512.15834).

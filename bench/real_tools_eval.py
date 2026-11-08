@@ -1,6 +1,6 @@
 """Real-tools eval: Weave vs native function calling against real MCP servers.
 
-weave-mcp proxies two public reference servers:
+weave-mcp proxies four reference servers (filesystem, fetch, git and memory):
   - @modelcontextprotocol/server-filesystem (npx), rooted at a fresh temp dir
   - mcp-server-fetch (uvx), which fetches live web pages
 
@@ -14,7 +14,7 @@ Optional: OPENAI_MODELS (default gpt-5.4-mini), WEAVE_EVAL_REPEATS (3),
 WEAVE_EVAL_BUDGET (USD, default 1.0), WEAVE_MCP (path to the binary),
 WEAVE_FETCH_ARGS (extra mcp-server-fetch flags, e.g. --allow-private-ips when
 DNS resolves through a proxy), WEAVE_EVAL_MODES (weave,native_tools),
-WEAVE_EVAL_VARIANT (comma-separated, default examples,structured; set to "none" for neither):
+WEAVE_EVAL_VARIANT (comma-separated, default structured; examples is opt-in sampling; set to "none" for neither):
   examples    weave-mcp samples each read tool once at startup and shows the output
   structured  listing tools return a list of lines instead of one string
 """
@@ -22,6 +22,8 @@ WEAVE_EVAL_VARIANT (comma-separated, default examples,structured; set to "none" 
 from __future__ import annotations
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor, Future
 import os
 import shutil
 import statistics
@@ -43,7 +45,7 @@ from bench.prompts import few_shot_messages, repair_message, system_message  # n
 
 MAX_ATTEMPTS = 3
 MAX_TURNS = 10
-VARIANT = frozenset(v for v in os.environ.get("WEAVE_EVAL_VARIANT", "examples,structured").split(",") if v)
+VARIANT = frozenset(v for v in os.environ.get("WEAVE_EVAL_VARIANT", "structured").split(",") if v)
 
 
 @dataclass(frozen=True)
@@ -200,21 +202,41 @@ class McpClient:
     def __init__(self, argv: list[str]):
         self.proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
         self.next_id = 0
+        self.lock = threading.Lock()
+        self.pending = {}
+        self.reader = threading.Thread(target=self._read, daemon=True)
+        self.reader.start()
         self.request("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "bench", "version": "0"}})
 
+    def _read(self):
+        try:
+            for line in self.proc.stdout:
+                reply = json.loads(line)
+                with self.lock:
+                    future = self.pending.pop(reply.get("id"), None)
+                if future is not None:
+                    future.set_result(reply)
+        finally:
+            with self.lock:
+                for future in self.pending.values():
+                    future.set_exception(RuntimeError("MCP process closed"))
+                self.pending.clear()
+
     def request(self, method: str, params: dict | None = None) -> dict:
-        self.next_id += 1
-        assert self.proc.stdin and self.proc.stdout
-        self.proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": self.next_id, "method": method, "params": params or {}}) + "\n")
-        self.proc.stdin.flush()
-        reply = json.loads(self.proc.stdout.readline())
+        future = Future()
+        with self.lock:
+            self.next_id += 1
+            self.pending[self.next_id] = future
+            self.proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": self.next_id, "method": method, "params": params or {}}) + "\n")
+            self.proc.stdin.flush()
+        reply = future.result(timeout=90)
         if "error" in reply:
             raise ValueError(reply["error"].get("message"))
         return reply["result"]
 
     def call(self, name: str, arguments: dict) -> tuple[str, bool]:
         result = self.request("tools/call", {"name": name, "arguments": arguments})
-        text = "\n".join(part.get("text", "") for part in result.get("content", []))
+        text = json.dumps(result["structuredContent"]) if "structuredContent" in result else "\n".join(part.get("text", "") for part in result.get("content", []))
         return text, bool(result.get("isError"))
 
     def close(self) -> None:
@@ -231,11 +253,11 @@ def binary() -> str:
 
 def start(root: Path) -> McpClient:
     fetch_args = os.environ.get("WEAVE_FETCH_ARGS", "").split()
-    fs = {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", str(root)], "prefix": "fs_"}
+    fs = {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", str(root)], "prefix": "fs_", "results": {"read_text_file": "text"}}
     web = {"name": "fetch", "command": "uvx", "args": ["mcp-server-fetch", *fetch_args], "prefix": "web_",
            "effects": {"fetch": "read"}}
     if "structured" in VARIANT:
-        fs["results"] = {"list_directory": "lines", "search_files": "lines", "list_allowed_directories": "lines"}
+        fs["results"].update({"list_directory": "lines", "search_files": "lines", "list_allowed_directories": "lines"})
     if "examples" in VARIANT:
         # One sample per read tool, on paths and a page that no task asks about.
         fs["examples"] = {
@@ -276,6 +298,46 @@ def graded(task: RealTask, answer: str, root: Path) -> bool:
     return task.check(root) if task.check else True
 
 
+def final_answer(model: str, task: RealTask, output: str) -> tuple[str, dict]:
+    """Same final model-answer endpoint as native, including its token/latency cost."""
+    instructions = "Use the tools to complete the task. When done, reply with only the final answer."
+    prompt = f"Task: {task.instruction}\nWorkflow tool output:\n{output}\nReply with only the final answer."
+    if model.startswith("gemini"):
+        body = llm_eval.gemini_generate(model, {"systemInstruction": {"parts": [{"text": instructions}]},
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}]})
+        parts = body["candidates"][0]["content"].get("parts") or []
+        text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+    else:
+        body = llm_eval.openai_responses(model, {"instructions": instructions, "input": [{"role": "user", "content": prompt}]})
+        text = "".join(p.get("text", "") for m in body.get("output", []) if m.get("type") == "message"
+                       for p in m.get("content", []) if p.get("type") == "output_text")
+    return text.strip(), body["_usage"]
+
+
+def native_calls(client, tools, calls):
+    """Bounded concurrent reads within a turn; preserve order around writes.
+
+    Tool annotations are trusted fixture policy, not a security boundary.
+    Returns in request order even if responses arrive out of order.
+    """
+    read_names = {t["name"] for t in tools if t.get("annotations", {}).get("readOnlyHint") is True}
+    width = max(1, int(os.environ.get("WEAVE_NATIVE_PARALLEL", "4")))
+    results = []
+    group = []
+    with ThreadPoolExecutor(max_workers=width) as pool:
+        def drain():
+            results.extend(f.result() for f in group)
+            group.clear()
+        for name, args in calls:
+            if name in read_names:
+                group.append(pool.submit(client.call, name, args))
+            else:
+                drain()
+                results.append(client.call(name, args))
+        drain()
+    return results
+
+
 def run_weave(model: str, task: RealTask, client: McpClient, tools: list[dict], root: Path) -> dict:
     returns = "Tools (results are strings unless a tool says otherwise)" if "structured" in VARIANT else "Tools (all return strings)"
     prompt = (
@@ -300,11 +362,15 @@ def run_weave(model: str, task: RealTask, client: McpClient, tools: list[dict], 
             messages += [{"role": "assistant", "content": source}, {"role": "user", "content": repair_message(source, [body])}]
             continue
         stdout = json.loads(body)["stdout"].strip()
-        if graded(task, stdout, root):
+        answer, final_usage = final_answer(model, task, stdout)
+        turns += 1
+        usage_in += final_usage["input_tokens"] or 0
+        usage_out += final_usage["output_tokens"] or 0
+        if graded(task, answer, root):
             log.append({"attempt": attempt, "ok": True})
             passed = True
             break
-        feedback = llm_eval.wrong_answer(stdout)
+        feedback = llm_eval.wrong_answer(answer)
         log.append({"attempt": attempt, "error": feedback, "source": source})
         messages += [{"role": "assistant", "content": source}, {"role": "user", "content": feedback + "\nReply with only the corrected Weave script."}]
     return {"passed": passed, "attempts": attempt, "model_turns": turns, "input_tokens": usage_in,
@@ -336,8 +402,8 @@ def run_native(model: str, task: RealTask, client: McpClient, tools: list[dict],
             answer = "".join(p.get("text", "") for item in output if item.get("type") == "message" for p in item.get("content") or [] if p.get("type") == "output_text").strip()
             break
         items.extend(output)
-        for call in fcalls:
-            text, is_error = client.call(call["name"], json.loads(call.get("arguments") or "{}"))
+        results = native_calls(client, tools, [(c["name"], json.loads(c.get("arguments") or "{}")) for c in fcalls])
+        for call, (text, is_error) in zip(fcalls, results):
             calls += 1
             items.append({"type": "function_call_output", "call_id": call["call_id"], "output": ("ERROR: " if is_error else "") + text})
     else:
@@ -376,8 +442,8 @@ def run_native_gemini(model: str, task: RealTask, client: McpClient, tools: list
             break
         contents.append(content)
         responses = []
-        for call in fcalls:
-            text, is_error = client.call(call["name"], call.get("args") or {})
+        results = native_calls(client, tools, [(c["name"], c.get("args") or {}) for c in fcalls])
+        for call, (text, is_error) in zip(fcalls, results):
             calls += 1
             responses.append({"functionResponse": {"name": call["name"], "response": {"result": ("ERROR: " if is_error else "") + text}}})
         contents.append({"role": "user", "parts": responses})
@@ -404,7 +470,7 @@ def main() -> int:
         for repeat in range(repeats):
             for model in models:
                 for task in tasks:
-                    for mode in os.environ.get("WEAVE_EVAL_MODES", "weave,native_tools").split(","):
+                    for mode in (os.environ.get("WEAVE_EVAL_MODES", "weave,native_tools").split(",")[::(-1 if (repeat + tasks.index(task)) % 2 else 1)]):
                         tmp = Path(tempfile.mkdtemp(prefix="weave-real-"))
                         root = tmp / "data"
                         root.mkdir()
@@ -438,7 +504,10 @@ def main() -> int:
                         "median_model_turns": statistics.median(r["model_turns"] for r in group),
                         "input_tokens": sum(r["input_tokens"] for r in group),
                         "output_tokens": sum(r["output_tokens"] for r in group)})
-    payload = {"kind": "real_tools", "measured": True, "machine": machine_info(), "models": models,
+    payload = {"methodology_version": 2, "endpoint": "final_model_answer_both_modes", "native_parallel": int(os.environ.get("WEAVE_NATIVE_PARALLEL", "4")),
+               "source_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+               "integration": "custom_script_prompt_over_shipped_MCP; not a complete provider agent SDK loop",
+               "kind": "real_tools", "measured": True, "machine": machine_info(), "models": models,
                "servers": ["@modelcontextprotocol/server-filesystem", "mcp-server-fetch", "mcp-server-git", "@modelcontextprotocol/server-memory"],
                "repeats": repeats, "variant": sorted(VARIANT), "summary": summary, "rows": rows, "prices_per_1m": llm_eval.PRICES,
                "estimated_cost_usd": round(llm_eval.SPENT["usd"], 4), "stopped_early": stopped}

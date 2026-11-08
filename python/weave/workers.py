@@ -8,7 +8,7 @@ pickleable. Define tools at module scope and guard the script with
 
 Tradeoffs, compared with an in-process thread:
 
-- The deadline is real. ``finally`` blocks, locks, and open files inside the
+- Process termination is best effort, not a real-time deadline guarantee. ``finally`` blocks, locks, and open files inside the
   worker die with it. Side effects that already left the process (a request
   already sent, a write already flushed to another service) are not undone.
 - Fork is not used. Spawn re-imports the main module, so pool startup costs
@@ -43,40 +43,75 @@ def _serve(conn) -> None:
 
 
 class Job:
-    def __init__(self, pool: "Pool", proc: mp.Process, conn) -> None:
+    """Own a queued or active invocation until completion or cancellation.
+
+    start() never waits for capacity on a runtime thread. The dispatcher owns
+    the slot, and serializes dispatch vs kill under the same lock.
+    """
+    def __init__(self, pool, payload):
         self.pool = pool
-        self.proc = proc
-        self.conn = conn
+        self.payload = payload
         self._lock = threading.Lock()
-        self._settled = False
+        self._done = threading.Event()
+        self._cancel = threading.Event()
+        self._slot = None
+        self._result = ("err", "execution was cancelled")
+
+    def dispatch(self):
+        slot = None
+        try:
+            while not self._cancel.is_set():
+                try:
+                    slot = self.pool.idle.get(timeout=.01)
+                    break
+                except queue.Empty:
+                    continue
+            if slot is None:
+                return
+            proc, conn = slot
+            with self._lock:
+                if self._cancel.is_set() or self.pool._closed:
+                    self.pool._recycle(proc, conn)
+                    slot = None
+                    return
+                self._slot = slot
+                conn.send_bytes(self.payload)
+            try:
+                result = conn.recv()
+            except Exception as exc:
+                result = ("err", f"worker failed: {exc}")
+            with self._lock:
+                if self._slot is not None:
+                    self._slot = None
+                    if proc.is_alive():
+                        self.pool._recycle(proc, conn)
+                    else:
+                        self.pool._discard(proc, conn)
+                    slot = None
+                if not self._cancel.is_set():
+                    self._result = result
+        except Exception:
+            with self._lock:
+                owned, self._slot = self._slot, None
+                if owned is not None:
+                    self.pool._discard(*owned)
+                self._result = ("err", traceback.format_exc())
+        finally:
+            self._done.set()
+            with self.pool._jobs_lock:
+                self.pool._jobs.discard(self)
 
     def wait(self):
-        try:
-            status, payload = self.conn.recv()
-        except Exception as exc:
-            status, payload = "err", f"worker failed: {exc}"
-        self._release(replace=not self.proc.is_alive())
-        return (status, payload)
+        self._done.wait()
+        return self._result
 
-    def kill(self) -> None:
-        self._release(replace=True)
-
-    def _release(self, replace: bool) -> None:
+    def kill(self):
         with self._lock:
-            if self._settled:
-                return
-            self._settled = True
-        if replace:
-            if self.proc.is_alive():
-                self.proc.kill()
-                self.proc.join(timeout=2)
-            try:
-                self.conn.close()
-            except Exception:
-                pass
-            self.pool._replace()
-        else:
-            self.pool._recycle(self.proc, self.conn)
+            self._cancel.set()
+            slot, self._slot = self._slot, None
+            if slot is not None:
+                self.pool._discard(*slot)
+            self._done.set()
 
 
 class Pool:
@@ -87,6 +122,9 @@ class Pool:
         self.ctx = mp.get_context("spawn")
         self.idle: queue.Queue = queue.Queue()
         self._spawn_lock = threading.Lock()
+        self._jobs_lock = threading.Lock()
+        self._jobs = set()
+        self._closed = False
         for _ in range(size):
             self._replace()
 
@@ -104,33 +142,51 @@ class Pool:
 
     def _replace(self) -> None:
         with self._spawn_lock:
+            if self._closed:
+                return
             slot = self._spawn()
-        self.idle.put(slot)
+        self._recycle(*slot)
 
-    def _recycle(self, proc, conn) -> None:
-        self.idle.put((proc, conn))
+    @staticmethod
+    def _terminate(proc, conn):
+        if proc.is_alive():
+            proc.kill()
+        proc.join(timeout=.1)
+        conn.close()
+
+    def _discard(self, proc, conn):
+        self._terminate(proc, conn)
+        # Interpreter startup must not block a runtime timer or cancellation.
+        threading.Thread(target=self._replace, daemon=True).start()
+
+    def _recycle(self, proc, conn):
+        with self._jobs_lock:
+            closed = self._closed
+            if not closed:
+                self.idle.put((proc, conn))
+        if closed:
+            self._terminate(proc, conn)
 
     def start(self, fn, args, kwargs):
-        proc, conn = self.idle.get()
-        if not proc.is_alive():
-            try:
-                conn.close()
-            except Exception:
-                pass
-            proc, conn = self._spawn()
-        conn.send((fn, tuple(args), dict(kwargs or {})))
-        return Job(self, proc, conn)
+        # Fail before acquiring a slot, including for unpickleable functions.
+        payload = mp.reduction.ForkingPickler.dumps((fn, tuple(args), dict(kwargs or {})))
+        job = Job(self, payload)
+        with self._jobs_lock:
+            if self._closed:
+                raise RuntimeError("worker pool is closed")
+            self._jobs.add(job)
+        threading.Thread(target=job.dispatch, daemon=True).start()
+        return job
 
     def close(self) -> None:
+        with self._jobs_lock:
+            self._closed = True
+            jobs = list(self._jobs)
+        for job in jobs:
+            job.kill()
         while True:
             try:
                 proc, conn = self.idle.get_nowait()
             except queue.Empty:
                 break
-            try:
-                conn.send(None)
-            except Exception:
-                pass
-            if proc.is_alive():
-                proc.kill()
-            proc.join(timeout=1)
+            self._terminate(proc, conn)

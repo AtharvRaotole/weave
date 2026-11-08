@@ -216,11 +216,12 @@ fn check_call(
                 diags.extend(check_builtin(line, col, name, args.len(), keywords));
             } else if let Some(tool) = tools.get(name) {
                 if let Some(arity) = tool.spec.arity {
-                    if args.len() != arity {
+                    let count = args.len() + if tool.spec.accepts_kwargs { keywords.len() } else { 0 };
+                    if count != arity {
                         diags.push(Diagnostic::static_err(
                             line,
                             col,
-                            format!("tool `{name}` takes {arity} argument(s), got {}", args.len()),
+                            format!("tool `{name}` takes {arity} argument(s), got {count}"),
                         ).with_hint(format!("pass {arity} positional argument(s) to `{name}`")));
                     }
                 }

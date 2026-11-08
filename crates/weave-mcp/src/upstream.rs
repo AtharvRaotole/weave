@@ -37,6 +37,7 @@ pub struct UpstreamConfig {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ResultShape {
+    Text,
     Lines,
     Json,
 }
@@ -44,6 +45,7 @@ pub enum ResultShape {
 impl ResultShape {
     pub fn describe(self) -> &'static str {
         match self {
+            Self::Text => "str (text content)",
             Self::Lines => "list of str, one per line",
             Self::Json => "parsed JSON value",
         }
@@ -129,7 +131,7 @@ impl UpstreamConfig {
                 let shape = match shape.as_str() {
                     Some("lines") => ResultShape::Lines,
                     Some("json") => ResultShape::Json,
-                    Some("text") => continue,
+                    Some("text") => ResultShape::Text,
                     _ => return Err(format!("upstream `{name}`: result shape for `{tool}` must be lines, json or text")),
                 };
                 results.insert(tool.clone(), shape);
@@ -190,8 +192,25 @@ impl Upstream {
             }),
         )?;
         upstream.notify("notifications/initialized")?;
-        let listed = upstream.request("tools/list", json!({}))?;
-        let tools = listed.get("tools").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let mut cursor = None;
+        let mut seen = std::collections::BTreeSet::new();
+        let mut tools = Vec::new();
+        loop {
+            if seen.len() >= 64 || tools.len() > 4096 {
+                return Err(format!("upstream `{}` discovery limit exceeded", upstream.config.name));
+            }
+            let params = cursor.as_ref().map(|c| json!({"cursor": c})).unwrap_or(json!({}));
+            let listed = upstream.request("tools/list", params)?;
+            tools.extend(listed.get("tools").and_then(Json::as_array).cloned().unwrap_or_default());
+            if tools.len() > 4096 { return Err("tools/list tool count limit exceeded".into()); }
+            match listed.get("nextCursor").and_then(Json::as_str) {
+                Some(next) => {
+                    if !seen.insert(next.to_string()) { return Err("repeated tools/list cursor".into()); }
+                    cursor = Some(next.to_string());
+                }
+                None => break,
+            }
+        }
         upstream.tools = tools.iter().map(|tool| discover(&upstream.config, tool)).collect::<Result<_, _>>()?;
         upstream.capture_examples();
         Ok(Arc::new(upstream))
@@ -275,11 +294,39 @@ impl Upstream {
             spec.accepts_kwargs = true;
             engine.register(&tool.name, spec, move |args, kwargs| {
                 let arguments = arguments_for(&spec_tool, &args, &kwargs)?;
-                let text = upstream.call(&spec_tool.upstream_name, arguments)?;
+                let result = upstream.request("tools/call", json!({"name": spec_tool.upstream_name, "arguments": arguments}))?;
+                if result.get("isError").and_then(Json::as_bool) == Some(true) {
+                    return Err(result.to_string());
+                }
+                if spec_tool.shape.is_none() {
+                    if let Some(structured) = result.get("structuredContent") {
+                        return Ok(from_plain_json(structured));
+                    }
+                }
+                let parts = result.get("content").and_then(Json::as_array).cloned().unwrap_or_default();
+                if parts.is_empty() && result.get("structuredContent").is_some() {
+                    return Err("explicit text shaping requested, but upstream returned structured content only".into());
+                }
+                if parts.iter().any(|p| p.get("type").and_then(Json::as_str) != Some("text")) {
+                    return Err("unsupported non-text MCP content; use the direct tool envelope".into());
+                }
+                let text = parts.iter().filter_map(|p| p.get("text").and_then(Json::as_str)).collect::<Vec<_>>().join("\n");
                 shape_result(spec_tool.shape, text)
             });
         }
     }
+}
+
+fn script_alias(name: &str) -> String {
+    let mut out = String::new();
+    for (i, c) in name.chars().enumerate() {
+        if c == '_' || c.is_ascii_alphabetic() || (i > 0 && c.is_ascii_digit()) { out.push(c); }
+        else { out.push_str(&format!("_u{:x}_", c as u32)); }
+    }
+    if out.is_empty() || matches!(out.as_str(), "if" | "else" | "elif" | "for" | "in" | "and" | "or" | "not" | "True" | "False" | "None" | "try" | "except" | "break" | "continue" | "pass" | "import" | "def" | "class" | "while" | "with" | "lambda" | "await" | "return" | "is" | "as" | "from" | "raise" | "yield" | "async" | "global" | "nonlocal" | "assert" | "del" | "finally") {
+        out.insert_str(0, "tool_");
+    }
+    out
 }
 
 fn discover(config: &UpstreamConfig, tool: &Json) -> Result<UpstreamTool, String> {
@@ -306,7 +353,7 @@ fn discover(config: &UpstreamConfig, tool: &Json) -> Result<UpstreamTool, String
         .copied()
         .unwrap_or(if read_only { Effect::Read } else { Effect::Irreversible });
     Ok(UpstreamTool {
-        name: format!("{}{}", config.prefix, upstream_name),
+        name: script_alias(&format!("{}{}", config.prefix, upstream_name)),
         description: tool.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
         input_schema,
         params,
@@ -329,7 +376,7 @@ fn truncate(text: &str, max: usize) -> String {
 /// Apply a configured result shape to an upstream tool's text.
 pub fn shape_result(shape: Option<ResultShape>, text: String) -> Result<Value, String> {
     match shape {
-        None => Ok(Value::Str(text)),
+        None | Some(ResultShape::Text) => Ok(Value::Str(text)),
         Some(ResultShape::Lines) => Ok(Value::List(
             text.lines().filter(|line| !line.trim().is_empty()).map(Value::str).collect(),
         )),
@@ -406,6 +453,16 @@ mod shape_tests {
     use super::*;
 
     #[test]
+    fn aliases_are_identifiers_and_collisions_remain_visible() {
+        assert_eq!(script_alias("a_read-file"), "a_read_u2d_file");
+        assert_eq!(script_alias("read.file"), "read_u2e_file");
+        assert_eq!(script_alias("for"), "tool_for");
+        // Alias collisions are deliberate inputs to config validation, never
+        // silently routed; this pair must produce the same final name.
+        assert_eq!(script_alias("read-file"), script_alias("read_u2d_file"));
+    }
+
+    #[test]
     fn lines_shape_drops_blank_lines() {
         let value = shape_result(Some(ResultShape::Lines), "[FILE] a.txt\n\n[DIR] sub\n".into()).unwrap();
         assert_eq!(value, Value::List(vec![Value::str("[FILE] a.txt"), Value::str("[DIR] sub")]));
@@ -431,7 +488,7 @@ mod shape_tests {
         }))
         .unwrap();
         assert_eq!(config.results.get("list_directory"), Some(&ResultShape::Lines));
-        assert!(!config.results.contains_key("read_text_file"));
+        assert_eq!(config.results["read_text_file"], ResultShape::Text);
         assert_eq!(config.examples["list_directory"], json!({"path": "/tmp"}));
         assert!(UpstreamConfig::parse(&json!({"name": "fs", "command": "x", "results": {"a": "csv"}})).is_err());
     }

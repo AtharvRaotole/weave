@@ -45,3 +45,10 @@ jobs:
           python tests/python/test_agent_tool.py
           python -m pip install openai-agents
           python tests/python/test_agent_tool.py
+      - name: offline audit acceptance matrix
+        run: |
+          python tests/audit/test_adapters.py
+          python tests/audit/test_replay.py
+          python tests/audit/test_mcp.py
+          python tests/audit/test_benchmark.py
+          timeout 35 python tests/audit/test_workers.py
