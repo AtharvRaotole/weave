@@ -126,6 +126,21 @@ impl PyEngine {
         Ok(())
     }
 
+    /// Set resource limits for later runs. `max_steps` counts statements and
+    /// loop iterations; `max_value_size` counts string bytes and container
+    /// elements. Omitted values keep their current setting.
+    #[pyo3(signature = (max_steps=None, max_value_size=None))]
+    fn set_limits(&mut self, max_steps: Option<u64>, max_value_size: Option<usize>) {
+        let mut limits = self.inner.limits();
+        if let Some(steps) = max_steps {
+            limits = limits.with_max_steps(steps);
+        }
+        if let Some(size) = max_value_size {
+            limits = limits.with_max_value_size(size);
+        }
+        self.inner.set_limits(limits);
+    }
+
     fn check(&self, source: &str) -> Vec<String> {
         self.inner.check(source).into_iter().map(|d| d.to_string()).collect()
     }
