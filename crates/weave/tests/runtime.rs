@@ -793,3 +793,19 @@ fn errors_inside_try_are_caught_under_nested_blocks() {
         assert_eq!(run_src(&engine, src).stdout(), "4\n");
     }
 }
+
+#[test]
+fn audited_value_ingress_and_unicode_find() {
+    let mut engine = Engine::new();
+    let mut limits = weave::Limits::default();
+    limits.max_value_size = 64;
+    engine.set_limits(limits);
+    for n in [63, 64, 65, 4096] {
+        let src = format!("x = {:?}\n", "a".repeat(n));
+        assert_eq!(engine.run(&src).is_ok(), n <= 64, "literal {n}");
+        engine.register("large", ToolSpec::effect(Effect::Read), move |_, _| Ok(Value::str("a".repeat(n))));
+        assert_eq!(engine.run("x = large()\n").is_ok(), n <= 64, "tool {n}");
+    }
+    let out = Engine::new().run("print(\"éx\".find(\"x\"))\nprint(\"éx\"[\"éx\".find(\"x\"):])\n").unwrap();
+    assert_eq!(out.stdout(), "1\nx\n");
+}

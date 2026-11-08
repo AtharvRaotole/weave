@@ -16,6 +16,7 @@ parallel, control flow runs locally, and the model sees one result.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 from typing import Any, Callable, Iterable
@@ -93,6 +94,8 @@ class WeaveTool:
     def run(self, source: str) -> str:
         """Check and run a script. Returns text for the model: printed output
         on success, or `error: ...` lines it can repair from."""
+        if not isinstance(source, str):
+            return 'error: source must be a string'
         if not source.endswith("\n"):
             source += "\n"
         problems = self.engine.check(source)
@@ -132,7 +135,9 @@ class WeaveTool:
         from agents import FunctionTool  # imported lazily; the SDK is optional
 
         async def invoke(_ctx, arguments: str) -> str:
-            return self._run_arguments(arguments)
+            # Do not block the SDK event loop. Cancellation abandons the await;
+            # sync host work is soft-cancelled and may continue in this thread.
+            return await asyncio.to_thread(self._run_arguments, arguments)
 
         return FunctionTool(
             name=self.name,

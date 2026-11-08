@@ -1240,7 +1240,10 @@ fn schedule_expr(expr: &Expr, g: &mut Launch, arc: &Arc<Mutex<Launch>>, env: &Ha
         ExprKind::Bool(v) => ready(Value::Bool(*v)),
         ExprKind::Int(v) => ready(Value::Int(*v)),
         ExprKind::Float(v) => ready(Value::Float(*v)),
-        ExprKind::Str(v) => ready(Value::Str(v.clone())),
+        ExprKind::Str(v) => match checked(line, col, g.limits.max_value_size, Value::Str(v.clone())) {
+            Ok(value) => ready(value),
+            Err(err) => fail(err),
+        },
         ExprKind::Name(name) => env.get(name).cloned().unwrap_or_else(|| {
             fail(WeaveError::one(Diagnostic::unbound(line, col, name)))
         }),
@@ -1577,6 +1580,7 @@ fn schedule_tool(
     let trace = g.trace.clone();
     let handle = g.handle.clone();
     let speculation = g.speculation.clone();
+    let max_value_size = g.limits.max_value_size;
     let fut = share(async move {
         let args_fut = join_values(arg_futs);
         let kwargs_fut = join_kwargs(kw_futs);
@@ -1628,6 +1632,7 @@ fn schedule_tool(
                 .await
             }
         };
+        let outcome = outcome.and_then(|v| checked(line, col, max_value_size, v));
         if let Err(err) = &outcome {
             if err.is_cancelled() {
                 return Err(err.clone());
@@ -2406,7 +2411,7 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
             .map(|_| Value::List(s.lines().map(|line| Value::Str(line.to_string())).collect())),
         (Value::Str(s), "find") => {
             let needle = one_str("find", args)?;
-            Ok(Value::Int(s.find(&needle).map(|i| i as i64).unwrap_or(-1)))
+            Ok(Value::Int(s.find(&needle).map(|i| s[..i].chars().count() as i64).unwrap_or(-1)))
         }
         (Value::Str(s), "count") => {
             let needle = one_str("count", args)?;
