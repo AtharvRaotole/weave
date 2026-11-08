@@ -10,7 +10,7 @@
     "hostname": "grok-bot-vm-405872838"
   },
   "models": [
-    "gpt-5.4-mini"
+    "gpt-6.1-sol"
   ],
   "servers": [
     "@modelcontextprotocol/server-filesystem",
@@ -23,356 +23,356 @@
   ],
   "summary": [
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "append_log",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 3.728254429000117,
+      "median_wall_s": 5.057997421999971,
       "median_model_turns": 3,
-      "input_tokens": 37670,
-      "output_tokens": 227
+      "input_tokens": 37646,
+      "output_tokens": 221
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "append_log",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.7106228310003644,
+      "median_wall_s": 1.9170976159994098,
       "median_model_turns": 1,
-      "input_tokens": 9653,
-      "output_tokens": 150
+      "input_tokens": 9942,
+      "output_tokens": 185
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "config_to_memory",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 4.215806584999882,
+      "median_wall_s": 5.295197003999419,
       "median_model_turns": 3,
       "input_tokens": 37836,
       "output_tokens": 249
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "config_to_memory",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 1.4249445089999426,
-      "median_model_turns": 2,
-      "input_tokens": 19949,
-      "output_tokens": 386
+      "median_wall_s": 1.6580217789996823,
+      "median_model_turns": 1,
+      "input_tokens": 9999,
+      "output_tokens": 212
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "count_urgent",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 4.172289166000155,
+      "median_wall_s": 5.713629492999644,
       "median_model_turns": 3,
-      "input_tokens": 38206,
-      "output_tokens": 446
+      "input_tokens": 38184,
+      "output_tokens": 384
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "count_urgent",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 1.2535942700005762,
-      "median_model_turns": 1,
-      "input_tokens": 13027,
-      "output_tokens": 368
+      "median_wall_s": 5.8939554459993815,
+      "median_model_turns": 2,
+      "input_tokens": 20995,
+      "output_tokens": 1095
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "example_heading",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 3.548828295999556,
+      "median_wall_s": 4.078609498999867,
       "median_model_turns": 2,
-      "input_tokens": 24896,
-      "output_tokens": 149
+      "input_tokens": 24882,
+      "output_tokens": 99
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "example_heading",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 1.5828181010001572,
+      "median_wall_s": 2.205306902000302,
       "median_model_turns": 1,
-      "input_tokens": 9619,
-      "output_tokens": 134
+      "input_tokens": 9923,
+      "output_tokens": 144
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "fallback_file",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 2.8452269519993933,
-      "median_model_turns": 2,
-      "input_tokens": 25080,
-      "output_tokens": 264
+      "median_wall_s": 5.234615752000536,
+      "median_model_turns": 3,
+      "input_tokens": 37601,
+      "output_tokens": 224
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "fallback_file",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.7918019119997552,
+      "median_wall_s": 1.531593927999893,
       "median_model_turns": 1,
-      "input_tokens": 9635,
-      "output_tokens": 176
+      "input_tokens": 9916,
+      "output_tokens": 168
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "git_commit",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 8.35112738999942,
-      "median_model_turns": 5,
-      "input_tokens": 64896,
-      "output_tokens": 477
+      "median_wall_s": 7.14566825700058,
+      "median_model_turns": 4,
+      "input_tokens": 50719,
+      "output_tokens": 348
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "git_commit",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.9163248180002483,
+      "median_wall_s": 2.3715761359999306,
       "median_model_turns": 1,
-      "input_tokens": 9651,
-      "output_tokens": 266
+      "input_tokens": 9961,
+      "output_tokens": 274
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "git_count",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 2.615671258000475,
+      "median_wall_s": 3.4791216930007067,
       "median_model_turns": 2,
-      "input_tokens": 25297,
+      "input_tokens": 25294,
+      "output_tokens": 127
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "git_count",
+      "mode": "weave",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 1.606905986000129,
+      "median_model_turns": 1,
+      "input_tokens": 9936,
+      "output_tokens": 199
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "task": "git_last_message",
+      "mode": "native_tools",
+      "runs": 3,
+      "passed": 3,
+      "median_wall_s": 3.4420686849998674,
+      "median_model_turns": 2,
+      "input_tokens": 24965,
       "output_tokens": 128
     },
     {
-      "model": "gpt-5.4-mini",
-      "task": "git_count",
-      "mode": "weave",
-      "runs": 3,
-      "passed": 3,
-      "median_wall_s": 1.5347351250002248,
-      "median_model_turns": 2,
-      "input_tokens": 19536,
-      "output_tokens": 215
-    },
-    {
-      "model": "gpt-5.4-mini",
-      "task": "git_last_message",
-      "mode": "native_tools",
-      "runs": 3,
-      "passed": 3,
-      "median_wall_s": 2.505574780000643,
-      "median_model_turns": 2,
-      "input_tokens": 24979,
-      "output_tokens": 131
-    },
-    {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "git_last_message",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.7336306810002498,
+      "median_wall_s": 1.6395810340000025,
       "median_model_turns": 1,
-      "input_tokens": 9612,
-      "output_tokens": 117
+      "input_tokens": 9922,
+      "output_tokens": 133
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "git_modified",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 3.0286182050003845,
+      "median_wall_s": 3.776324000000386,
       "median_model_turns": 2,
-      "input_tokens": 25199,
-      "output_tokens": 158
+      "input_tokens": 25110,
+      "output_tokens": 112
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "git_modified",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.7288871930004461,
+      "median_wall_s": 1.5005716770001527,
       "median_model_turns": 1,
-      "input_tokens": 9631,
-      "output_tokens": 170
+      "input_tokens": 9938,
+      "output_tokens": 163
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "largest_note",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 4.106869208999342,
+      "median_wall_s": 5.540793966999445,
       "median_model_turns": 3,
-      "input_tokens": 38122,
-      "output_tokens": 388
+      "input_tokens": 37898,
+      "output_tokens": 328
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "largest_note",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.8833742079996227,
+      "median_wall_s": 1.897064550000323,
       "median_model_turns": 1,
-      "input_tokens": 9667,
-      "output_tokens": 292
+      "input_tokens": 9957,
+      "output_tokens": 306
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_lookup",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 2.3908820819997345,
+      "median_wall_s": 3.0781511109998974,
       "median_model_turns": 2,
-      "input_tokens": 25097,
-      "output_tokens": 141
+      "input_tokens": 25052,
+      "output_tokens": 75
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_lookup",
       "mode": "weave",
       "runs": 3,
-      "passed": 0,
-      "median_wall_s": 2.274281443000291,
-      "median_model_turns": 3,
-      "input_tokens": 29797,
-      "output_tokens": 547
+      "passed": 3,
+      "median_wall_s": 3.268380948000413,
+      "median_model_turns": 2,
+      "input_tokens": 24130,
+      "output_tokens": 559
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_observe",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 2.678708596999968,
-      "median_model_turns": 2,
-      "input_tokens": 25304,
-      "output_tokens": 228
+      "median_wall_s": 5.492730394999853,
+      "median_model_turns": 3,
+      "input_tokens": 37851,
+      "output_tokens": 192
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_observe",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 1.4133410360000198,
-      "median_model_turns": 2,
-      "input_tokens": 19794,
-      "output_tokens": 303
+      "median_wall_s": 3.375454066000202,
+      "median_model_turns": 1,
+      "input_tokens": 9975,
+      "output_tokens": 375
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_relate",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 2.585158696999315,
-      "median_model_turns": 2,
-      "input_tokens": 25280,
-      "output_tokens": 264
+      "median_wall_s": 5.277490094999848,
+      "median_model_turns": 3,
+      "input_tokens": 37878,
+      "output_tokens": 225
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_relate",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 1.9301801860001433,
-      "median_model_turns": 3,
-      "input_tokens": 30747,
-      "output_tokens": 510
+      "median_wall_s": 1.321189336000316,
+      "median_model_turns": 1,
+      "input_tokens": 9981,
+      "output_tokens": 183
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "sum_notes",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 2.9158355150002535,
+      "median_wall_s": 3.666371608999725,
       "median_model_turns": 2,
-      "input_tokens": 25166,
-      "output_tokens": 357
+      "input_tokens": 25131,
+      "output_tokens": 225
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "sum_notes",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.8668980369993733,
+      "median_wall_s": 1.6861008500000025,
       "median_model_turns": 1,
-      "input_tokens": 9645,
-      "output_tokens": 260
+      "input_tokens": 9960,
+      "output_tokens": 258
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "two_pages",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 4.898900748999949,
-      "median_model_turns": 3,
-      "input_tokens": 40191,
-      "output_tokens": 378
+      "median_wall_s": 4.250628214999779,
+      "median_model_turns": 2,
+      "input_tokens": 25884,
+      "output_tokens": 237
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "two_pages",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 1.3767408630001228,
+      "median_wall_s": 1.9275321019995317,
       "median_model_turns": 1,
-      "input_tokens": 9719,
-      "output_tokens": 218
+      "input_tokens": 10038,
+      "output_tokens": 213
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "write_version",
       "mode": "native_tools",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 7.475010723000196,
+      "median_wall_s": 8.801203158000135,
       "median_model_turns": 5,
       "input_tokens": 63883,
       "output_tokens": 446
     },
     {
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "write_version",
       "mode": "weave",
       "runs": 3,
       "passed": 3,
-      "median_wall_s": 0.9136373569999705,
+      "median_wall_s": 2.4759943710005246,
       "median_model_turns": 1,
-      "input_tokens": 9696,
-      "output_tokens": 310
+      "input_tokens": 9982,
+      "output_tokens": 340
     }
   ],
   "rows": [
@@ -380,16 +380,16 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "input_tokens": 3217,
-      "output_tokens": 88,
-      "wall_s": 1.2501448550001442,
+      "input_tokens": 3336,
+      "output_tokens": 90,
+      "wall_s": 1.7698719829995753,
       "attempt_log": [
         {
           "attempt": 1,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "sum_notes",
       "category": "parallel",
       "mode": "weave",
@@ -399,12 +399,12 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 2,
-      "tool_calls": 3,
-      "input_tokens": 8387,
-      "output_tokens": 118,
-      "wall_s": 3.18986118399971,
+      "tool_calls": 1,
+      "input_tokens": 8377,
+      "output_tokens": 75,
+      "wall_s": 4.657457641000292,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "sum_notes",
       "category": "parallel",
       "mode": "native_tools",
@@ -412,18 +412,23 @@
     },
     {
       "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3234,
-      "output_tokens": 104,
-      "wall_s": 1.2535942700005762,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6997,
+      "output_tokens": 342,
+      "wall_s": 5.138380067999606,
       "attempt_log": [
         {
           "attempt": 1,
+          "error": "L10:C25: str has no method `isalnum`",
+          "source": "entries = fs_list_directory(\"/tmp/weave-real-7rw5bc8e/data/inbox\")\ncount = 0\nfor entry in entries:\n    if entry.startswith(\"[FILE] \"):\n        name = entry.split(\" \", 1)[1]\n        if name.endswith(\".txt\"):\n            text = fs_read_text_file(\"/tmp/weave-real-7rw5bc8e/data/inbox/\" + name)\n            words = text\n            for char in text:\n                if not (char.isalnum() or char == \"_\"):\n                    words = words.replace(char, \" \")\n            if \"URGENT\" in words.split():\n                count = count + 1\nprint(count)"
+        },
+        {
+          "attempt": 2,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "count_urgent",
       "category": "loop",
       "mode": "weave",
@@ -433,12 +438,12 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 3,
-      "tool_calls": 5,
-      "input_tokens": 12750,
-      "output_tokens": 190,
-      "wall_s": 4.172289166000155,
+      "tool_calls": 2,
+      "input_tokens": 12741,
+      "output_tokens": 133,
+      "wall_s": 5.579194403000656,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "count_urgent",
       "category": "loop",
       "mode": "native_tools",
@@ -448,16 +453,16 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "input_tokens": 3227,
-      "output_tokens": 104,
-      "wall_s": 0.9136373569999705,
+      "input_tokens": 3326,
+      "output_tokens": 111,
+      "wall_s": 2.4759943710005246,
       "attempt_log": [
         {
           "attempt": 1,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "write_version",
       "category": "write_order",
       "mode": "weave",
@@ -470,9 +475,9 @@
       "tool_calls": 4,
       "input_tokens": 21301,
       "output_tokens": 150,
-      "wall_s": 7.115191378000418,
+      "wall_s": 8.801203158000135,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "write_version",
       "category": "write_order",
       "mode": "native_tools",
@@ -482,16 +487,16 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "input_tokens": 3216,
-      "output_tokens": 60,
-      "wall_s": 0.9917319669993958,
+      "input_tokens": 3300,
+      "output_tokens": 56,
+      "wall_s": 1.3152550180002436,
       "attempt_log": [
         {
           "attempt": 1,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "fallback_file",
       "category": "tool_error",
       "mode": "weave",
@@ -500,400 +505,68 @@
     {
       "passed": true,
       "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 2,
-      "input_tokens": 8360,
-      "output_tokens": 88,
-      "wall_s": 2.8452269519993933,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "fallback_file",
-      "category": "tool_error",
-      "mode": "native_tools",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3215,
-      "output_tokens": 36,
-      "wall_s": 1.5828181010001572,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "example_heading",
-      "category": "fetch",
-      "mode": "weave",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8298,
-      "output_tokens": 55,
-      "wall_s": 3.5624899860004007,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "example_heading",
-      "category": "fetch",
-      "mode": "native_tools",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3239,
-      "output_tokens": 71,
-      "wall_s": 1.3767408630001228,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "two_pages",
-      "category": "fetch",
-      "mode": "weave",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 3,
-      "tool_calls": 3,
-      "input_tokens": 13415,
-      "output_tokens": 138,
-      "wall_s": 5.276718756000264,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "two_pages",
-      "category": "fetch",
-      "mode": "native_tools",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3226,
-      "output_tokens": 52,
-      "wall_s": 0.791820643000392,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "append_log",
-      "category": "write_order",
-      "mode": "weave",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
       "model_turns": 3,
       "tool_calls": 2,
-      "input_tokens": 12562,
-      "output_tokens": 77,
-      "wall_s": 3.728254429000117,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "append_log",
-      "category": "write_order",
-      "mode": "native_tools",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3217,
-      "output_tokens": 100,
-      "wall_s": 0.8833742079996227,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "largest_note",
-      "category": "loop",
-      "mode": "weave",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 3,
-      "tool_calls": 4,
-      "input_tokens": 12723,
-      "output_tokens": 162,
-      "wall_s": 4.106869208999342,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "largest_note",
-      "category": "loop",
-      "mode": "native_tools",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3213,
-      "output_tokens": 41,
-      "wall_s": 0.7336306810002498,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "git_last_message",
-      "category": "git",
-      "mode": "weave",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8321,
-      "output_tokens": 42,
-      "wall_s": 2.505574780000643,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "git_last_message",
-      "category": "git",
-      "mode": "native_tools",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3207,
-      "output_tokens": 51,
-      "wall_s": 0.6319993990000512,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "git_count",
-      "category": "git",
-      "mode": "weave",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8426,
-      "output_tokens": 41,
-      "wall_s": 2.615671258000475,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "git_count",
-      "category": "git",
-      "mode": "native_tools",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3209,
-      "output_tokens": 62,
-      "wall_s": 1.1431040390007183,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "git_modified",
-      "category": "git",
-      "mode": "weave",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 2,
-      "input_tokens": 8455,
-      "output_tokens": 82,
-      "wall_s": 3.0936993209998036,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "git_modified",
-      "category": "git",
-      "mode": "native_tools",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3208,
-      "output_tokens": 78,
-      "wall_s": 0.8261493909994897,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "git_commit",
-      "category": "git_write",
-      "mode": "weave",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 5,
-      "tool_calls": 4,
-      "input_tokens": 21641,
-      "output_tokens": 165,
-      "wall_s": 12.766243772000053,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "git_commit",
-      "category": "git_write",
-      "mode": "native_tools",
-      "repeat": 0
-    },
-    {
-      "passed": false,
-      "attempts": 3,
-      "model_turns": 3,
-      "input_tokens": 9976,
-      "output_tokens": 206,
-      "wall_s": 2.455874410999968,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
-          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor entity in ada[\"entities\"]:\n    if entity[\"name\"] == \"Ada\":\n        for obs in entity[\"observations\"]:\n            if \"lives in\" in obs:\n                city = obs.rsplit(\" \", 1)[-1]\nprint(city)"
-        },
-        {
-          "attempt": 2,
-          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
-          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor entity in ada[\"entities\"]:\n    if entity[\"name\"] == \"Ada\":\n        for obs in entity[\"observations\"]:\n            if \"lives in\" in obs:\n                parts = obs.rsplit(\" \", 1)\n                city = parts[-1]\nprint(city)"
-        },
-        {
-          "attempt": 3,
-          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
-          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor entity in ada[\"entities\"]:\n    if entity[\"name\"] == \"Ada\":\n        for obs in entity[\"observations\"]:\n            if \"lives in\" in obs:\n                city = obs.split(\"lives in\")[-1].strip()\nprint(city)"
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "mem_lookup",
-      "category": "memory",
-      "mode": "weave",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8367,
-      "output_tokens": 47,
-      "wall_s": 2.5599468850004996,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "mem_lookup",
-      "category": "memory",
-      "mode": "native_tools",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 2,
-      "model_turns": 2,
-      "input_tokens": 6590,
-      "output_tokens": 101,
-      "wall_s": 1.6677849519992378,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "error": "L1:C1: tool `mem_add_observations` failed: Input validation error: Invalid arguments for tool add_observations: observations.0.contents: Invalid input: expected array, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "mem_add_observations([{\"entityName\": \"Ada\", \"observations\": [\"likes tea\"]}])\nada = mem_open_nodes([\"Ada\"])\nprint(len(ada[\"entities\"][0][\"observations\"]))"
-        },
-        {
-          "attempt": 2,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "mem_observe",
-      "category": "memory_write",
-      "mode": "weave",
-      "repeat": 0
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 2,
-      "input_tokens": 8436,
+      "input_tokens": 12539,
       "output_tokens": 76,
-      "wall_s": 2.678708596999968,
+      "wall_s": 5.365113489000578,
       "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "mem_observe",
-      "category": "memory_write",
+      "model": "gpt-6.1-sol",
+      "task": "fallback_file",
+      "category": "tool_error",
       "mode": "native_tools",
       "repeat": 0
     },
     {
       "passed": true,
-      "attempts": 3,
-      "model_turns": 3,
-      "input_tokens": 10196,
-      "output_tokens": 150,
-      "wall_s": 1.9301801860001433,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3308,
+      "output_tokens": 51,
+      "wall_s": 2.278662822000115,
       "attempt_log": [
         {
           "attempt": 1,
-          "error": "L1:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "mem_create_entities([{\"name\":\"Grace\",\"type\":\"person\",\"observations\":[\"works at Navy\"]}])\nmem_create_relations([{\"from\":\"Grace\",\"to\":\"Ada\",\"type\":\"knows\"}])\nprint(\"done\")"
-        },
-        {
-          "attempt": 2,
-          "error": "L2:C1: tool `mem_create_relations` failed: Input validation error: Invalid arguments for tool create_relations: relations.0.relationType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "mem_create_entities([{\"name\":\"Grace\",\"entityType\":\"person\",\"observations\":[\"works at Navy\"]}])\nmem_create_relations([{\"from\":\"Grace\",\"to\":\"Ada\",\"type\":\"knows\"}])\nprint(\"done\")"
-        },
-        {
-          "attempt": 3,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
-      "task": "mem_relate",
-      "category": "memory_write",
+      "model": "gpt-6.1-sol",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8294,
+      "output_tokens": 33,
+      "wall_s": 3.6848121630000605,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3347,
+      "output_tokens": 71,
+      "wall_s": 2.1388704060000236,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "two_pages",
+      "category": "fetch",
       "mode": "weave",
       "repeat": 0
     },
@@ -902,13 +575,217 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 2,
-      "input_tokens": 8428,
-      "output_tokens": 88,
-      "wall_s": 4.347557713999777,
+      "input_tokens": 8630,
+      "output_tokens": 79,
+      "wall_s": 4.4434935870003756,
       "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "mem_relate",
-      "category": "memory_write",
+      "model": "gpt-6.1-sol",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3312,
+      "output_tokens": 64,
+      "wall_s": 1.9170976159994098,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12538,
+      "output_tokens": 71,
+      "wall_s": 5.057997421999971,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3323,
+      "output_tokens": 92,
+      "wall_s": 1.7801279709992741,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12629,
+      "output_tokens": 108,
+      "wall_s": 5.3423357409992605,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3313,
+      "output_tokens": 45,
+      "wall_s": 1.6395810340000025,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8330,
+      "output_tokens": 45,
+      "wall_s": 3.4420686849998674,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3329,
+      "output_tokens": 88,
+      "wall_s": 1.809909943999628,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_count",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8431,
+      "output_tokens": 42,
+      "wall_s": 3.4791216930007067,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "git_count",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3306,
+      "output_tokens": 54,
+      "wall_s": 1.5005716770001527,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8372,
+      "output_tokens": 38,
+      "wall_s": 3.8718754870005796,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3316,
+      "output_tokens": 96,
+      "wall_s": 2.3715761359999306,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 4,
+      "tool_calls": 3,
+      "input_tokens": 16922,
+      "output_tokens": 118,
+      "wall_s": 7.486835057999997,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "git_commit",
+      "category": "git_write",
       "mode": "native_tools",
       "repeat": 0
     },
@@ -916,21 +793,123 @@
       "passed": true,
       "attempts": 2,
       "model_turns": 2,
-      "input_tokens": 6639,
-      "output_tokens": 127,
-      "wall_s": 1.3844411070003844,
+      "input_tokens": 6804,
+      "output_tokens": 135,
+      "wall_s": 3.268380948000413,
       "attempt_log": [
         {
           "attempt": 1,
-          "error": "L4:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "config = fs_read_text_file(\"/tmp/weave-real-huaqkiuc/data/config.json\")\nobj = parse_json(config)\nversion = obj[\"version\"]\nmem_create_entities([{\"name\":\"weave\",\"type\":\"project\",\"observations\":[f\"version {version}\"]}])\nprint(version)"
+          "error": "L5:C20: rstrip() takes no arguments",
+          "source": "result = mem_open_nodes([\"Ada\"])\nfor entity in result[\"entities\"]:\n    for observation in entity[\"observations\"]:\n        if \"lives in \" in observation:\n            city = observation.split(\"lives in \", 1)[1].strip().rstrip(\".\")\n            print(city)"
         },
         {
           "attempt": 2,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8352,
+      "output_tokens": 25,
+      "wall_s": 3.8067429869997795,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3322,
+      "output_tokens": 112,
+      "wall_s": 3.375454066000202,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12619,
+      "output_tokens": 64,
+      "wall_s": 5.588460951999878,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3335,
+      "output_tokens": 61,
+      "wall_s": 1.6889949559999877,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12629,
+      "output_tokens": 75,
+      "wall_s": 5.277490094999848,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "mem_relate",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 0
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3328,
+      "output_tokens": 70,
+      "wall_s": 1.969250774000102,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
       "task": "config_to_memory",
       "category": "cross_server",
       "mode": "weave",
@@ -941,11 +920,11 @@
       "attempts": 1,
       "model_turns": 3,
       "tool_calls": 2,
-      "input_tokens": 12622,
-      "output_tokens": 85,
-      "wall_s": 4.215806584999882,
+      "input_tokens": 12617,
+      "output_tokens": 84,
+      "wall_s": 5.295197003999419,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "config_to_memory",
       "category": "cross_server",
       "mode": "native_tools",
@@ -955,16 +934,16 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "input_tokens": 3212,
-      "output_tokens": 85,
-      "wall_s": 0.8668980369993733,
+      "input_tokens": 3313,
+      "output_tokens": 84,
+      "wall_s": 1.6861008500000025,
       "attempt_log": [
         {
           "attempt": 1,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "sum_notes",
       "category": "parallel",
       "mode": "weave",
@@ -974,12 +953,12 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 2,
-      "tool_calls": 3,
-      "input_tokens": 8392,
-      "output_tokens": 121,
-      "wall_s": 2.878192823000063,
+      "tool_calls": 1,
+      "input_tokens": 8385,
+      "output_tokens": 78,
+      "wall_s": 3.5260627349998686,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "sum_notes",
       "category": "parallel",
       "mode": "native_tools",
@@ -989,21 +968,21 @@
       "passed": true,
       "attempts": 2,
       "model_turns": 2,
-      "input_tokens": 6572,
-      "output_tokens": 203,
-      "wall_s": 1.7275302079997346,
+      "input_tokens": 7005,
+      "output_tokens": 387,
+      "wall_s": 6.323280876999888,
       "attempt_log": [
         {
           "attempt": 1,
-          "error": "The run finished but the result is not correct. Printed output: '1'. Re-read the task and fix the logic.",
-          "source": "count = 0\nfor entry in fs_list_directory(\"/tmp/weave-real-_ob85vtd/data/inbox\"):\n    if entry.startswith(\"[FILE] \") and entry.endswith(\".txt\"):\n        path = \"/tmp/weave-real-_ob85vtd/data/inbox/\" + entry.split(\"[FILE] \", 1)[1]\n        text = fs_read_text_file(path)\n        if \"URGENT\" in text.split():\n            count += 1\nprint(count)"
+          "error": "L11:C20: str has no method `isalnum`",
+          "source": "entries = fs_list_directory(\"/tmp/weave-real-l1rmjxtq/data/inbox\")\ncount = 0\nfor entry in entries:\n    if entry.startswith(\"[FILE] \"):\n        name = entry.split(\" \", 1)[1]\n        if name.endswith(\".txt\"):\n            text = fs_read_text_file(\"/tmp/weave-real-l1rmjxtq/data/inbox/\" + name)\n            word = \"\"\n            found = False\n            for char in text + \" \":\n                if char.isalnum() or char == \"_\":\n                    word = word + char\n                else:\n                    if word == \"URGENT\":\n                        found = True\n                    word = \"\"\n            if found:\n                count = count + 1\nprint(count)"
         },
         {
           "attempt": 2,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "count_urgent",
       "category": "loop",
       "mode": "weave",
@@ -1016,9 +995,9 @@
       "tool_calls": 2,
       "input_tokens": 12728,
       "output_tokens": 128,
-      "wall_s": 5.078302592999535,
+      "wall_s": 5.713629492999644,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "count_urgent",
       "category": "loop",
       "mode": "native_tools",
@@ -1028,16 +1007,16 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "input_tokens": 3244,
+      "input_tokens": 3320,
       "output_tokens": 107,
-      "wall_s": 0.9571402909996323,
+      "wall_s": 1.856725833999917,
       "attempt_log": [
         {
           "attempt": 1,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "write_version",
       "category": "write_order",
       "mode": "weave",
@@ -1050,9 +1029,9 @@
       "tool_calls": 4,
       "input_tokens": 21281,
       "output_tokens": 146,
-      "wall_s": 7.475010723000196,
+      "wall_s": 9.150190705999194,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "write_version",
       "category": "write_order",
       "mode": "native_tools",
@@ -1062,16 +1041,16 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "input_tokens": 3208,
-      "output_tokens": 58,
-      "wall_s": 0.7456429189996925,
+      "input_tokens": 3311,
+      "output_tokens": 56,
+      "wall_s": 1.7555766790001144,
       "attempt_log": [
         {
           "attempt": 1,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "fallback_file",
       "category": "tool_error",
       "mode": "weave",
@@ -1080,376 +1059,287 @@
     {
       "passed": true,
       "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 2,
-      "input_tokens": 8355,
-      "output_tokens": 86,
-      "wall_s": 2.537252201999763,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "fallback_file",
-      "category": "tool_error",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3197,
-      "output_tokens": 49,
-      "wall_s": 1.222175580000112,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "example_heading",
-      "category": "fetch",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8298,
-      "output_tokens": 55,
-      "wall_s": 2.963680354999269,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "example_heading",
-      "category": "fetch",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3245,
-      "output_tokens": 73,
-      "wall_s": 1.3617020669998965,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "two_pages",
-      "category": "fetch",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 3,
-      "tool_calls": 3,
-      "input_tokens": 13388,
-      "output_tokens": 120,
-      "wall_s": 4.898900748999949,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "two_pages",
-      "category": "fetch",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3202,
-      "output_tokens": 46,
-      "wall_s": 0.5531034340001497,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "append_log",
-      "category": "write_order",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
       "model_turns": 3,
       "tool_calls": 2,
-      "input_tokens": 12538,
-      "output_tokens": 71,
-      "wall_s": 3.6051950340006442,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "append_log",
-      "category": "write_order",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3225,
-      "output_tokens": 95,
-      "wall_s": 0.9221289030001572,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "largest_note",
-      "category": "loop",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 3,
-      "tool_calls": 2,
-      "input_tokens": 12705,
-      "output_tokens": 115,
-      "wall_s": 4.153507333999187,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "largest_note",
-      "category": "loop",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3210,
-      "output_tokens": 39,
-      "wall_s": 0.7052788910004892,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "git_last_message",
-      "category": "git",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8332,
-      "output_tokens": 45,
-      "wall_s": 2.487132233000011,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "git_last_message",
-      "category": "git",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 2,
-      "model_turns": 2,
-      "input_tokens": 6491,
-      "output_tokens": 58,
-      "wall_s": 1.5347351250002248,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "error": "The run finished but the result is not correct. Printed output: '18'. Re-read the task and fix the logic.",
-          "source": "print(len(git_log(\"/tmp/weave-real-pqoykv9b/data/repo\").splitlines()))"
-        },
-        {
-          "attempt": 2,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "git_count",
-      "category": "git",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8429,
-      "output_tokens": 42,
-      "wall_s": 2.5550981970000066,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "git_count",
-      "category": "git",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3214,
-      "output_tokens": 52,
-      "wall_s": 0.6741589069997644,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "git_modified",
-      "category": "git",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8372,
-      "output_tokens": 38,
-      "wall_s": 3.0286182050003845,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "git_modified",
-      "category": "git",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3225,
-      "output_tokens": 98,
-      "wall_s": 0.9163248180002483,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "git_commit",
-      "category": "git_write",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 5,
-      "tool_calls": 4,
-      "input_tokens": 21626,
-      "output_tokens": 154,
-      "wall_s": 7.365771606000635,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "git_commit",
-      "category": "git_write",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": false,
-      "attempts": 3,
-      "model_turns": 3,
-      "input_tokens": 9954,
-      "output_tokens": 197,
-      "wall_s": 2.274281443000291,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
-          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor obs in ada[\"entities\"][0][\"observations\"]:\n    if \"lives in\" in obs:\n        city = obs.split(\"lives in\")[-1].strip()\nprint(city)"
-        },
-        {
-          "attempt": 2,
-          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
-          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor entity in ada[\"entities\"]:\n    if entity[\"name\"] == \"Ada\":\n        for obs in entity[\"observations\"]:\n            if \"lives in\" in obs:\n                city = obs.rsplit(\"lives in\", 1)[-1].strip()\nprint(city)"
-        },
-        {
-          "attempt": 3,
-          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
-          "source": "ada = mem_open_nodes([\"Ada\"])\ncity = \"\"\nfor entity in ada[\"entities\"]:\n    if entity[\"name\"] == \"Ada\":\n        for obs in entity[\"observations\"]:\n            if \"lives in\" in obs:\n                city = obs.split(\"lives in\", 1)[-1].strip()\nprint(city)"
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "mem_lookup",
-      "category": "memory",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8365,
-      "output_tokens": 47,
-      "wall_s": 2.3908820819997345,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "mem_lookup",
-      "category": "memory",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 2,
-      "model_turns": 2,
-      "input_tokens": 6608,
-      "output_tokens": 101,
-      "wall_s": 1.2991305329996976,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "error": "L1:C1: tool `mem_add_observations` failed: Input validation error: Invalid arguments for tool add_observations: observations.0.contents: Invalid input: expected array, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "mem_add_observations([{\"entityName\": \"Ada\", \"observations\": [\"likes tea\"]}])\nada = mem_open_nodes([\"Ada\"])\nprint(len(ada[\"entities\"][0][\"observations\"]))"
-        },
-        {
-          "attempt": 2,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "mem_observe",
-      "category": "memory_write",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 2,
-      "input_tokens": 8432,
+      "input_tokens": 12539,
       "output_tokens": 76,
-      "wall_s": 2.6283950580000237,
+      "wall_s": 5.234615752000536,
       "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "mem_observe",
-      "category": "memory_write",
+      "model": "gpt-6.1-sol",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3303,
+      "output_tokens": 50,
+      "wall_s": 1.9298148119996767,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8294,
+      "output_tokens": 33,
+      "wall_s": 4.078609498999867,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3341,
+      "output_tokens": 71,
+      "wall_s": 1.7851335900004415,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 2,
+      "input_tokens": 8626,
+      "output_tokens": 79,
+      "wall_s": 4.250628214999779,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3319,
+      "output_tokens": 73,
+      "wall_s": 2.167817663000278,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12562,
+      "output_tokens": 77,
+      "wall_s": 5.4987875030001305,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3316,
+      "output_tokens": 123,
+      "wall_s": 2.2441978050001126,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12640,
+      "output_tokens": 112,
+      "wall_s": 5.540793966999445,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3305,
+      "output_tokens": 44,
+      "wall_s": 1.506772601999728,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8319,
+      "output_tokens": 42,
+      "wall_s": 3.5600691909994566,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3298,
+      "output_tokens": 60,
+      "wall_s": 1.606905986000129,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_count",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8430,
+      "output_tokens": 42,
+      "wall_s": 3.539664819999416,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "git_count",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3330,
+      "output_tokens": 57,
+      "wall_s": 1.8051009209993936,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8369,
+      "output_tokens": 37,
+      "wall_s": 3.3857872279995718,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "git_modified",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3328,
+      "output_tokens": 103,
+      "wall_s": 2.571948775000237,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_commit",
+      "category": "git_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 4,
+      "tool_calls": 3,
+      "input_tokens": 16894,
+      "output_tokens": 115,
+      "wall_s": 7.14566825700058,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "git_commit",
+      "category": "git_write",
       "mode": "native_tools",
       "repeat": 1
     },
@@ -1457,26 +1347,94 @@
       "passed": true,
       "attempts": 3,
       "model_turns": 3,
-      "input_tokens": 10274,
-      "output_tokens": 180,
-      "wall_s": 2.108272438000313,
+      "input_tokens": 10538,
+      "output_tokens": 292,
+      "wall_s": 6.398936319000313,
       "attempt_log": [
         {
           "attempt": 1,
-          "error": "L1:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "mem_create_entities([{\"name\": \"Grace\", \"type\": \"person\", \"observations\": [\"works at Navy\"]}])\nmem_create_relations([{\"from\": \"Grace\", \"to\": \"Ada\", \"type\": \"knows\"}])\nprint(\"done\")"
+          "error": "L5:C32: str has no method `index`",
+          "source": "graph = mem_open_nodes([\"Ada\"])\nfor entity in graph[\"entities\"]:\n    for observation in entity[\"observations\"]:\n        if \"lives in \" in observation.lower():\n            city = observation[observation.lower().index(\"lives in \") + len(\"lives in \"):].strip().rstrip(\".\")\n            print(city)"
         },
         {
           "attempt": 2,
-          "error": "L2:C1: tool `mem_create_relations` failed: Input validation error: Invalid arguments for tool create_relations: relations.0.relationType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "mem_create_entities([{\"name\": \"Grace\", \"entityType\": \"person\", \"observations\": [\"works at Navy\"]}])\nmem_create_relations([{\"from\": \"Grace\", \"to\": \"Ada\", \"type\": \"knows\"}])\nprint(\"done\")"
+          "error": "L6:C20: strip() takes no arguments",
+          "source": "graph = mem_open_nodes([\"Ada\"])\nfor entity in graph[\"entities\"]:\n    for observation in entity[\"observations\"]:\n        if \"lives in \" in observation.lower():\n            prefix = observation.lower().split(\"lives in \", 1)[0]\n            city = observation[len(prefix) + len(\"lives in \"):].strip().strip(\".\")\n            print(city)"
         },
         {
           "attempt": 3,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8350,
+      "output_tokens": 25,
+      "wall_s": 2.989372911999453,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "mem_lookup",
+      "category": "memory",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3321,
+      "output_tokens": 136,
+      "wall_s": 3.591130477999286,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12616,
+      "output_tokens": 64,
+      "wall_s": 5.492730394999853,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3323,
+      "output_tokens": 61,
+      "wall_s": 1.321189336000316,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
       "task": "mem_relate",
       "category": "memory_write",
       "mode": "weave",
@@ -1485,13 +1443,13 @@
     {
       "passed": true,
       "attempts": 1,
-      "model_turns": 2,
+      "model_turns": 3,
       "tool_calls": 2,
-      "input_tokens": 8426,
-      "output_tokens": 88,
-      "wall_s": 2.585158696999315,
+      "input_tokens": 12626,
+      "output_tokens": 75,
+      "wall_s": 5.607620992000193,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_relate",
       "category": "memory_write",
       "mode": "native_tools",
@@ -1499,91 +1457,91 @@
     },
     {
       "passed": true,
-      "attempts": 2,
-      "model_turns": 2,
-      "input_tokens": 6647,
-      "output_tokens": 129,
-      "wall_s": 1.4249445089999426,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3343,
+      "output_tokens": 72,
+      "wall_s": 1.500055323000197,
       "attempt_log": [
         {
           "attempt": 1,
-          "error": "L4:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "config = fs_read_text_file(\"/tmp/weave-real-cn52ilj5/data/config.json\")\nobj = parse_json(config)\nversion = obj[\"version\"]\nmem_create_entities([{\"name\":\"weave\",\"type\":\"project\",\"observations\":[f\"version {version}\"]}])\nprint(version)"
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "weave",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12612,
+      "output_tokens": 83,
+      "wall_s": 4.67082053500053,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "config_to_memory",
+      "category": "cross_server",
+      "mode": "native_tools",
+      "repeat": 1
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3311,
+      "output_tokens": 84,
+      "wall_s": 1.4795421670005453,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8369,
+      "output_tokens": 72,
+      "wall_s": 3.666371608999725,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "sum_notes",
+      "category": "parallel",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6993,
+      "output_tokens": 366,
+      "wall_s": 5.8939554459993815,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "error": "L10:C20: str has no method `isalnum`",
+          "source": "entries = fs_list_directory(\"/tmp/weave-real-_s0k8dgy/data/inbox\")\ncount = 0\nfor entry in entries:\n    if entry.startswith(\"[FILE] \"):\n        name = entry.split(\" \", 1)[1]\n        if name.endswith(\".txt\"):\n            text = fs_read_text_file(\"/tmp/weave-real-_s0k8dgy/data/inbox/\" + name)\n            words = \"\"\n            for char in text:\n                if char.isalnum() or char == \"_\":\n                    words += char\n                else:\n                    words += \" \"\n            if \"URGENT\" in words.split():\n                count += 1\nprint(count)"
         },
         {
           "attempt": 2,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
-      "task": "config_to_memory",
-      "category": "cross_server",
-      "mode": "weave",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 3,
-      "tool_calls": 2,
-      "input_tokens": 12607,
-      "output_tokens": 82,
-      "wall_s": 7.623556651000399,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "config_to_memory",
-      "category": "cross_server",
-      "mode": "native_tools",
-      "repeat": 1
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3216,
-      "output_tokens": 87,
-      "wall_s": 0.7081127139999808,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "sum_notes",
-      "category": "parallel",
-      "mode": "weave",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 3,
-      "input_tokens": 8387,
-      "output_tokens": 118,
-      "wall_s": 2.9158355150002535,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "sum_notes",
-      "category": "parallel",
-      "mode": "native_tools",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3221,
-      "output_tokens": 61,
-      "wall_s": 0.767687147000288,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "count_urgent",
       "category": "loop",
       "mode": "weave",
@@ -1594,11 +1552,11 @@
       "attempts": 1,
       "model_turns": 3,
       "tool_calls": 2,
-      "input_tokens": 12728,
-      "output_tokens": 128,
-      "wall_s": 3.884885072000543,
+      "input_tokens": 12715,
+      "output_tokens": 123,
+      "wall_s": 5.863371314999313,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "count_urgent",
       "category": "loop",
       "mode": "native_tools",
@@ -1608,16 +1566,16 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "input_tokens": 3225,
-      "output_tokens": 99,
-      "wall_s": 0.9126896269999634,
+      "input_tokens": 3336,
+      "output_tokens": 122,
+      "wall_s": 2.97131569999965,
       "attempt_log": [
         {
           "attempt": 1,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "write_version",
       "category": "write_order",
       "mode": "weave",
@@ -1630,9 +1588,9 @@
       "tool_calls": 4,
       "input_tokens": 21301,
       "output_tokens": 150,
-      "wall_s": 8.66479073299979,
+      "wall_s": 8.7073776670004,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "write_version",
       "category": "write_order",
       "mode": "native_tools",
@@ -1642,264 +1600,254 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "input_tokens": 3211,
-      "output_tokens": 58,
-      "wall_s": 0.7918019119997552,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "fallback_file",
-      "category": "tool_error",
-      "mode": "weave",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 2,
-      "input_tokens": 8365,
-      "output_tokens": 90,
-      "wall_s": 3.9259479700003794,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "fallback_file",
-      "category": "tool_error",
-      "mode": "native_tools",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3207,
-      "output_tokens": 49,
-      "wall_s": 1.698267886999929,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "example_heading",
-      "category": "fetch",
-      "mode": "weave",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8300,
-      "output_tokens": 39,
-      "wall_s": 3.548828295999556,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "example_heading",
-      "category": "fetch",
-      "mode": "native_tools",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3235,
-      "output_tokens": 74,
-      "wall_s": 1.4775640239995482,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "two_pages",
-      "category": "fetch",
-      "mode": "weave",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 3,
-      "tool_calls": 3,
-      "input_tokens": 13388,
-      "output_tokens": 120,
-      "wall_s": 4.539647751000302,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "two_pages",
-      "category": "fetch",
-      "mode": "native_tools",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3225,
-      "output_tokens": 52,
-      "wall_s": 0.7106228310003644,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "append_log",
-      "category": "write_order",
-      "mode": "weave",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 3,
-      "tool_calls": 2,
-      "input_tokens": 12570,
-      "output_tokens": 79,
-      "wall_s": 3.769479821000459,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "append_log",
-      "category": "write_order",
-      "mode": "native_tools",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3225,
-      "output_tokens": 97,
-      "wall_s": 0.8669412729996111,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "largest_note",
-      "category": "loop",
-      "mode": "weave",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 3,
-      "tool_calls": 2,
-      "input_tokens": 12694,
-      "output_tokens": 111,
-      "wall_s": 3.904669868000383,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "largest_note",
-      "category": "loop",
-      "mode": "native_tools",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3189,
-      "output_tokens": 37,
-      "wall_s": 0.7613143119997403,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "git_last_message",
-      "category": "git",
-      "mode": "weave",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8326,
-      "output_tokens": 44,
-      "wall_s": 2.9407252490000246,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "git_last_message",
-      "category": "git",
-      "mode": "native_tools",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 3,
-      "model_turns": 3,
-      "input_tokens": 9838,
-      "output_tokens": 106,
-      "wall_s": 2.0499511709995204,
-      "attempt_log": [
-        {
-          "attempt": 1,
-          "error": "The run finished but the result is not correct. Printed output: '18'. Re-read the task and fix the logic.",
-          "source": "print(len(git_log(\"/tmp/weave-real-bm5_jz68/data/repo\").splitlines()))"
-        },
-        {
-          "attempt": 2,
-          "error": "The run finished but the result is not correct. Printed output: '4'. Re-read the task and fix the logic.",
-          "source": "print(len(git_log(\"/tmp/weave-real-bm5_jz68/data/repo\", max_count=100000).splitlines()) // 4)"
-        },
-        {
-          "attempt": 3,
-          "ok": true
-        }
-      ],
-      "model": "gpt-5.4-mini",
-      "task": "git_count",
-      "category": "git",
-      "mode": "weave",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 1,
-      "input_tokens": 8442,
-      "output_tokens": 45,
-      "wall_s": 2.658146406999549,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "git_count",
-      "category": "git",
-      "mode": "native_tools",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 1,
-      "model_turns": 1,
-      "input_tokens": 3208,
+      "input_tokens": 3305,
       "output_tokens": 56,
-      "wall_s": 0.7288871930004461,
+      "wall_s": 1.531593927999893,
       "attempt_log": [
         {
           "attempt": 1,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12523,
+      "output_tokens": 72,
+      "wall_s": 4.84306531600032,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "fallback_file",
+      "category": "tool_error",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3312,
+      "output_tokens": 43,
+      "wall_s": 2.205306902000302,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8294,
+      "output_tokens": 33,
+      "wall_s": 4.208870133000346,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "example_heading",
+      "category": "fetch",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3350,
+      "output_tokens": 71,
+      "wall_s": 1.9275321019995317,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 2,
+      "input_tokens": 8628,
+      "output_tokens": 79,
+      "wall_s": 4.083223003000057,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "two_pages",
+      "category": "fetch",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3311,
+      "output_tokens": 48,
+      "wall_s": 1.7646556649997365,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12546,
+      "output_tokens": 73,
+      "wall_s": 5.003174252000463,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "append_log",
+      "category": "write_order",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3318,
+      "output_tokens": 91,
+      "wall_s": 1.897064550000323,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 3,
+      "tool_calls": 2,
+      "input_tokens": 12629,
+      "output_tokens": 108,
+      "wall_s": 5.6177867030000925,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "largest_note",
+      "category": "loop",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3304,
+      "output_tokens": 44,
+      "wall_s": 1.6449095699999816,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8316,
+      "output_tokens": 41,
+      "wall_s": 3.111926718000177,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "git_last_message",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3309,
+      "output_tokens": 51,
+      "wall_s": 1.37218171800032,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
+      "task": "git_count",
+      "category": "git",
+      "mode": "weave",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 2,
+      "tool_calls": 1,
+      "input_tokens": 8433,
+      "output_tokens": 43,
+      "wall_s": 3.129155544000241,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "git_count",
+      "category": "git",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3302,
+      "output_tokens": 52,
+      "wall_s": 1.4929244859995379,
+      "attempt_log": [
+        {
+          "attempt": 1,
+          "ok": true
+        }
+      ],
+      "model": "gpt-6.1-sol",
       "task": "git_modified",
       "category": "git",
       "mode": "weave",
@@ -1910,11 +1858,11 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 1,
-      "input_tokens": 8372,
-      "output_tokens": 38,
-      "wall_s": 2.596820161999858,
+      "input_tokens": 8369,
+      "output_tokens": 37,
+      "wall_s": 3.776324000000386,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "git_modified",
       "category": "git",
       "mode": "native_tools",
@@ -1924,16 +1872,16 @@
       "passed": true,
       "attempts": 1,
       "model_turns": 1,
-      "input_tokens": 3218,
-      "output_tokens": 90,
-      "wall_s": 1.1752955760002806,
+      "input_tokens": 3317,
+      "output_tokens": 75,
+      "wall_s": 1.6950606109994624,
       "attempt_log": [
         {
           "attempt": 1,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "git_commit",
       "category": "git_write",
       "mode": "weave",
@@ -1942,43 +1890,37 @@
     {
       "passed": true,
       "attempts": 1,
-      "model_turns": 5,
-      "tool_calls": 4,
-      "input_tokens": 21629,
-      "output_tokens": 158,
-      "wall_s": 8.35112738999942,
+      "model_turns": 4,
+      "tool_calls": 3,
+      "input_tokens": 16903,
+      "output_tokens": 115,
+      "wall_s": 6.866852251999262,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "git_commit",
       "category": "git_write",
       "mode": "native_tools",
       "repeat": 2
     },
     {
-      "passed": false,
-      "attempts": 3,
-      "model_turns": 3,
-      "input_tokens": 9867,
-      "output_tokens": 144,
-      "wall_s": 1.9561331169998084,
+      "passed": true,
+      "attempts": 2,
+      "model_turns": 2,
+      "input_tokens": 6788,
+      "output_tokens": 132,
+      "wall_s": 3.0474031959993226,
       "attempt_log": [
         {
           "attempt": 1,
-          "error": "The run finished but the result is not correct. Printed output: 'lives in London'. Re-read the task and fix the logic.",
-          "source": "node = mem_open_nodes([\"Ada\"], 1)\nprint(node[\"entities\"][0][\"observations\"][0])"
+          "error": "L5:C20: rstrip() takes no arguments",
+          "source": "result = mem_open_nodes([\"Ada\"])\nfor entity in result[\"entities\"]:\n    for observation in entity[\"observations\"]:\n        if \"lives in \" in observation:\n            city = observation.split(\"lives in \", 1)[1].strip().rstrip(\".\")\n            print(city)"
         },
         {
           "attempt": 2,
-          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
-          "source": "node = mem_open_nodes([\"Ada\"], 10)\ncity = \"\"\nfor obs in node[\"entities\"][0][\"observations\"]:\n    if \"lives in\" in obs:\n        city = obs.rsplit(\"lives in \", 1)[1]\nprint(city)"
-        },
-        {
-          "attempt": 3,
-          "error": "The run finished but the result is not correct. Printed output: ''. Re-read the task and fix the logic.",
-          "source": "node = mem_open_nodes([\"Ada\"], 10)\ncity = \"\"\nfor obs in node[\"entities\"][0][\"observations\"]:\n    if \"lives in\" in obs:\n        city = obs.rsplit(\"lives in\", 1)[1].strip()\nprint(city)"
+          "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_lookup",
       "category": "memory",
       "mode": "weave",
@@ -1989,11 +1931,11 @@
       "attempts": 1,
       "model_turns": 2,
       "tool_calls": 1,
-      "input_tokens": 8365,
-      "output_tokens": 47,
-      "wall_s": 2.1429232400005276,
+      "input_tokens": 8350,
+      "output_tokens": 25,
+      "wall_s": 3.0781511109998974,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_lookup",
       "category": "memory",
       "mode": "native_tools",
@@ -2001,23 +1943,18 @@
     },
     {
       "passed": true,
-      "attempts": 2,
-      "model_turns": 2,
-      "input_tokens": 6596,
-      "output_tokens": 101,
-      "wall_s": 1.4133410360000198,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3332,
+      "output_tokens": 127,
+      "wall_s": 3.078180747999795,
       "attempt_log": [
         {
           "attempt": 1,
-          "error": "L1:C1: tool `mem_add_observations` failed: Input validation error: Invalid arguments for tool add_observations: observations.0.contents: Invalid input: expected array, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "mem_add_observations([{\"entityName\": \"Ada\", \"observations\": [\"likes tea\"]}])\nada = mem_open_nodes([\"Ada\"])\nprint(len(ada[\"entities\"][0][\"observations\"]))"
-        },
-        {
-          "attempt": 2,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_observe",
       "category": "memory_write",
       "mode": "weave",
@@ -2026,42 +1963,32 @@
     {
       "passed": true,
       "attempts": 1,
-      "model_turns": 2,
-      "tool_calls": 2,
-      "input_tokens": 8436,
-      "output_tokens": 76,
-      "wall_s": 3.1607712029999675,
-      "error": null,
-      "model": "gpt-5.4-mini",
-      "task": "mem_observe",
-      "category": "memory_write",
-      "mode": "native_tools",
-      "repeat": 2
-    },
-    {
-      "passed": true,
-      "attempts": 3,
       "model_turns": 3,
-      "input_tokens": 10277,
-      "output_tokens": 180,
-      "wall_s": 1.9199423049994948,
+      "tool_calls": 2,
+      "input_tokens": 12616,
+      "output_tokens": 64,
+      "wall_s": 4.7363148860004,
+      "error": null,
+      "model": "gpt-6.1-sol",
+      "task": "mem_observe",
+      "category": "memory_write",
+      "mode": "native_tools",
+      "repeat": 2
+    },
+    {
+      "passed": true,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3323,
+      "output_tokens": 61,
+      "wall_s": 1.2039968130002308,
       "attempt_log": [
         {
           "attempt": 1,
-          "error": "L1:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "mem_create_entities([{\"name\": \"Grace\", \"type\": \"person\", \"observations\": [\"works at Navy\"]}])\nmem_create_relations([{\"from\": \"Grace\", \"to\": \"Ada\", \"type\": \"knows\"}])\nprint(\"done\")"
-        },
-        {
-          "attempt": 2,
-          "error": "L2:C1: tool `mem_create_relations` failed: Input validation error: Invalid arguments for tool create_relations: relations.0.relationType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "mem_create_entities([{\"name\": \"Grace\", \"entityType\": \"person\", \"observations\": [\"works at Navy\"]}])\nmem_create_relations([{\"from\": \"Grace\", \"to\": \"Ada\", \"type\": \"knows\"}])\nprint(\"done\")"
-        },
-        {
-          "attempt": 3,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_relate",
       "category": "memory_write",
       "mode": "weave",
@@ -2070,13 +1997,13 @@
     {
       "passed": true,
       "attempts": 1,
-      "model_turns": 2,
+      "model_turns": 3,
       "tool_calls": 2,
-      "input_tokens": 8426,
-      "output_tokens": 88,
-      "wall_s": 2.582372798000506,
+      "input_tokens": 12623,
+      "output_tokens": 75,
+      "wall_s": 5.242182757999217,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "mem_relate",
       "category": "memory_write",
       "mode": "native_tools",
@@ -2084,23 +2011,18 @@
     },
     {
       "passed": true,
-      "attempts": 2,
-      "model_turns": 2,
-      "input_tokens": 6663,
-      "output_tokens": 130,
-      "wall_s": 1.4573649859994475,
+      "attempts": 1,
+      "model_turns": 1,
+      "input_tokens": 3328,
+      "output_tokens": 70,
+      "wall_s": 1.6580217789996823,
       "attempt_log": [
         {
           "attempt": 1,
-          "error": "L2:C1: tool `mem_create_entities` failed: Input validation error: Invalid arguments for tool create_entities: entities.0.entityType: Invalid input: expected string, received undefined hint: catch it with `except ToolError` or fix the call",
-          "source": "config = parse_json(fs_read_text_file(path=\"/tmp/weave-real-gdanz_nu/data/config.json\"))\nmem_create_entities([{\"name\": \"weave\", \"type\": \"project\", \"observations\": [f\"version {config[\"version\"]}\"]}])\nprint(config[\"version\"])"
-        },
-        {
-          "attempt": 2,
           "ok": true
         }
       ],
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "config_to_memory",
       "category": "cross_server",
       "mode": "weave",
@@ -2113,9 +2035,9 @@
       "tool_calls": 2,
       "input_tokens": 12607,
       "output_tokens": 82,
-      "wall_s": 3.9033758649993615,
+      "wall_s": 5.828991893999955,
       "error": null,
-      "model": "gpt-5.4-mini",
+      "model": "gpt-6.1-sol",
       "task": "config_to_memory",
       "category": "cross_server",
       "mode": "native_tools",
@@ -2134,6 +2056,6 @@
       10.0
     ]
   },
-  "estimated_cost_usd": 0.2383,
+  "estimated_cost_usd": 0.4944,
   "stopped_early": null
 }

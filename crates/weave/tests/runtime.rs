@@ -755,3 +755,28 @@ fn parallel_loop_keeps_the_last_conditional_assignment() {
         assert_eq!(run_src(&engine, src).stdout(), want, "{src}");
     }
 }
+
+#[test]
+fn str_strip_chars_and_is_predicates_match_python() {
+    let engine = Engine::new();
+    let cases: &[(&str, &str)] = &[
+        ("\"  x  \".strip()", "[x]"),
+        ("\"..x.,\".strip(\".,\")", "[x]"),
+        ("\"xxhixx\".lstrip(\"x\")", "[hixx]"),
+        ("\"London.\".rstrip(\".\")", "[London]"),
+        ("\" a \".rstrip(None)", "[ a]"),
+        ("\"ab1\".isalnum()", "[True]"),
+        ("\"a-b\".isalnum()", "[False]"),
+        ("\"\".isalnum()", "[False]"),
+        ("\"a1\".isalpha()", "[False]"),
+        ("\" \\t\".isspace()", "[True]"),
+        ("\"ABC1\".isupper()", "[True]"),
+        ("\"AbC\".isupper()", "[False]"),
+        ("\"abc!\".islower()", "[True]"),
+        ("\"123\".islower()", "[False]"),
+    ];
+    for (expr, want) in cases {
+        let result = run_src(&engine, &format!("print(f\"[{{{expr}}}]\")\n"));
+        assert_eq!(result.stdout(), format!("{want}\n"), "{expr}");
+    }
+}

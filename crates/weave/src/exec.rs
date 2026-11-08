@@ -2353,9 +2353,26 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
     match (recv, name) {
         (Value::Str(s), "lower") => no_args(name, args).map(|_| Value::Str(s.to_lowercase())),
         (Value::Str(s), "upper") => no_args(name, args).map(|_| Value::Str(s.to_uppercase())),
-        (Value::Str(s), "strip") => no_args(name, args).map(|_| Value::Str(s.trim().to_string())),
-        (Value::Str(s), "lstrip") => no_args(name, args).map(|_| Value::Str(s.trim_start().to_string())),
-        (Value::Str(s), "rstrip") => no_args(name, args).map(|_| Value::Str(s.trim_end().to_string())),
+        (Value::Str(s), method @ ("strip" | "lstrip" | "rstrip")) => {
+            // Python: no argument (or None) strips whitespace; a string strips
+            // any of its characters.
+            let chars: Option<Vec<char>> = match args {
+                [] | [Value::Null] => None,
+                [Value::Str(set)] => Some(set.chars().collect()),
+                [_] => return Err(format!("{method}() argument must be str or None")),
+                _ => return Err(format!("{method}() takes at most 1 argument")),
+            };
+            let matches = |c: char| match &chars {
+                None => c.is_whitespace(),
+                Some(set) => set.contains(&c),
+            };
+            let out = match method {
+                "strip" => s.trim_matches(matches),
+                "lstrip" => s.trim_start_matches(matches),
+                _ => s.trim_end_matches(matches),
+            };
+            Ok(Value::Str(out.to_string()))
+        }
         (Value::Str(s), method @ ("split" | "rsplit")) => {
             if args.len() > 2 {
                 return Err(format!("{method}() takes at most 2 arguments"));
@@ -2398,6 +2415,14 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
             }
             Ok(Value::Int(s.matches(&needle).count() as i64))
         }
+        (Value::Str(s), "isalnum") => no_args(name, args).map(|_| Value::Bool(!s.is_empty() && s.chars().all(char::is_alphanumeric))),
+        (Value::Str(s), "isspace") => no_args(name, args).map(|_| Value::Bool(!s.is_empty() && s.chars().all(char::is_whitespace))),
+        (Value::Str(s), "isupper") => no_args(name, args).map(|_| {
+            Value::Bool(s.chars().any(char::is_alphabetic) && !s.chars().any(char::is_lowercase))
+        }),
+        (Value::Str(s), "islower") => no_args(name, args).map(|_| {
+            Value::Bool(s.chars().any(char::is_alphabetic) && !s.chars().any(char::is_uppercase))
+        }),
         (Value::Str(s), "isdigit") => no_args(name, args).map(|_| Value::Bool(!s.is_empty() && s.chars().all(|c| c.is_ascii_digit()))),
         (Value::Str(s), "isalpha") => no_args(name, args).map(|_| Value::Bool(!s.is_empty() && s.chars().all(|c| c.is_alphabetic()))),
         (Value::Str(s), "title") => no_args(name, args).map(|_| {
