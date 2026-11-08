@@ -190,6 +190,7 @@ fn tools_list(config: &ServerConfig) -> Json {
         tools.push(json!({
             "name": tool.name,
             "description": tool.description,
+            "annotations": {"readOnlyHint": tool.effect <= Effect::Read},
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -205,6 +206,7 @@ fn tools_list(config: &ServerConfig) -> Json {
                 "name": tool.name,
                 "description": tool.description,
                 "inputSchema": tool.input_schema,
+                "annotations": {"readOnlyHint": tool.effect <= Effect::Read},
             }));
         }
     }
