@@ -20,7 +20,8 @@ use crate::error::{Diagnostic, WeaveError};
 use crate::parse::{parse_detailed, parse_program};
 use crate::stream::complete_prefix_end;
 use crate::cancel::{CancelSource, CancelToken};
-use crate::tools::{ToolBody, ToolFn, ToolRegistry, ToolSpec};
+use crate::speculate::{PredictedCall, Predictor, SpecCache, SpecStats};
+use crate::tools::{IsolatedJob, IsolatedStart, ToolBody, ToolFn, ToolRegistry, ToolSpec};
 use crate::trace::{Trace, TraceBuilder, TraceEvent};
 use crate::value::{self, Value};
 
@@ -77,6 +78,7 @@ struct Launch {
     env: HashMap<String, ValFut>,
     roots: Vec<ValFut>,
     pending_spawn: Vec<ValFut>,
+    speculation: Option<SpecCache>,
 }
 
 struct BarrierSnap {
@@ -172,6 +174,15 @@ impl Engine {
         );
     }
 
+    /// Sync work the host can destroy. On timeout or session cancel Weave calls
+    /// [`IsolatedJob::kill`] and stops waiting. The host must make `wait` return.
+    pub fn register_isolated<F>(&mut self, name: &str, spec: ToolSpec, start: F)
+    where
+        F: Fn(Vec<Value>, BTreeMap<String, Value>) -> Result<IsolatedJob, String> + Send + Sync + 'static,
+    {
+        self.tools.register_isolated(name, spec, Arc::new(start));
+    }
+
     pub fn check(&self, source: &str) -> Vec<Diagnostic> {
         match parse_detailed(source, 0) {
             Ok(parsed) => {
@@ -184,13 +195,30 @@ impl Engine {
     }
 
     pub fn run(&self, source: &str) -> Result<RunResult, WeaveError> {
+        self.run_with(source, None)
+    }
+
+    /// Run `source`, serving pure and read calls from `speculation` when the
+    /// arguments match a prediction. See [`Engine::speculate`].
+    pub fn run_with(&self, source: &str, speculation: Option<&SpecCache>) -> Result<RunResult, WeaveError> {
         let diags = self.check(source);
         if !diags.is_empty() {
             return Err(WeaveError::new(diags));
         }
-        let mut session = self.open(RunMode::Execute);
+        let mut session = self.open(RunMode::Execute, speculation.cloned());
         session.push(source)?;
         session.finish()
+    }
+
+    /// Start pure and read predictions immediately. Other effects are counted
+    /// as rejected and are not called. Pair the cache with [`Engine::run_with`].
+    pub fn speculate(&self, calls: &[PredictedCall]) -> SpecCache {
+        SpecCache::start(&self.tools, calls)
+    }
+
+    /// [`Predictor::predict`] then [`Engine::speculate`].
+    pub fn speculate_with(&self, predictor: &dyn Predictor, hint: &str) -> SpecCache {
+        self.speculate(&predictor.predict(hint))
     }
 
     pub fn replay(&self, source: &str, trace: &Trace) -> Result<RunResult, WeaveError> {
@@ -198,7 +226,7 @@ impl Engine {
         if !diags.is_empty() {
             return Err(WeaveError::new(diags));
         }
-        let mut session = self.open(RunMode::Replay(Arc::new(trace.clone())));
+        let mut session = self.open(RunMode::Replay(Arc::new(trace.clone())), None);
         session.push(source)?;
         let result = session.finish()?;
         if result.trace.events.len() != trace.events.len() {
@@ -216,10 +244,10 @@ impl Engine {
     }
 
     pub fn session(&self) -> Session {
-        self.open(RunMode::Execute)
+        self.open(RunMode::Execute, None)
     }
 
-    fn open(&self, mode: RunMode) -> Session {
+    fn open(&self, mode: RunMode, speculation: Option<SpecCache>) -> Session {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .max_blocking_threads(64)
@@ -247,6 +275,7 @@ impl Engine {
             env: HashMap::new(),
             roots: Vec::new(),
             pending_spawn: Vec::new(),
+            speculation,
         };
         let arc = Arc::new(Mutex::new(launch));
         runtime.spawn(driver(rx, arc, result_tx));
@@ -375,6 +404,8 @@ pub struct RunResult {
     pub bindings: BTreeMap<String, Value>,
     pub prints: Vec<String>,
     pub trace: Trace,
+    /// Set when the run was given a speculation cache.
+    pub speculation: Option<SpecStats>,
 }
 
 impl RunResult {
@@ -458,10 +489,12 @@ async fn driver(
             }
         }
         let prints = g.prints.lock().expect("prints").clone();
+        let speculation = g.speculation.as_ref().map(SpecCache::stats);
         Ok(RunResult {
             bindings,
             prints,
             trace,
+            speculation,
         })
     };
     {
@@ -1390,6 +1423,7 @@ fn schedule_tool(
     let mode = g.mode.clone();
     let trace = g.trace.clone();
     let handle = g.handle.clone();
+    let speculation = g.speculation.clone();
     let fut = share(async move {
         let args_fut = join_values(arg_futs);
         let kwargs_fut = join_kwargs(kw_futs);
@@ -1418,9 +1452,11 @@ fn schedule_tool(
         let outcome = match &mode {
             RunMode::Replay(recorded) => replay_tool(line, col, seq, &tool_name, &args, &kwargs, recorded),
             RunMode::Execute => {
-                run_tool_attempts(
+                execute_tool(
                     line,
                     col,
+                    effect,
+                    &speculation,
                     &tool_name,
                     &handle,
                     &body,
@@ -1586,7 +1622,32 @@ async fn wait_complete(
     }
 }
 
-async fn run_tool_attempts(
+async fn execute_tool(
+    line: usize,
+    col: usize,
+    effect: Effect,
+    speculation: &Option<SpecCache>,
+    tool_name: &str,
+    handle: &Handle,
+    body: &ToolBody,
+    args: &[Value],
+    kwargs: &BTreeMap<String, Value>,
+    retries: u32,
+    timeout: Option<std::time::Duration>,
+    cancel: &watch::Receiver<bool>,
+) -> Result<Value, WeaveError> {
+    if matches!(effect, Effect::Pure | Effect::Read) {
+        if let Some(cache) = speculation {
+            if let Some(hit) = cache.take(tool_name, args, kwargs).await {
+                return hit.map_err(|message| WeaveError::tool(line, col, message));
+            }
+            cache.miss();
+        }
+    }
+    run_tool_attempts(line, col, tool_name, handle, body, args, kwargs, retries, timeout, cancel).await
+}
+
+pub(crate) async fn run_tool_attempts(
     line: usize,
     col: usize,
     tool_name: &str,
@@ -1656,6 +1717,14 @@ async fn invoke_once(
             let session = session.clone();
             handle.spawn(async move {
                 invoke_async(func, call_args, call_kwargs, token, source, limit, session).await
+            })
+        }
+        ToolBody::Isolated(start) => {
+            let start = start.clone();
+            let limit = timeout;
+            let session = session.clone();
+            handle.spawn(async move {
+                invoke_isolated(start, call_args, call_kwargs, limit, session, &label).await
             })
         }
     };
@@ -1734,6 +1803,54 @@ async fn invoke_cooperative(
         }
         _ = session_hit => {
             source.cancel();
+            Err("execution was cancelled".into())
+        }
+    }
+}
+
+async fn invoke_isolated(
+    start: IsolatedStart,
+    args: Vec<Value>,
+    kwargs: BTreeMap<String, Value>,
+    limit: Option<std::time::Duration>,
+    session: watch::Receiver<bool>,
+    tool_name: &str,
+) -> Result<Value, String> {
+    let job = start(args, kwargs)?;
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let wait = job.waiter();
+    std::thread::spawn(move || {
+        let _ = tx.send(wait());
+    });
+    let timeout_sleep = async {
+        if let Some(limit) = limit {
+            tokio::time::sleep(limit).await;
+        } else {
+            std::future::pending::<()>().await;
+        }
+    };
+    let mut session_rx = session.clone();
+    let session_hit = async move {
+        if *session_rx.borrow() {
+            return;
+        }
+        while session_rx.changed().await.is_ok() {
+            if *session_rx.borrow() {
+                return;
+            }
+        }
+    };
+    tokio::select! {
+        result = rx => match result {
+            Ok(value) => value,
+            Err(_) => Err(format!("tool `{tool_name}` panicked")),
+        },
+        _ = timeout_sleep => {
+            job.kill();
+            Err(format!("timed out after {}ms", limit.unwrap_or_default().as_millis()))
+        }
+        _ = session_hit => {
+            job.kill();
             Err("execution was cancelled".into())
         }
     }
