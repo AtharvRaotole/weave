@@ -23,6 +23,6 @@ pub use effect::Effect;
 pub use error::{Diagnostic, WeaveError};
 pub use exec::{Engine, RunResult, Session};
 pub use speculate::{PredictedCall, Predictor, SpecCache, SpecStats};
-pub use tools::{IsolatedJob, ToolFn, ToolSpec};
+pub use tools::{Footprint, IsolatedJob, ToolFn, ToolSpec};
 pub use trace::{Trace, TraceEvent};
 pub use value::Value;

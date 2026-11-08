@@ -79,6 +79,56 @@ pub struct ToolSpec {
     /// Extra attempts after a failure or timeout. Zero means one try.
     pub retries: u32,
     pub timeout: Option<Duration>,
+    /// Resources this tool reads. Used to decide which speculated results a
+    /// write invalidates. Default: every resource.
+    pub reads: Footprint,
+    /// Resources this tool writes (only meaningful for reversible and
+    /// irreversible tools). Default: every resource, so any write
+    /// invalidates every cached speculative read.
+    pub writes: Footprint,
+}
+
+/// A set of named resources a tool touches.
+///
+/// `All` overlaps with everything. `Only(names)` overlaps with another
+/// footprint when they share a name. An empty `Only` touches nothing.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Footprint {
+    #[default]
+    All,
+    Only(Vec<String>),
+}
+
+impl Footprint {
+    pub fn only<I, S>(names: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        Self::Only(names.into_iter().map(Into::into).collect())
+    }
+
+    /// Parse a comma-separated list. `*` means [`Footprint::All`].
+    pub fn parse(text: &str) -> Self {
+        let names: Vec<String> = text
+            .split(',')
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(str::to_string)
+            .collect();
+        if names.iter().any(|name| name == "*") {
+            Self::All
+        } else {
+            Self::Only(names)
+        }
+    }
+
+    pub fn overlaps(&self, other: &Footprint) -> bool {
+        match (self, other) {
+            (Self::All, _) | (_, Self::All) => true,
+            (Self::Only(a), Self::Only(b)) => a.iter().any(|name| b.contains(name)),
+        }
+    }
 }
 
 impl Default for ToolSpec {
@@ -89,6 +139,8 @@ impl Default for ToolSpec {
             accepts_kwargs: false,
             retries: 0,
             timeout: None,
+            reads: Footprint::All,
+            writes: Footprint::All,
         }
     }
 }
@@ -108,6 +160,18 @@ impl ToolSpec {
 
     pub fn with_retries(mut self, retries: u32) -> Self {
         self.retries = retries;
+        self
+    }
+
+    /// Declare the resources this tool reads.
+    pub fn with_reads(mut self, reads: Footprint) -> Self {
+        self.reads = reads;
+        self
+    }
+
+    /// Declare the resources this tool writes.
+    pub fn with_writes(mut self, writes: Footprint) -> Self {
+        self.writes = writes;
         self
     }
 
