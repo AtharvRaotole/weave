@@ -216,7 +216,16 @@ pub fn script_tool_listing(config: &ServerConfig) -> String {
                     },
                     None => format!("{output:?}"),
                 };
-                lines.push(format!("  example: {}({}) -> {}", tool.name, arguments, output));
+                // Show the sample as a Weave call with keyword arguments.
+                let call_args: Vec<String> = arguments
+                    .as_object()
+                    .map(|map| {
+                        map.iter()
+                            .map(|(k, v)| format!("{k}={}", crate::upstream::from_plain_json(v)))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                lines.push(format!("  example: {}({}) -> {}", tool.name, call_args.join(", "), output));
             }
         }
     }
