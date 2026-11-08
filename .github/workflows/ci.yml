@@ -25,6 +25,9 @@ jobs:
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - name: build wheel and run the example
         run: |
           python -m pip install "maturin>=1.8,<2"
@@ -37,3 +40,8 @@ jobs:
           python -m weave.cli run examples/hello.weave --tool name=weather,effect=read,behavior=echo,arity=1
           cargo build -p weave-mcp
           python examples/mcp_client.py
+          python examples/real_mcp_upstream.py
+          python examples/run_weave_tool.py
+          python tests/python/test_agent_tool.py
+          python -m pip install openai-agents
+          python tests/python/test_agent_tool.py

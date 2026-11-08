@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-SYSTEM_PROMPT = """You write Weave, a Python subset for tool calls. No imports, no def, no classes, no while, no with, no lambdas, no comprehensions.
-Use assignment, calls, if/else, for, try/except, lists, dicts, f-strings, str/list/dict methods, and builtins (str, int, len, range, sum, min, max, sorted, enumerate, zip, any, all, list).
+SYSTEM_PROMPT = """You write Weave, a Python subset for tool calls. No imports, no def, no classes, no while, no break, no with, no lambdas, no comprehensions.
+Use assignment, calls, if/else, for, try/except, lists, dicts, f-strings, str/list/dict methods, and builtins (str, int, len, range, sum, min, max, sorted, enumerate, zip, any, all, list, parse_json).
+Text results: use split, splitlines, strip, startswith, and `in`; parse JSON text with parse_json(text), not json.loads.
 Tool results can be strings, numbers, or lists; loop over a list result with for. Build lists with xs.append(v) or xs = xs + [v].
 A tool that fails raises ToolError. If the task says a call may fail or needs a fallback, wrap it: try: ... except ToolError: ...
 Print exactly the format the task asks for, nothing else.

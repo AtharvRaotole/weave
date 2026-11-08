@@ -9,8 +9,14 @@ use std::collections::BTreeMap;
 use std::thread;
 use std::time::Duration;
 
+use std::sync::Arc;
+
 use serde_json::{json, Value as Json};
 use weave::{Effect, Engine, ToolSpec, Value};
+
+pub mod framing;
+pub mod upstream;
+pub use upstream::{Upstream, UpstreamConfig};
 
 /// Tools the server exposes directly, in addition to `weave_check`, `weave_run`,
 /// and `weave_replay`. Loaded from a JSON config.
@@ -30,20 +36,34 @@ pub struct ScriptedTool {
 #[derive(Clone, Debug, Default)]
 pub struct ServerConfig {
     pub tools: Vec<ScriptedTool>,
+    /// Other MCP servers whose tools Weave scripts can call.
+    pub upstreams: Vec<Arc<Upstream>>,
 }
 
 impl ServerConfig {
     pub fn from_json(text: &str) -> Result<Self, String> {
         let value: Json = serde_json::from_str(text).map_err(|err| err.to_string())?;
-        let tools = value
-            .get("tools")
-            .and_then(|v| v.as_array())
-            .ok_or("config needs a tools list")?;
+        let empty = Vec::new();
+        let tools = match value.get("tools") {
+            None => &empty,
+            Some(v) => v.as_array().ok_or("tools must be a list")?,
+        };
+        let upstream_list = match value.get("upstreams") {
+            None => &empty,
+            Some(v) => v.as_array().ok_or("upstreams must be a list")?,
+        };
+        if value.get("tools").is_none() && value.get("upstreams").is_none() {
+            return Err("config needs a tools list or an upstreams list".into());
+        }
         let mut parsed = Vec::with_capacity(tools.len());
         for tool in tools {
             parsed.push(parse_scripted(tool)?);
         }
-        Ok(Self { tools: parsed })
+        let mut upstreams = Vec::new();
+        for item in upstream_list {
+            upstreams.push(Upstream::connect(UpstreamConfig::parse(item)?)?);
+        }
+        Ok(Self { tools: parsed, upstreams })
     }
 
     pub fn load(path: &std::path::Path) -> Result<Self, String> {
@@ -63,7 +83,7 @@ pub fn handle_with(message: &Json, config: &ServerConfig) -> Option<Json> {
     let params = message.get("params").cloned().unwrap_or(json!({}));
     let result = match method {
         "initialize" => Ok(json!({
-            "protocolVersion": "2024-11-05",
+            "protocolVersion": negotiated_version(&params),
             "capabilities": {"tools": {"listChanged": false}},
             "serverInfo": {"name": "weave", "version": "0.1.0"}
         })),
@@ -89,6 +109,13 @@ pub fn handle_with(message: &Json, config: &ServerConfig) -> Option<Json> {
     })
 }
 
+/// Answer with the client's protocol version when it is one we speak.
+fn negotiated_version(params: &Json) -> &'static str {
+    const KNOWN: [&str; 3] = ["2025-06-18", "2025-03-26", "2024-11-05"];
+    let asked = params.get("protocolVersion").and_then(|v| v.as_str()).unwrap_or("");
+    KNOWN.iter().copied().find(|v| *v == asked).unwrap_or("2024-11-05")
+}
+
 fn tools_list(config: &ServerConfig) -> Json {
     let mut tools = vec![
         json!({
@@ -105,7 +132,7 @@ fn tools_list(config: &ServerConfig) -> Json {
         }),
         json!({
             "name": "weave_run",
-            "description": "Run a Weave script. Scripted tools are echo or const. Pure and read calls run in parallel; irreversible calls wait until the script is complete. Omit tools to use the server config.",
+            "description": "Run a Weave script. Pure and read calls run in parallel; irreversible calls wait until the script is complete. Omit tools to use the server config (scripted tools and upstream MCP tools).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -141,7 +168,46 @@ fn tools_list(config: &ServerConfig) -> Json {
             }
         }));
     }
+    for upstream in &config.upstreams {
+        for tool in &upstream.tools {
+            tools.push(json!({
+                "name": tool.name,
+                "description": tool.description,
+                "inputSchema": tool.input_schema,
+            }));
+        }
+    }
+    if let Some(run) = tools.iter_mut().find(|t| t["name"] == "weave_run") {
+        let listing = script_tool_listing(config);
+        if !listing.is_empty() {
+            let base = run["description"].as_str().unwrap_or("").to_string();
+            run["description"] = json!(format!("{base}\nTools callable from the script:\n{listing}"));
+        }
+    }
     json!({ "tools": tools })
+}
+
+/// One line per tool a script can call, with parameters in positional order.
+pub fn script_tool_listing(config: &ServerConfig) -> String {
+    let mut lines = Vec::new();
+    for upstream in &config.upstreams {
+        for tool in &upstream.tools {
+            let summary = tool.description.lines().next().unwrap_or("");
+            let params: Vec<String> = tool
+                .params
+                .iter()
+                .map(|p| if tool.required.contains(p) { p.clone() } else { format!("{p}=None") })
+                .collect();
+            lines.push(format!(
+                "{}({}), effect {}. {}",
+                tool.name,
+                params.join(", "),
+                tool.effect.as_str(),
+                summary
+            ));
+        }
+    }
+    lines.join("\n")
 }
 
 fn tool_schema() -> Json {
@@ -171,7 +237,14 @@ fn tools_call(params: &Json, config: &ServerConfig) -> Result<Json, (i32, String
         "weave_replay" => weave_replay(&args, config),
         other => match config.tools.iter().find(|tool| tool.name == other) {
             Some(tool) => call_configured(tool, &args),
-            None => return Err((-32602, format!("unknown tool `{other}`"))),
+            None => match config
+                .upstreams
+                .iter()
+                .find_map(|u| u.tools.iter().find(|t| t.name == other).map(|t| (u, t)))
+            {
+                Some((upstream, tool)) => upstream.call(&tool.upstream_name, args.clone()),
+                None => return Err((-32602, format!("unknown tool `{other}`"))),
+            },
         },
     };
     match text {
@@ -247,6 +320,9 @@ fn render_result(result: &weave::RunResult) -> String {
 
 fn engine_from_args(args: &Json, config: &ServerConfig) -> Result<Engine, String> {
     let mut engine = Engine::new();
+    for upstream in &config.upstreams {
+        upstream.register_all(&mut engine);
+    }
     if let Some(tools) = args.get("tools") {
         let tools = tools.as_array().ok_or("tools must be a list")?;
         for tool in tools {

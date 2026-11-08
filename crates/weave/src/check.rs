@@ -264,7 +264,7 @@ fn check_builtin(line: usize, col: usize, name: &str, argc: usize, keywords: &[c
     let ok = match name {
         "print" => true,
         "len" | "str" | "int" | "float" | "bool" | "abs" | "sum" | "sorted" | "reversed"
-        | "enumerate" | "any" | "all" | "list" => argc == 1,
+        | "enumerate" | "any" | "all" | "list" | "parse_json" => argc == 1,
         "min" | "max" => argc == 1 || argc == 2,
         "zip" => argc == 2,
         "range" => (1..=3).contains(&argc),
