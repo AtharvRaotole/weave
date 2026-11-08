@@ -235,9 +235,9 @@ pub fn sub(a: &Value, b: &Value) -> Result<Value, String> {
 
 pub fn mul(a: &Value, b: &Value) -> Result<Value, String> {
     match (a, b) {
-        (Value::Str(s), Value::Int(n)) | (Value::Int(n), Value::Str(s)) => Ok(Value::Str(repeat_str(s, *n))),
+        (Value::Str(s), Value::Int(n)) | (Value::Int(n), Value::Str(s)) => Ok(Value::Str(repeat_str(s, *n)?)),
         (Value::List(xs), Value::Int(n)) | (Value::Int(n), Value::List(xs)) => {
-            Ok(Value::List(repeat_list(xs, *n)))
+            Ok(Value::List(repeat_list(xs, *n)?))
         }
         _ => {
             let (a, b) = (as_number(a)?, as_number(b)?);
@@ -251,22 +251,42 @@ pub fn mul(a: &Value, b: &Value) -> Result<Value, String> {
     }
 }
 
-fn repeat_str(s: &str, n: i64) -> String {
-    if n <= 0 {
-        return String::new();
+/// Refuse a repetition whose result would pass the hard size cap, before
+/// allocating it.
+fn repeat_len(unit: usize, n: i64) -> Result<usize, String> {
+    let total = (unit as u128).saturating_mul(n.max(0) as u128);
+    if total > crate::limits::HARD_MAX_VALUE_SIZE as u128 {
+        return Err(format!(
+            "repetition would build a value of {total} items; the limit is {}",
+            crate::limits::HARD_MAX_VALUE_SIZE
+        ));
     }
-    s.repeat(n as usize)
+    Ok(total as usize)
 }
 
-fn repeat_list(xs: &[Value], n: i64) -> Vec<Value> {
+fn repeat_str(s: &str, n: i64) -> Result<String, String> {
+    repeat_len(s.len(), n)?;
     if n <= 0 {
-        return Vec::new();
+        return Ok(String::new());
     }
-    let mut out = Vec::with_capacity(xs.len() * n as usize);
+    Ok(s.repeat(n as usize))
+}
+
+fn repeat_list(xs: &[Value], n: i64) -> Result<Vec<Value>, String> {
+    let cap = crate::limits::HARD_MAX_VALUE_SIZE;
+    let unit = xs
+        .iter()
+        .fold(xs.len(), |acc, x| acc.saturating_add(crate::limits::size_capped(x, cap)).min(cap + 1));
+    repeat_len(unit, n)?;
+    let total = xs.len().saturating_mul(n.max(0) as usize);
+    if n <= 0 {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::with_capacity(total);
     for _ in 0..n {
         out.extend(xs.iter().cloned());
     }
-    out
+    Ok(out)
 }
 
 fn to_f(n: Num) -> f64 {
