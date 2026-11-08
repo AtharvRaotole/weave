@@ -9,6 +9,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 import hashlib
+from contextlib import ExitStack
 import json
 import keyword
 from pathlib import Path
@@ -194,6 +195,7 @@ class Reply:
     decision: dict
     usage: dict | None
     model_revision: str
+    usage_details: dict | None = None
 
 
 class ProviderFailure(Exception):
@@ -359,6 +361,10 @@ def execute(fixture, mode, decision, width):
             )
             ordered.append(remaining.pop(i))
         events = ordered
+    return normalized_feedback(fixture, events, error)
+
+
+def normalized_feedback(fixture, events, error=None):
     # Canonicalize independent read segments in BOTH modes, preserving write
     # barriers and duplicate observations. No mode-specific result compression.
     stable, reads = [], []
@@ -376,10 +382,81 @@ def execute(fixture, mode, decision, width):
 COMMON = "Complete the task using the canonical tools, then submit a final answer. Tool calls use keyword arguments. The grader never supplies expected answers or expected writes. No demonstrations."
 
 
-def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None):
+def run(
+    task: Task,
+    mode: str,
+    provider: Provider,
+    config: Config,
+    *,
+    clock=None,
+    fixture_factory=None,
+    execution=execute,
+    ledger=None,
+    trial_id=None,
+    allow_live=False,
+):
+    import uuid
+
+    trial_id = trial_id or uuid.uuid4().hex
+    if not provider.offline and not allow_live:
+        raise ValueError(
+            "live adapters are not enabled: explicit runner opt-in required"
+        )
+    if ledger:
+        ledger.begin(
+            trial_id,
+            {
+                "task": task.id,
+                "mode": mode,
+                "config": config.report(),
+                "kind": "offline_mechanics" if provider.offline else "live_opt_in",
+            },
+        )
+    try:
+        row = _run(
+            task,
+            mode,
+            provider,
+            config,
+            clock=clock,
+            fixture_factory=fixture_factory,
+            execution=execution,
+            ledger=ledger,
+            trial_id=trial_id,
+            allow_live=allow_live,
+        )
+        row["trial_id"] = trial_id
+        if ledger:
+            ledger.append(trial_id, "trial_end", row)
+        return row
+    except BaseException as exc:
+        if ledger:
+            ledger.terminated(
+                trial_id,
+                "interrupted"
+                if isinstance(exc, (KeyboardInterrupt, SystemExit))
+                else "crashed",
+            )
+        raise
+
+
+def _run(
+    task: Task,
+    mode: str,
+    provider: Provider,
+    config: Config,
+    *,
+    clock=None,
+    fixture_factory=None,
+    execution=execute,
+    ledger=None,
+    trial_id=None,
+    allow_live=False,
+):
+    fixture_factory = fixture_factory or Fixture
     if mode not in ("weave", "native"):
         raise ValueError("unknown mode")
-    if not provider.offline:
+    if not provider.offline and not allow_live:
         raise ValueError("live adapters are not enabled: corrected live runs pending")
     clock = clock or Clock()
     started = clock.now()
@@ -391,12 +468,34 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
     unknown = 0
     counts = {"input_tokens": 0, "output_tokens": 0, "cached_input_tokens": 0}
     base = {"system": COMMON, "task": task.public(), "tools": manifest(task)}
-    with tempfile.TemporaryDirectory(prefix="weave-protocol-v3-") as tmp:
+    with (
+        tempfile.TemporaryDirectory(prefix="weave-protocol-v3-") as tmp,
+        ExitStack() as resources,
+    ):
         fixture = None
         initial_hash = digest(task.files)
         try:
-            fixture = Fixture(Path(tmp), task, clock, deadline, config.native_parallel)
+            fixture = fixture_factory(
+                Path(tmp), task, clock, deadline, config.native_parallel
+            )
+            if hasattr(fixture, "close"):
+                resources.callback(fixture.close)
+            base["tools"] = list(fixture.tools.values())
+            if hasattr(fixture, "verify_pins"):
+                fixture.verify_pins(config)
+            if hasattr(provider, "prepare"):
+                provider.prepare(fixture)
             initial_hash = digest(fixture.snapshot())
+            if ledger:
+                ledger.append(
+                    trial_id,
+                    "fixture_ready",
+                    {
+                        "initial_state_hash": initial_hash,
+                        "schema_hash": digest(base["tools"]),
+                        "manifest": getattr(fixture, "manifest_evidence", {}),
+                    },
+                )
             while turns < config.max_turns:
                 if clock.now() >= deadline:
                     status = "timeout"
@@ -432,11 +531,21 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
                         "usage": None,
                     }
                     attempts.append(attempt)
+                    attempt_index = len(attempts) - 1
+                    if ledger:
+                        ledger.append(
+                            trial_id,
+                            "attempt_begin",
+                            {"attempt_index": attempt_index, **attempt},
+                        )
                     try:
+                        if hasattr(provider, "set_accounting"):
+                            provider.set_accounting(ledger, trial_id, attempt_index)
                         reply = provider.request(
                             json.loads(canonical(request)), deadline
                         )
                         attempt["usage"] = Usage.validate(reply.usage)
+                        attempt["usage_details"] = reply.usage_details
                         attempt["outcome"] = "ok"
                         if reply.model_revision != config.model_revision:
                             raise ProviderFailure(
@@ -469,8 +578,17 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
                         attempt["outcome"] = "adapter_error"
                         status = "provider_error"
                         reply = None
+                    except BaseException:
+                        attempt["outcome"] = "interrupted"
+                        raise
                     finally:
                         attempt["elapsed_s"] = clock.now() - t0
+                        if ledger:
+                            ledger.append(
+                                trial_id,
+                                "attempt_end",
+                                {"attempt_index": attempt_index, **attempt},
+                            )
                         if attempt["usage"] is None:
                             unknown += 1
                         else:
@@ -534,7 +652,7 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
                             "execution_error": "execution failed; inspect tool observations (no hidden grader values)",
                         }
                         if invalid
-                        else execute(fixture, mode, decision, config.native_parallel)
+                        else execution(fixture, mode, decision, config.native_parallel)
                     )
                     if fixture.exceeded:
                         status = "resource_limit"
@@ -555,6 +673,8 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
         except Exception:
             status = "harness_error" if fixture is not None else "fixture_error"
         try:
+            if fixture and hasattr(fixture, "quiesce"):
+                fixture.quiesce()
             final_files, writes = (
                 (fixture.snapshot(), fixture.writes) if fixture else ({}, [])
             )
@@ -562,8 +682,9 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
             final_files, writes, status, first_pass = {}, [], "fixture_error", False
         return {
             "methodology_version": 3,
-            "kind": "offline_mechanics",
-            "measured_model_performance": False,
+            "kind": "offline_mechanics" if provider.offline else "live_explicit_opt_in",
+            "measured_model_performance": not provider.offline,
+            "comparison_validated": False,
             "endpoint": "provider_final_answer_and_actual_state",
             "task": task.id,
             "split": task.split,
@@ -587,7 +708,7 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
             "token_totals_complete": unknown == 0,
             "config": config.report(),
             "context_hash": digest(base),
-            "schema_hash": digest(manifest(task)),
+            "schema_hash": digest(base["tools"]),
             "initial_state_hash": initial_hash,
             "final_state_hash": digest(final_files),
             "writes": writes,
@@ -604,6 +725,10 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
             "feedback": feedback,
             "requests": requests,
             "fixture_root": tmp,
+            "fixture_manifest": getattr(fixture, "manifest_evidence", {})
+            if fixture
+            else {},
+            "provider_mapping": getattr(provider, "mapping", {}),
         }
 
 

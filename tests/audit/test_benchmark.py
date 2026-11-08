@@ -72,8 +72,8 @@ print(
 
 # V3 is the controlled offline successor; legacy v2 checks above are only
 # historical function-level regressions, not a credible live evaluation.
-suite = unittest.defaultTestLoader.loadTestsFromName(
-    "bench.protocol_v3.tests.test_protocol"
+suite = unittest.defaultTestLoader.loadTestsFromNames(
+    ["bench.protocol_v3.tests.test_protocol", "bench.protocol_v3.tests.test_adapters"]
 )
 result = unittest.TextTestRunner(verbosity=2).run(suite)
 if not result.wasSuccessful():
