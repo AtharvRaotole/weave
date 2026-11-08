@@ -265,6 +265,7 @@ struct PyRun {
     spec_misses: u64,
     spec_wasted: u64,
     spec_rejected: u64,
+    spec_invalidated: u64,
 }
 
 #[pymethods]
@@ -316,6 +317,11 @@ impl PyRun {
     fn spec_rejected(&self) -> u64 {
         self.spec_rejected
     }
+
+    #[getter]
+    fn spec_invalidated(&self) -> u64 {
+        self.spec_invalidated
+    }
 }
 
 impl PyRun {
@@ -331,6 +337,7 @@ impl PyRun {
             spec_misses: stats.misses,
             spec_wasted: stats.wasted,
             spec_rejected: stats.rejected,
+            spec_invalidated: stats.invalidated,
         }
     }
 }

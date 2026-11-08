@@ -29,11 +29,33 @@
     </ul>
     <p>A killed worker does not run <code>finally</code>. Work that already left the process is not undone. The function and its values must be pickleable, so define tools at module scope and keep <code>Engine(...)</code> inside <code>if __name__ == "__main__"</code>. Closures are not sendable. One call occupies one worker; extra calls wait for a free slot.</p>
     <h2>Speculative pre-execution</h2>
-    <p>Optional, and only for pure and read tools. A predictor proposes calls before the script is ready. Weave runs them and stores each result under the tool name plus the canonical arguments. When the script makes the same call, it uses the cached result. Reversible, irreversible, async, and duplicate predictions are rejected and not called. A prediction the script never uses is wasted work. This is the tool cache from Nichols et al., arXiv 2512.15834. It does not keep an inference engine resident.</p>
-    <p>The speculative call is not ordered with writes the script has not performed yet. Predict only calls whose arguments are already known and whose result does not depend on an earlier write.</p>
+    <p>Optional, and only for pure and read tools. A predictor proposes calls before the script is ready. Weave runs them and stores each result under the tool name plus the canonical arguments. When the script makes the same call, it uses the cached result. Sync, cooperative, and async tools can all be speculated. Reversible, irreversible, and duplicate predictions are rejected and not called. A prediction the script never uses is wasted work. This is the tool cache from Nichols et al., arXiv 2512.15834. It does not keep an inference engine resident.</p>
+    <h3>Writes invalidate cached reads</h3>
+    <p>Before a reversible or irreversible call runs, Weave drops every cached read whose read footprint overlaps the call's write footprint. A later read of the same call misses and runs live, so it sees the write. Reads earlier in the program still use the cache, because a write always waits for earlier reads. Pure results are never dropped. <code>spec_invalidated</code> counts the dropped entries.</p>
+    <p>Footprints are named resources. The default is every resource, so with no annotations any write drops every cached read. Narrow them to keep unrelated reads:</p>
+    <pre>engine.tool("get_user", get_user, effect="read", reads=["users"])
+engine.tool("get_order", get_order, effect="read", reads=["orders"])
+engine.tool("rename_user", rename_user, effect="reversible", writes=["users"])
+# rename_user drops cached get_user results; get_order results stay.</pre>
+    <p>In Rust: <code>ToolSpec::effect(Effect::Read).with_reads(Footprint::only(["users"]))</code>. In the MCP tool config: <code>"reads": ["users"]</code> or <code>"writes": "*"</code>. The speculative call itself has already run against the old state and is not rolled back, so speculate only read tools that are safe to call early.</p>
     <pre>cache = engine.speculate_with(predictor, hint)
 result = engine.run(source, speculation=cache)
 result.spec_hits, result.spec_misses, result.spec_wasted</pre>
+    <h2 id="sandbox-and-limits">Sandbox and limits</h2>
+    <p>Scripts come from a model, so Weave treats them as untrusted. What a script can reach:</p>
+    <ul>
+      <li><strong>No filesystem, network, process, or import access.</strong> The parser rejects <code>import</code>, <code>def</code>, <code>class</code>, <code>lambda</code>, <code>while</code>, <code>with</code>, <code>global</code>, and the rest of the statements outside the subset. Attribute access works only as a method call on a Weave value (string, list, dict methods implemented in Rust), so there is no <code>__class__</code>, <code>__mro__</code>, or <code>__import__</code>. Builtins are a fixed list (<code>len</code>, <code>range</code>, <code>sorted</code>, …); <code>open</code>, <code>eval</code>, <code>exec</code>, <code>getattr</code>, and <code>globals</code> do not exist. The interpreter never calls into Python or the OS.</li>
+      <li><strong>Host tools are the only way out.</strong> A script can call only tools the embedder registered, with the effect and arity the embedder declared. Whatever a tool can do, the script can ask it to do. Review tools as you would an API you expose to the model.</li>
+    </ul>
+    <p>Limits inside the runtime:</p>
+    <ul>
+      <li><strong>Steps</strong> (default 1,000,000): every executed statement and every loop iteration counts. Nested loops fail fast once the budget is spent.</li>
+      <li><strong>Value size</strong> (default 16 MiB): string bytes plus container elements, counted through nested values. <code>*</code> repetition, <code>str.replace</code>, and <code>str.join</code> are refused before allocating when the result would pass a hard 256 MiB cap; other results are checked as they are built.</li>
+      <li><strong>Depth</strong> (fixed at 100): bracket nesting, block nesting, expression nesting, and value nesting. A lexical pre-check also rejects any statement with more than 1,000 operators before the parser runs, so deep or long expressions return an error instead of overflowing the stack.</li>
+    </ul>
+    <pre>engine.set_limits(max_steps=100_000, max_value_size=1_000_000)</pre>
+    <p>In Rust: <code>engine.set_limits(Limits::default().with_max_steps(100_000))</code>.</p>
+    <p>Not covered: there is no wall-clock limit on the script itself (use per-tool <code>timeout_ms</code> and cancel the session), no process-wide memory cap (the value limit bounds each value, and the step limit bounds how many are built), and nothing limits what a host tool does once called. Errors from limits are ordinary runtime errors that <code>try/except</code> can catch.</p>
   </main>
 </body>
 </html>
