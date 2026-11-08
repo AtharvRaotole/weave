@@ -568,7 +568,9 @@ async fn driver(
     let mut bindings = BTreeMap::new();
     if first_err.is_none() {
         for (name, fut) in env {
+            let hidden = name.starts_with(crate::parse::HIDDEN_PREFIX);
             match fut.await {
+                Ok(_) if hidden => {}
                 Ok(value) => {
                     bindings.insert(name, value);
                 }
@@ -1497,9 +1499,10 @@ fn schedule_call(
             let max = g.limits.max_value_size;
             share(async move {
                 let recv = recv.await?;
-                let args = join_values(arg_futs).await?;
+                let mut args = join_values(arg_futs).await?;
                 if !kw_futs.is_empty() {
-                    return Err(WeaveError::runtime(line, col, format!("method `{attr}` does not take keyword arguments")));
+                    let kwargs = join_kwargs(kw_futs).await?;
+                    args = method_keywords(&attr, args, kwargs).map_err(|msg| WeaveError::runtime(line, col, msg))?;
                 }
                 let value = call_method(&recv, &attr, &args).map_err(|msg| WeaveError::runtime(line, col, msg))?;
                 checked(line, col, max, value)
@@ -1622,6 +1625,7 @@ fn schedule_tool(
             Ok(value) => (value, None),
             Err(err) => (Value::Null, Some(err.summary())),
         };
+        let failure = error.clone().map(|message| tool_failure(line, col, message, &args, &kwargs));
         trace.lock().expect("trace").record(TraceEvent {
             seq,
             line,
@@ -1633,8 +1637,8 @@ fn schedule_tool(
             error: error.clone(),
             done: 0,
         }, done);
-        match error {
-            Some(message) => Err(WeaveError::tool(line, col, message)),
+        match failure {
+            Some(err) => Err(err),
             None => Ok(result),
         }
     });
@@ -1736,7 +1740,7 @@ fn replay_tool(
     let event = &recorded.events[index];
     let done = Some(event.done);
     if let Some(message) = &event.error {
-        return (Err(WeaveError::tool(line, col, message.clone())), done);
+        return (Err(tool_failure(line, col, message.clone(), args, kwargs)), done);
     }
     (Ok(event.result.clone()), done)
 }
@@ -1798,7 +1802,7 @@ async fn execute_tool(
     if matches!(effect, Effect::Pure | Effect::Read) {
         if let Some(cache) = speculation {
             if let Some(hit) = cache.take(tool_name, args, kwargs).await {
-                return hit.map_err(|message| WeaveError::tool(line, col, message));
+                return hit.map_err(|message| tool_failure(line, col, message, args, kwargs));
             }
             cache.miss();
         }
@@ -1843,7 +1847,7 @@ pub(crate) async fn run_tool_attempts(
     } else {
         format!("tool `{tool_name}` failed: {last}")
     };
-    Err(WeaveError::tool(line, col, hint_message))
+    Err(tool_failure(line, col, hint_message, args, kwargs))
 }
 
 async fn invoke_once(
@@ -2340,19 +2344,26 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
         (Value::Str(s), "strip") => no_args(name, args).map(|_| Value::Str(s.trim().to_string())),
         (Value::Str(s), "lstrip") => no_args(name, args).map(|_| Value::Str(s.trim_start().to_string())),
         (Value::Str(s), "rstrip") => no_args(name, args).map(|_| Value::Str(s.trim_end().to_string())),
-        (Value::Str(s), "split") => {
-            let parts: Vec<Value> = if args.is_empty() {
-                s.split_whitespace().map(Value::str).collect()
-            } else if args.len() == 1 {
-                let sep = args[0].as_str().ok_or("split() separator must be str")?;
-                if sep.is_empty() {
-                    return Err("split() separator must not be empty".into());
-                }
-                s.split(sep).map(Value::str).collect()
-            } else {
-                return Err("split() takes at most 1 argument".into());
+        (Value::Str(s), method @ ("split" | "rsplit")) => {
+            if args.len() > 2 {
+                return Err(format!("{method}() takes at most 2 arguments"));
+            }
+            let maxsplit = match args.get(1) {
+                None => None,
+                Some(Value::Int(n)) if *n < 0 => None,
+                Some(Value::Int(n)) => Some(*n as usize),
+                Some(_) => return Err(format!("{method}() maxsplit must be int")),
             };
-            Ok(Value::List(parts))
+            let sep = match args.first() {
+                None | Some(Value::Null) => None,
+                Some(Value::Str(sep)) if sep.is_empty() => {
+                    return Err(format!("{method}() separator must not be empty"))
+                }
+                Some(Value::Str(sep)) => Some(sep.as_str()),
+                Some(_) => return Err(format!("{method}() separator must be str or None")),
+            };
+            let parts = split_str(s, sep, maxsplit, method == "rsplit");
+            Ok(Value::List(parts.into_iter().map(Value::str).collect()))
         }
         (Value::Str(s), "startswith") => {
             let prefix = one_str("startswith", args)?;
@@ -2497,4 +2508,121 @@ fn one_str(name: &str, args: &[Value]) -> Result<String, String> {
         .as_str()
         .map(str::to_string)
         .ok_or_else(|| format!("{name}() expects str"))
+}
+
+/// Python's `str.split` / `str.rsplit` with an optional separator and maxsplit.
+fn split_str(s: &str, sep: Option<&str>, maxsplit: Option<usize>, reverse: bool) -> Vec<String> {
+    let limit = maxsplit.unwrap_or(usize::MAX);
+    match sep {
+        Some(sep) => {
+            let mut parts: Vec<String> = if limit == usize::MAX {
+                s.split(sep).map(str::to_string).collect()
+            } else if reverse {
+                s.rsplitn(limit + 1, sep).map(str::to_string).collect()
+            } else {
+                s.splitn(limit + 1, sep).map(str::to_string).collect()
+            };
+            if reverse && limit != usize::MAX {
+                parts.reverse();
+            }
+            parts
+        }
+        None => {
+            let mut parts = Vec::new();
+            if reverse {
+                let mut rest = s.trim_end();
+                while !rest.is_empty() {
+                    if parts.len() == limit {
+                        parts.push(rest.to_string());
+                        break;
+                    }
+                    match rest.rfind(char::is_whitespace) {
+                        Some(i) => {
+                            let ws = rest[i..].chars().next().map_or(1, char::len_utf8);
+                            parts.push(rest[i + ws..].to_string());
+                            rest = rest[..i].trim_end();
+                        }
+                        None => {
+                            parts.push(rest.to_string());
+                            break;
+                        }
+                    }
+                }
+                parts.reverse();
+            } else {
+                let mut rest = s.trim_start();
+                while !rest.is_empty() {
+                    if parts.len() == limit {
+                        parts.push(rest.to_string());
+                        break;
+                    }
+                    match rest.find(char::is_whitespace) {
+                        Some(i) => {
+                            parts.push(rest[..i].to_string());
+                            rest = rest[i..].trim_start();
+                        }
+                        None => {
+                            parts.push(rest.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+            parts
+        }
+    }
+}
+
+/// Folds keyword arguments into positional ones for the methods that accept
+/// them (`split`/`rsplit` take `sep` and `maxsplit`, as in Python).
+fn method_keywords(attr: &str, mut args: Vec<Value>, kwargs: BTreeMap<String, Value>) -> Result<Vec<Value>, String> {
+    let params: &[&str] = match attr {
+        "split" | "rsplit" => &["sep", "maxsplit"],
+        _ => return Err(format!("method `{attr}` does not take keyword arguments")),
+    };
+    let mut slots: Vec<Option<Value>> = args.drain(..).map(Some).collect();
+    if slots.len() > params.len() {
+        return Err(format!("{attr}() takes at most {} arguments", params.len()));
+    }
+    slots.resize(params.len(), None);
+    for (key, value) in kwargs {
+        let Some(i) = params.iter().position(|p| *p == key) else {
+            return Err(format!("{attr}() got an unexpected keyword argument `{key}`"));
+        };
+        if slots[i].is_some() {
+            return Err(format!("{attr}() got multiple values for argument `{key}`"));
+        }
+        slots[i] = Some(value);
+    }
+    let defaults = [Value::Null, Value::Int(-1)];
+    let last = slots.iter().rposition(Option::is_some).map_or(0, |i| i + 1);
+    Ok(slots
+        .into_iter()
+        .take(last)
+        .enumerate()
+        .map(|(i, v)| v.unwrap_or_else(|| defaults[i].clone()))
+        .collect())
+}
+
+/// A tool failure. When an argument is a single character, the usual cause
+/// is `for x in text` over a text result, so the hint says so.
+fn tool_failure(
+    line: usize,
+    col: usize,
+    message: String,
+    args: &[Value],
+    kwargs: &BTreeMap<String, Value>,
+) -> WeaveError {
+    let mut diagnostic = crate::error::Diagnostic::tool(line, col, message);
+    let single_char = args
+        .iter()
+        .chain(kwargs.values())
+        .any(|v| matches!(v, Value::Str(s) if s.chars().count() == 1));
+    if single_char {
+        diagnostic = diagnostic.with_hint(
+            "an argument is a single character: `for x in text` loops over characters; \
+             loop over text.splitlines() to get lines",
+        );
+    }
+    WeaveError::one(diagnostic)
 }

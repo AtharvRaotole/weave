@@ -627,3 +627,116 @@ fn str_splitlines() {
         Value::List(vec![Value::str("a"), Value::str("b"), Value::str(""), Value::str("c")])
     );
 }
+
+fn run_src(engine: &Engine, src: &str) -> weave::RunResult {
+    engine.run(src).unwrap_or_else(|e| panic!("{e}\n---\n{src}"))
+}
+
+#[test]
+fn break_and_continue_follow_python() {
+    let engine = Engine::new();
+    let r = run_src(&engine, "out = []\nfor x in [1, 2, 3, 4, 5, 6]:\n    if x % 2 == 0:\n        continue\n    if x > 4:\n        break\n    out.append(x)\n");
+    assert_eq!(r.bindings["out"], Value::List(vec![Value::int(1), Value::int(3)]));
+    assert!(r.bindings.keys().all(|k| !k.starts_with("__weave_")), "{:?}", r.bindings.keys());
+    // Nested loops: inner break leaves only the inner loop.
+    let r = run_src(&engine, "pairs = []\nfor a in [1, 2, 3]:\n    if a == 3:\n        break\n    for b in [10, 20, 30]:\n        if b == 20:\n            break\n        pairs.append(a * b)\n");
+    assert_eq!(r.bindings["pairs"], Value::List(vec![Value::int(10), Value::int(20)]));
+    // Break inside try, continue inside except.
+    let r = run_src(&engine, "n = 0\nfor s in [\"1\", \"x\", \"3\", \"stop\", \"5\"]:\n    try:\n        if s == \"stop\":\n            break\n        n += int(s)\n    except:\n        continue\nprint(n)\n");
+    assert_eq!(r.stdout(), "4\n");
+    // Prints after a break never happen.
+    let r = run_src(&engine, "for i in range(5):\n    print(i)\n    if i == 1:\n        break\n    print(\"after\", i)\n");
+    assert_eq!(r.stdout(), "0\nafter 0\n1\n");
+}
+
+#[test]
+fn break_outside_a_loop_is_a_static_error() {
+    let engine = Engine::new();
+    let err = engine.check("break\n");
+    assert!(err.iter().any(|d| d.to_string().contains("`break` outside a loop")), "{err:?}");
+    let err = engine.check("if True:\n    continue\n");
+    assert!(err.iter().any(|d| d.to_string().contains("`continue` outside a loop")), "{err:?}");
+}
+
+#[test]
+fn loops_with_break_stop_calling_tools_and_replay() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut engine = Engine::new();
+    let c = calls.clone();
+    engine.register("page", ToolSpec::effect(Effect::Read).with_arity(1), move |args, _| {
+        c.fetch_add(1, Ordering::SeqCst);
+        let n = match &args[0] { Value::Int(n) => *n, _ => 0 };
+        Ok(Value::str(if n == 3 { "# Title" } else { "text" }))
+    });
+    let src = "heading = \"\"\nfor n in range(10):\n    line = page(n)\n    if line.startswith(\"# \"):\n        heading = line[2:]\n        break\nprint(heading)\n";
+    let r = run_src(&engine, src);
+    assert_eq!(r.stdout(), "Title\n");
+    assert_eq!(calls.load(Ordering::SeqCst), 4, "iterations after break must not call tools");
+    let replayed = engine.replay(src, &r.trace).unwrap();
+    assert_eq!(replayed.stdout(), "Title\n");
+}
+
+#[test]
+fn str_split_and_rsplit_with_maxsplit_match_python() {
+    let engine = Engine::new();
+    let cases: &[(&str, &[&str])] = &[
+        ("\"a,b,c,d\".split(\",\")", &["a", "b", "c", "d"]),
+        ("\"a,b,c,d\".rsplit(\",\")", &["a", "b", "c", "d"]),
+        ("\"a,b,c,d\".split(\",\", 1)", &["a", "b,c,d"]),
+        ("\"a,b,c,d\".rsplit(\",\", 1)", &["a,b,c", "d"]),
+        ("\"a,b,c,d\".split(\",\", 0)", &["a,b,c,d"]),
+        ("\"a,b,c,d\".rsplit(\",\", 0)", &["a,b,c,d"]),
+        ("\"a,b,c,d\".split(\",\", -1)", &["a", "b", "c", "d"]),
+        ("\"a,b,c,d\".rsplit(\",\", -1)", &["a", "b", "c", "d"]),
+        ("\"  a  b \\t c  \".split()", &["a", "b", "c"]),
+        ("\"  a  b \\t c  \".rsplit()", &["a", "b", "c"]),
+        ("\"  a  b \\t c  \".split(None, 1)", &["a", "b \t c  "]),
+        ("\"  a  b \\t c  \".rsplit(None, 1)", &["  a  b", "c"]),
+        ("\"  a  b \\t c  \".split(None, 0)", &["a  b \t c  "]),
+        ("\"  a  b \\t c  \".rsplit(None, 0)", &["  a  b \t c"]),
+        ("\"k=v=w\".split(\"=\", 1)", &["k", "v=w"]),
+        ("\"k=v=w\".rsplit(\"=\", 1)", &["k=v", "w"]),
+        ("\"a::b::c\".split(\"::\", 5)", &["a", "b", "c"]),
+        ("\"a::b::c\".rsplit(\"::\", 5)", &["a", "b", "c"]),
+        ("\"\".split(\",\")", &[""]),
+        ("\"\".rsplit(\",\")", &[""]),
+        ("\"   \".split()", &[]),
+        ("\"   \".rsplit()", &[]),
+    ];
+    for (expr, want) in cases {
+        let result = run_src(&engine, &format!("xs = {expr}\n"));
+        let want = Value::List(want.iter().map(|s| Value::str(*s)).collect());
+        assert_eq!(result.bindings["xs"], want, "{expr}");
+    }
+}
+
+#[test]
+fn split_accepts_sep_and_maxsplit_keywords() {
+    let engine = Engine::new();
+    let result = run_src(
+        &engine,
+        "a = \"[FILE] my notes.txt\".split(maxsplit=1)\nb = \"k=v=w\".rsplit(sep=\"=\", maxsplit=1)\nc = \"x,y\".split(sep=\",\")\n",
+    );
+    assert_eq!(result.bindings["a"], Value::List(vec![Value::str("[FILE]"), Value::str("my notes.txt")]));
+    assert_eq!(result.bindings["b"], Value::List(vec![Value::str("k=v"), Value::str("w")]));
+    assert_eq!(result.bindings["c"], Value::List(vec![Value::str("x"), Value::str("y")]));
+    let err = engine.run("a = \"x\".split(limit=1)\n").unwrap_err().to_string();
+    assert!(err.contains("unexpected keyword argument `limit`"), "{err}");
+    let err = engine.run("a = \"x\".strip(chars=\"x\")\n").unwrap_err().to_string();
+    assert!(err.contains("does not take keyword arguments"), "{err}");
+}
+
+#[test]
+fn single_character_tool_argument_failure_hints_at_splitlines() {
+    let mut engine = Engine::new();
+    engine.register("read", ToolSpec::effect(Effect::Read).with_arity(1), |args, _kwargs| match args.first() {
+        Some(Value::Str(p)) if p.len() > 1 => Ok(Value::str("ok")),
+        _ => Err("no such file".to_string()),
+    });
+    let err = engine.run("paths = \"/a\\n/b\"\nfor p in paths:\n    print(read(p))\n").unwrap_err().to_string();
+    assert!(err.contains("splitlines"), "{err}");
+    let err = engine.run("print(read(\"\"))\n").unwrap_err().to_string();
+    assert!(!err.contains("splitlines"), "{err}");
+}

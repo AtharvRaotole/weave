@@ -72,9 +72,10 @@ Scripts are a subset of Python, parsed with `ruff_python_parser`. Supported:
 - assignment, including unpacking and augmented assignment (`+=`, `-=`, …)
 - calls, including keyword arguments on `print`
 - `if` / `elif` / `else` and conditional expressions
-- `for` over a list or string
+- `for` over a list or string, with `break` and `continue` (a loop that uses
+  them runs in order; calls within one iteration still overlap)
 - lists, dicts, f-strings, comparisons, boolean operators, and arithmetic
-- subscripts and methods such as `str.strip`, `str.find`, `str.title`, `dict.get`, `dict.items`, `list.index`, and `" ".join`
+- subscripts and methods such as `str.strip`, `str.find`, `str.split(sep, maxsplit)`, `str.rsplit`, `str.title`, `dict.get`, `dict.items`, `list.index`, and `" ".join`
 - builtins `len`, `range`, `sum`, `min`, `max`, `sorted`, `reversed`, `enumerate`, `zip`, `any`, `all`, and `list`
 - `try` / `except ToolError` and a bare `except`
 
@@ -322,6 +323,39 @@ python bench/llm_eval.py
 ```
 
 Re-run the mock suite with `python bench/run_mock.py`. `BENCH_LATENCY_MS` and `BENCH_REPEATS` change the sleep and the number of repeats. `pydantic-monty` is optional; without it the Monty column is recorded as skipped.
+
+### Real MCP servers (`bench/real_tools_eval.py`)
+
+Six tasks against two real MCP servers, `@modelcontextprotocol/server-filesystem`
+and `mcp-server-fetch`, proxied through `weave-mcp` `upstreams`. Model
+`gpt-5.4-mini`, 3 repeats, up to 3 attempts per run. Native mode gives the model
+the same tools as function tools. All rows are measured on one Linux box on
+2026-11-08; raw JSON is in `bench/results/real-*.json`.
+
+| run (UTC) | change | Weave passed (first try) | Weave median | native passed | native median | cost |
+|---|---|---|---|---|---|---|
+| 15:33:44 | M8 baseline | 17/18 (14) | 0.877 s | 18/18 | 2.912 s | $0.0430 |
+| 16:26:57 | + `break`/`continue`, `split(sep, maxsplit)` | 16/18 (16) | 0.980 s | 18/18 | 3.751 s | $0.0599 |
+| 16:29:45 | + prompt: `for x in text` loops over characters | 16/18 (14) | 1.206 s | 18/18 | 3.575 s | $0.0653 |
+| 16:32:39 | + `split(sep=, maxsplit=)` keywords | 15/18 (14) | 1.120 s | 18/18 | 3.500 s | $0.0637 |
+| 16:36:28 | + hint when a tool fails on a 1-character argument | 15/18 (14) | 0.935 s | 18/18 | 3.624 s | $0.0635 |
+
+The M9 runs spent $0.2524 in total. Weave did not get better on this suite:
+the 15 to 17 out of 18 spread is within run-to-run noise for 18 runs. The
+failures are not missing language features any more:
+
+- `count_urgent` (1/3 Weave in the last run, 3/3 native): the model joins a
+  bare file name from `fs_list_directory` onto the wrong directory, or loops
+  over the newline-separated text that `fs_search_files` returns as if it
+  were a list. After the first error it wraps the read in `try/except
+  ToolError: pass` and prints 0.
+- `example_heading` (2/3 in the last run): one run took the first line of the
+  fetched page (`Contents of https://example.com/:`) as the heading.
+
+Native function calling stays correct at 18/18. Weave takes 1 model turn on
+the median against 2 to 5 for native. Its per-task median wall time in the last
+run ranged from 0.95x of native (`example_heading`, slightly slower) to 6.9x
+faster (`write_version`); overall median 0.935 s against 3.624 s.
 
 ### Streaming into a live session
 

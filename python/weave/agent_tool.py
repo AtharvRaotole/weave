@@ -23,11 +23,12 @@ from typing import Any, Callable, Iterable
 from weave._native import Engine
 
 RULES = (
-    "Write a Weave script: a Python subset. No imports, def, class, while, break, with, lambda, "
-    "or comprehensions. Use assignment, calls, if/else, for, try/except ToolError, lists, dicts, "
+    "Write a Weave script: a Python subset. No imports, def, class, while, with, lambda, "
+    "or comprehensions. Use assignment, calls, if/else, for (with break/continue), try/except ToolError, lists, dicts, "
     "f-strings, string/list/dict methods, and builtins (str, int, len, range, sum, min, max, "
     "sorted, enumerate, zip, any, all, list, parse_json). Independent calls on separate lines run "
-    "in parallel. A failing tool raises ToolError. print() the values you need; the tool returns "
+    "in parallel. `for x in text` loops over characters; use text.splitlines() for lines. "
+    "A failing tool raises ToolError. print() the values you need; the tool returns "
     "what the script printed, or the error with a hint so you can fix the script."
 )
 
