@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from bench.dataset import TASKS, call_tool, tool_lines  # noqa: E402
+from bench.dataset import TASKS, ToolFailure, World, call_tool, render, tool_fn, tool_lines  # noqa: E402
 from bench.harness import machine_info, utc_stamp  # noqa: E402
 from bench.prompts import few_shot_messages, repair_message, system_message  # noqa: E402
 
@@ -44,13 +44,39 @@ MAX_ATTEMPTS = 3
 TOOL_DELAY_S = float(os.environ.get("WEAVE_EVAL_TOOL_DELAY", "0.04"))
 REPEATS = int(os.environ.get("WEAVE_EVAL_REPEATS", "3"))
 MAX_TOOL_TURNS = 8
-MODES = ("weave", "json_tool_calls", "native_tools")
+MODES = tuple(os.environ.get("WEAVE_EVAL_MODES", "weave,json_tool_calls,native_tools").split(","))
+# USD per 1M tokens (input, cached input, output), from
+# https://developers.openai.com/api/docs/pricing, checked 2026-11-08.
+PRICES = {
+    "gpt-5.4-mini": (0.75, 0.075, 4.50),
+    "gpt-6.1-sol": (2.00, 0.10, 10.00),
+}
+BUDGET_USD = float(os.environ.get("WEAVE_EVAL_BUDGET", "2.0"))
+SPENT = {"usd": 0.0}
+
+
+class BudgetExceeded(RuntimeError):
+    pass
+
+
+def _charge(model: str, usage: dict) -> None:
+    price = PRICES.get(model)
+    if not price:
+        return
+    cached = usage.get("cached_tokens") or 0
+    fresh = (usage.get("input_tokens") or 0) - cached
+    SPENT["usd"] += (fresh * price[0] + cached * price[1] + (usage.get("output_tokens") or 0) * price[2]) / 1e6
+    if SPENT["usd"] > BUDGET_USD:
+        raise BudgetExceeded(f"spend passed ${BUDGET_USD}")
 
 
 def _slow(fn):
     def wrapped(*args):
         time.sleep(TOOL_DELAY_S)
-        return fn(*args)
+        try:
+            return fn(*args)
+        except ToolFailure as exc:
+            raise RuntimeError(str(exc)) from None
 
     wrapped.__name__ = fn.__name__
     return wrapped
@@ -59,7 +85,9 @@ def _slow(fn):
 def providers() -> list[dict]:
     found = []
     if os.environ.get("OPENAI_API_KEY"):
-        found.append({"name": "openai", "model": os.environ.get("OPENAI_MODEL", "gpt-4o-mini")})
+        models = os.environ.get("OPENAI_MODELS") or os.environ.get("OPENAI_MODEL", "gpt-5.4-mini")
+        for model in models.split(","):
+            found.append({"name": "openai", "model": model.strip()})
     if os.environ.get("ANTHROPIC_API_KEY"):
         found.append(
             {"name": "anthropic", "model": os.environ.get("ANTHROPIC_MODEL", "claude-3-5-haiku-latest")}
@@ -80,23 +108,34 @@ def _post(url: str, payload: dict, headers: dict) -> dict:
         return json.loads(response.read().decode())
 
 
-def _usage(input_tokens, output_tokens) -> dict:
-    return {"input_tokens": input_tokens, "output_tokens": output_tokens}
+def _usage(input_tokens, output_tokens, cached_tokens=0) -> dict:
+    return {"input_tokens": input_tokens, "output_tokens": output_tokens, "cached_tokens": cached_tokens}
+
+
+def openai_chat(model: str, payload: dict) -> dict:
+    payload = {"model": model, **payload}
+    if not model.startswith("gpt-4"):
+        # GPT-5 and later reasoning models only accept the default temperature.
+        payload.pop("temperature", None)
+    body = _post(
+        "https://api.openai.com/v1/chat/completions",
+        payload,
+        {
+            "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
+            "Content-Type": "application/json",
+        },
+    )
+    usage = body.get("usage") or {}
+    cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
+    body["_usage"] = _usage(usage.get("prompt_tokens"), usage.get("completion_tokens"), cached)
+    _charge(model, body["_usage"])
+    return body
 
 
 def complete(provider: str, model: str, messages: list[dict]) -> tuple[str, dict]:
     if provider == "openai":
-        body = _post(
-            "https://api.openai.com/v1/chat/completions",
-            {"model": model, "temperature": 0, "messages": messages},
-            {
-                "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
-                "Content-Type": "application/json",
-            },
-        )
-        text = body["choices"][0]["message"]["content"]
-        usage = body.get("usage") or {}
-        return text, _usage(usage.get("prompt_tokens"), usage.get("completion_tokens"))
+        body = openai_chat(model, {"temperature": 0, "messages": messages})
+        return body["choices"][0]["message"]["content"] or "", body["_usage"]
     if provider == "anthropic":
         system = "\n\n".join(item["content"] for item in messages if item["role"] == "system")
         dialog = [
@@ -154,35 +193,36 @@ def _strip_fence(text: str) -> str:
     return stripped
 
 
-def _engine(task):
+def _engine(task, world):
     from weave import Engine
-
-    from bench.dataset import IMPLEMENTATIONS
 
     engine = Engine()
     for tool in task.tools:
         engine.tool(
             tool.name,
-            _slow(IMPLEMENTATIONS[tool.name]),
+            _slow(tool_fn(world, tool.name)),
             effect=tool.effect,
             arity=len(tool.params),
         )
     return engine
 
 
-def execute_weave(task, source: str) -> str:
+def execute_weave(task, source: str, world) -> str:
     if not source.endswith("\n"):
         source += "\n"
-    return _engine(task).run(source).stdout.strip()
+    try:
+        return _engine(task, world).run(source).stdout.strip()
+    except Exception as exc:  # noqa: BLE001 - Weave runtime errors are graded as failures
+        raise ValueError(str(exc)) from None
 
 
 def check_weave(task, source: str) -> list[str]:
     if not source.endswith("\n"):
         source += "\n"
-    return _engine(task).check(source)
+    return _engine(task, World()).check(source)
 
 
-def execute_json_calls(text: str) -> str:
+def execute_json_calls(text: str, world) -> str:
     calls = json.loads(_strip_fence(text))
     if not isinstance(calls, list) or not calls:
         raise ValueError("JSON tool calls must be a non-empty array")
@@ -191,7 +231,12 @@ def execute_json_calls(text: str) -> str:
         if not isinstance(call, dict) or "tool" not in call:
             raise ValueError("each call needs a tool name")
         time.sleep(TOOL_DELAY_S)
-        last = call_tool(call["tool"], list(call.get("args") or []))
+        try:
+            last = render(call_tool(world, call["tool"], list(call.get("args") or [])))
+        except ToolFailure as exc:
+            raise ValueError(f"tool {call['tool']} failed: {exc}") from None
+        except (AttributeError, TypeError) as exc:
+            raise ValueError(f"bad call {call!r}: {exc}") from None
     return last
 
 
@@ -211,6 +256,24 @@ def user_prompt(task, mode: str) -> str:
     )
 
 
+class WrongAnswer(Exception):
+    pass
+
+
+def wrong_answer(output: str) -> str:
+    """Feedback for a run that executed but was graded wrong.
+
+    It never contains the expected answer or the expected write log, so a
+    retry has to come from the model, not from the grader."""
+    return f"The run finished but the result is not correct. Printed output: {output!r}. Re-read the task and fix the logic."
+
+
+def _graded(task, output: str, world) -> bool:
+    if output != task.expected:
+        return False
+    return task.expected_writes is None or tuple(world.writes) == task.expected_writes
+
+
 def grade_task(provider: dict, task, mode: str) -> dict:
     messages = [system_message(), *few_shot_messages(), {"role": "user", "content": user_prompt(task, mode)}]
     attempts = []
@@ -219,6 +282,8 @@ def grade_task(provider: dict, task, mode: str) -> dict:
     started = time.perf_counter()
     model_s = 0.0
     for attempt in range(1, MAX_ATTEMPTS + 1):
+        world = World()
+        usage = None
         try:
             t0 = time.perf_counter()
             text, usage = complete(provider["name"], provider["model"], messages)
@@ -228,16 +293,17 @@ def grade_task(provider: dict, task, mode: str) -> dict:
                 errors = check_weave(task, source)
                 if errors:
                     raise ValueError("\n".join(errors))
-                output = execute_weave(task, source)
+                output = execute_weave(task, source, world)
             else:
-                output = execute_json_calls(text)
-            if output == task.expected:
-                attempts.append({"attempt": attempt, "ok": True, "usage": usage, "error": None})
+                output = execute_json_calls(text, world)
+            if _graded(task, output, world):
+                attempts.append({"attempt": attempt, "ok": True, "usage": usage, "error": None, "writes": list(world.writes)})
                 passed = True
                 break
             # Logged once, by the handler below.
-            raise ValueError(f"output was {output!r}, expected {task.expected!r}")
+            raise WrongAnswer(wrong_answer(output))
         except (
+            WrongAnswer,
             urllib.error.URLError,
             urllib.error.HTTPError,
             KeyError,
@@ -246,10 +312,12 @@ def grade_task(provider: dict, task, mode: str) -> dict:
             json.JSONDecodeError,
         ) as exc:
             attempts.append(
-                {"attempt": attempt, "ok": False, "usage": usage, "error": str(exc)}
+                {"attempt": attempt, "ok": False, "usage": usage, "error": str(exc), "writes": list(world.writes), "source": source}
             )
             messages.append({"role": "assistant", "content": source or str(exc)})
-            if mode == "weave":
+            if isinstance(exc, WrongAnswer):
+                repair = f"{exc}\nReply with only the corrected {'Weave script' if mode == 'weave' else 'JSON array of tool calls'}."
+            elif mode == "weave":
                 repair = repair_message(source, [str(exc)])
             else:
                 repair = (
@@ -308,22 +376,15 @@ def grade_native(provider: dict, task) -> dict:
     input_tokens = output_tokens = 0
     answer = None
     error = None
+    world = World()
     try:
         while turns < MAX_TOOL_TURNS:
             turns += 1
             t0 = time.perf_counter()
-            body = _post(
-                "https://api.openai.com/v1/chat/completions",
-                {"model": provider["model"], "messages": messages, "tools": _openai_tools(task)},
-                {
-                    "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
-                    "Content-Type": "application/json",
-                },
-            )
+            body = openai_chat(provider["model"], {"messages": messages, "tools": _openai_tools(task)})
             model_s += time.perf_counter() - t0
-            usage = body.get("usage") or {}
-            input_tokens += usage.get("prompt_tokens") or 0
-            output_tokens += usage.get("completion_tokens") or 0
+            input_tokens += body["_usage"]["input_tokens"] or 0
+            output_tokens += body["_usage"]["output_tokens"] or 0
             message = body["choices"][0]["message"]
             calls = message.get("tool_calls") or []
             if not calls:
@@ -334,16 +395,19 @@ def grade_native(provider: dict, task) -> dict:
                 args = json.loads(call["function"]["arguments"] or "{}")
                 tool = next(t for t in task.tools if t.name == call["function"]["name"])
                 time.sleep(TOOL_DELAY_S)
-                result = call_tool(tool.name, [args[p] for p in tool.params])
+                try:
+                    result = render(call_tool(world, tool.name, [args[p] for p in tool.params]))
+                except ToolFailure as exc:
+                    result = f"ERROR: {exc}"
                 tool_calls_made += 1
                 messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
         else:
             error = f"no final answer after {MAX_TOOL_TURNS} turns"
     except (urllib.error.URLError, KeyError, ValueError, TypeError, StopIteration) as exc:
         error = str(exc)
-    passed = answer == task.expected
+    passed = answer is not None and _graded(task, answer, world)
     if answer is not None and not passed:
-        error = f"output was {answer!r}, expected {task.expected!r}"
+        error = f"output was {answer!r}, writes {world.writes!r}"
     return {
         "task": task.id,
         "provider": provider["name"],
@@ -359,6 +423,7 @@ def grade_native(provider: dict, task) -> dict:
         "wall_s": time.perf_counter() - started,
         "model_s": model_s,
         "error": error,
+        "writes": list(world.writes),
     }
 
 
@@ -378,6 +443,27 @@ def summarize(rows: list[dict]) -> list[dict]:
                 "median_model_turns": statistics.median(r["model_turns"] for r in group),
                 "input_tokens": sum(r["input_tokens"] for r in group),
                 "output_tokens": sum(r["output_tokens"] for r in group),
+            }
+        )
+    return out
+
+
+def by_mode(rows: list[dict]) -> list[dict]:
+    out = []
+    for model, mode in sorted({(r["model"], r["mode"]) for r in rows}):
+        group = [r for r in rows if (r["model"], r["mode"]) == (model, mode)]
+        first = [r for r in group if r["passed"] and r["attempts"] == 1]
+        out.append(
+            {
+                "model": model,
+                "mode": mode,
+                "runs": len(group),
+                "passed": sum(r["passed"] for r in group),
+                "passed_first_try": len(first),
+                "median_wall_s": statistics.median(r["wall_s"] for r in group),
+                "input_tokens": sum(r["input_tokens"] for r in group),
+                "output_tokens": sum(r["output_tokens"] for r in group),
+                "failed_tasks": sorted({r["task"] for r in group if not r["passed"]}),
             }
         )
     return out
@@ -403,15 +489,26 @@ def main() -> int:
         }
     else:
         rows = []
-        for _ in range(REPEATS):
-            for provider in found:
-                for task in TASKS:
-                    for mode in MODES:
-                        if mode == "native_tools":
-                            if provider["name"] == "openai":
-                                rows.append(grade_native(provider, task))
-                        else:
-                            rows.append(grade_task(provider, task, mode))
+        stopped = None
+        only = os.environ.get("WEAVE_EVAL_TASKS")
+        tasks = [t for t in TASKS if not only or t.id in only.split(",")]
+        try:
+            for repeat in range(REPEATS):
+                for provider in found:
+                    for task in tasks:
+                        for mode in MODES:
+                            if mode == "native_tools":
+                                if provider["name"] != "openai":
+                                    continue
+                                row = grade_native(provider, task)
+                            else:
+                                row = grade_task(provider, task, mode)
+                            row["repeat"] = repeat
+                            row["category"] = task.category
+                            rows.append(row)
+                            print(f"{provider['model']:>14} {task.id:<22} {mode:<16} {'PASS' if row['passed'] else 'FAIL'} ${SPENT['usd']:.3f}", flush=True)
+        except BudgetExceeded as exc:
+            stopped = str(exc)
         passed = sum(1 for row in rows if row["passed"])
         payload = {
             "kind": "llm",
@@ -424,6 +521,10 @@ def main() -> int:
             "repeats": REPEATS,
             "cases": len(rows),
             "summary": summarize(rows),
+            "by_mode": by_mode(rows),
+            "prices_per_1m": PRICES,
+            "estimated_cost_usd": round(SPENT["usd"], 4),
+            "stopped_early": stopped,
             "passed": passed,
             "pass_rate": passed / len(rows) if rows else None,
             "rows": rows,
