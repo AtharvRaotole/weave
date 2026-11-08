@@ -8,7 +8,27 @@ version = "0.1.0"
 description = "Parallel runtime for a small Python-like language aimed at agent tool calls"
 requires-python = ">=3.9"
 readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Atharv Raotole", email = "100996694+AtharvRaotole@users.noreply.github.com" }]
+keywords = ["agents", "llm", "tools", "scheduler"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Interpreters",
+]
+
+[project.urls]
+Homepage = "https://github.com/AtharvRaotole/weave"
+Repository = "https://github.com/AtharvRaotole/weave"
+Documentation = "https://github.com/AtharvRaotole/weave/tree/main/docs"
+
+[project.scripts]
+weave = "weave.cli:main"
 
 [tool.maturin]
 manifest-path = "crates/weave-py/Cargo.toml"
-module-name = "weave"
+module-name = "weave._native"
+python-source = "python"
