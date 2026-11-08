@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
-use weave_core::{Effect, Engine, Session, ToolSpec, Value};
+use weave_core::{CancelToken, Effect, Engine, Session, ToolSpec, Value};
 
 #[pyclass(name = "Engine")]
 struct PyEngine {
@@ -22,8 +22,10 @@ impl PyEngine {
     /// `effect` defaults to `irreversible`. Untagged tools are irreversible.
     /// `arity`, when set, is checked before the script runs.
     #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None))]
+    #[allow(clippy::too_many_arguments)]
     fn tool(
         &mut self,
+        py: Python<'_>,
         name: String,
         func: Py<PyAny>,
         effect: Option<String>,
@@ -49,12 +51,22 @@ impl PyEngine {
         if let Some(timeout_ms) = timeout_ms {
             spec = spec.with_timeout(std::time::Duration::from_millis(timeout_ms));
         }
-        self.inner.register(&name, spec, move |args, kwargs| {
-            match Python::try_attach(|py| call_python(py, &func, &args, &kwargs)) {
-                Some(result) => result.map_err(|err| err.to_string()),
-                None => Err("Python interpreter is unavailable".to_string()),
-            }
-        });
+        let pass_cancel = wants_cancel(py, &func).unwrap_or(false);
+        if pass_cancel {
+            self.inner.register_cooperative(&name, spec, move |args, kwargs, token| {
+                match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, Some(token))) {
+                    Some(result) => result.map_err(|err| err.to_string()),
+                    None => Err("Python interpreter is unavailable".to_string()),
+                }
+            });
+        } else {
+            self.inner.register(&name, spec, move |args, kwargs| {
+                match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, None)) {
+                    Some(result) => result.map_err(|err| err.to_string()),
+                    None => Err("Python interpreter is unavailable".to_string()),
+                }
+            });
+        }
         Ok(())
     }
 
@@ -155,27 +167,69 @@ fn weave_err(err: weave_core::WeaveError) -> PyErr {
     PyValueError::new_err(err.to_string())
 }
 
+fn wants_cancel(py: Python<'_>, func: &Py<PyAny>) -> PyResult<bool> {
+    let inspect = py.import("inspect")?;
+    let sig = match inspect.call_method1("signature", (func,)) {
+        Ok(sig) => sig,
+        Err(_) => return Ok(false),
+    };
+    let params = sig.getattr("parameters")?;
+    let values = params.call_method0("values")?;
+    let var_keyword = inspect.getattr("Parameter")?.getattr("VAR_KEYWORD")?;
+    for item in values.try_iter()? {
+        let param = item?;
+        let name: String = param.getattr("name")?.extract()?;
+        if name == "cancel" {
+            return Ok(true);
+        }
+        let kind = param.getattr("kind")?;
+        if kind.eq(&var_keyword)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 fn call_python(
     py: Python<'_>,
     func: &Py<PyAny>,
     args: &[Value],
     kwargs: &BTreeMap<String, Value>,
+    token: Option<CancelToken>,
 ) -> PyResult<Value> {
     let mut py_args = Vec::with_capacity(args.len());
     for arg in args {
         py_args.push(value_to_py(py, arg)?);
     }
     let tuple = PyTuple::new(py, py_args)?;
-    let result = if kwargs.is_empty() {
-        func.call1(py, &tuple)?
-    } else {
-        let dict = PyDict::new(py);
-        for (key, value) in kwargs {
-            dict.set_item(key, value_to_py(py, value)?)?;
-        }
+    let dict = PyDict::new(py);
+    let mut has_kw = false;
+    for (key, value) in kwargs {
+        dict.set_item(key, value_to_py(py, value)?)?;
+        has_kw = true;
+    }
+    if let Some(token) = token {
+        dict.set_item("cancel", Py::new(py, PyCancelToken { inner: token })?)?;
+        has_kw = true;
+    }
+    let result = if has_kw {
         func.call(py, &tuple, Some(&dict))?
+    } else {
+        func.call1(py, &tuple)?
     };
     py_to_value(&result.into_bound(py))
+}
+
+#[pyclass(name = "CancelToken")]
+struct PyCancelToken {
+    inner: CancelToken,
+}
+
+#[pymethods]
+impl PyCancelToken {
+    fn is_cancelled(&self) -> bool {
+        self.inner.is_cancelled()
+    }
 }
 
 fn value_to_py<'py>(py: Python<'py>, value: &Value) -> PyResult<Bound<'py, PyAny>> {
@@ -250,6 +304,7 @@ fn py_to_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
 
 #[pymodule]
 fn weave(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PyCancelToken>()?;
     m.add_class::<PyEngine>()?;
     m.add_class::<PySession>()?;
     m.add_class::<PyRun>()?;

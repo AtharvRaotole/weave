@@ -30,10 +30,33 @@ engine.replay('temp = weather("Paris")\nprint(temp)\n', result.trace_json())
 ```
 
 `check` returns one diagnostic per line, with a column and a `hint` an LLM
-can apply. `Session.cancel()` stops irreversible calls that have not started.
-`try` / `except ToolError` catches a host-tool failure, timeout, or exhausted
-retry. A bare `except` also catches ordinary runtime errors. Cancellation is
-not caught.
+can apply. `try` / `except ToolError` catches a host-tool failure, timeout, or
+exhausted retry. A bare `except` also catches ordinary runtime errors.
+Cancellation is not caught.
+
+## Cancellation and timeouts
+
+`timeout_ms` and `Session.cancel()` abandon the in-flight attempt:
+
+- **Async host tools** (`Engine::register_async`) are a future. On timeout or
+  cancel that future is dropped, so work waiting on `.await` stops. Select on
+  `token.cancelled()` as well if the tool spawned its own tasks.
+- **Cooperative tools**, including Python functions that take a `cancel`
+  argument or `**kwargs`, receive a `CancelToken`. Poll `cancel.is_cancelled()`
+  and return. Weave fires the token and stops waiting; it does not kill the
+  thread. A tool that never looks at the token can keep running after Weave
+  has already moved on.
+- **Plain sync tools** that do not take a token only have the wait abandoned.
+  Their thread is not signalled.
+
+```python
+def slow(name, cancel):
+    for _ in range(100):
+        if cancel.is_cancelled():
+            raise RuntimeError("stopped")
+        time.sleep(0.01)
+    return name
+```
 
 ## Language
 
@@ -49,7 +72,7 @@ Scripts are a subset of Python, parsed with `ruff_python_parser`. Supported:
 - `try` / `except ToolError` and a bare `except`
 
 Not supported, with a one-line error an LLM can patch: `import`, `def`,
-`class`, `while`, `try`, `with`, `lambda`, comprehensions, and `await`.
+`class`, `while`, `with`, `lambda`, comprehensions, and `await`.
 There is no import system. Host tools are registered by the runtime.
 
 ```python

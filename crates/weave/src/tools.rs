@@ -1,13 +1,37 @@
 use std::collections::BTreeMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::cancel::CancelToken;
 use crate::effect::Effect;
 use crate::value::Value;
 
 pub type ToolFn = Arc<
     dyn Fn(Vec<Value>, BTreeMap<String, Value>) -> Result<Value, String> + Send + Sync,
 >;
+
+pub type CooperativeFn = Arc<
+    dyn Fn(Vec<Value>, BTreeMap<String, Value>, CancelToken) -> Result<Value, String> + Send + Sync,
+>;
+
+pub type AsyncToolFn = Arc<
+    dyn Fn(Vec<Value>, BTreeMap<String, Value>, CancelToken) -> AsyncToolFut + Send + Sync,
+>;
+
+pub type AsyncToolFut = Pin<Box<dyn Future<Output = Result<Value, String>> + Send>>;
+
+/// How the host function is invoked.
+#[derive(Clone)]
+pub enum ToolBody {
+    /// Blocking function. A timeout abandons the wait. The thread is not signalled.
+    Sync(ToolFn),
+    /// Blocking function that receives a token and should return when it fires.
+    Cooperative(CooperativeFn),
+    /// Async function. Timeout and cancel drop the future.
+    Async(AsyncToolFn),
+}
 
 /// How a tool is registered. Omitted effect means irreversible. Omitted arity means any arity.
 #[derive(Clone, Debug)]
@@ -59,7 +83,7 @@ impl ToolSpec {
 #[derive(Clone)]
 pub struct Tool {
     pub spec: ToolSpec,
-    pub func: ToolFn,
+    pub body: ToolBody,
 }
 
 #[derive(Clone, Default)]
@@ -73,8 +97,19 @@ impl ToolRegistry {
     }
 
     pub fn register(&mut self, name: impl Into<String>, spec: ToolSpec, func: ToolFn) {
-        let name = name.into();
-        self.tools.insert(name, Tool { spec, func });
+        self.insert(name, spec, ToolBody::Sync(func));
+    }
+
+    pub fn register_cooperative(&mut self, name: impl Into<String>, spec: ToolSpec, func: CooperativeFn) {
+        self.insert(name, spec, ToolBody::Cooperative(func));
+    }
+
+    pub fn register_async(&mut self, name: impl Into<String>, spec: ToolSpec, func: AsyncToolFn) {
+        self.insert(name, spec, ToolBody::Async(func));
+    }
+
+    fn insert(&mut self, name: impl Into<String>, spec: ToolSpec, body: ToolBody) {
+        self.tools.insert(name.into(), Tool { spec, body });
     }
 
     pub fn get(&self, name: &str) -> Option<&Tool> {

@@ -6,6 +6,7 @@
 
 mod analysis;
 mod ast;
+mod cancel;
 mod check;
 mod effect;
 mod error;
@@ -16,6 +17,7 @@ mod tools;
 mod trace;
 mod value;
 
+pub use cancel::CancelToken;
 pub use effect::Effect;
 pub use error::{Diagnostic, WeaveError};
 pub use exec::{Engine, RunResult, Session};

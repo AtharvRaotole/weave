@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use weave::{Effect, Engine, ToolSpec, Value};
+use weave::{CancelToken, Effect, Engine, ToolSpec, Value};
 
 fn reg(engine: &mut Engine, name: &str, effect: Effect, calls: Arc<Mutex<Vec<String>>>, delay: Duration) {
     let label = name.to_string();
@@ -391,6 +392,76 @@ fn cancel_prevents_irreversible_tool() {
     let err = session.finish().unwrap_err();
     assert!(err.to_string().contains("cancelled"), "{err}");
     assert!(log.lock().unwrap().is_empty(), "cancelled send still ran");
+}
+
+#[test]
+fn async_timeout_drops_the_in_flight_call() {
+    let mut engine = Engine::new();
+    let dropped = Arc::new(AtomicBool::new(false));
+    let finished = Arc::new(AtomicBool::new(false));
+    let dropped_flag = dropped.clone();
+    let finished_flag = finished.clone();
+    engine.register_async(
+        "slow",
+        ToolSpec::effect(Effect::Read).with_arity(0).with_timeout(Duration::from_millis(40)),
+        move |_args, _kwargs, token: CancelToken| {
+            let dropped_flag = dropped_flag.clone();
+            let finished_flag = finished_flag.clone();
+            async move {
+                struct Mark(Arc<AtomicBool>);
+                impl Drop for Mark {
+                    fn drop(&mut self) {
+                        self.0.store(true, Ordering::SeqCst);
+                    }
+                }
+                let _mark = Mark(dropped_flag);
+                tokio::select! {
+                    _ = token.cancelled() => Err("cancelled".into()),
+                    _ = tokio::time::sleep(Duration::from_millis(400)) => {
+                        finished_flag.store(true, Ordering::SeqCst);
+                        Ok(Value::int(1))
+                    }
+                }
+            }
+        },
+    );
+    let started = Instant::now();
+    let err = engine.run("slow()\n").unwrap_err();
+    let elapsed = started.elapsed();
+    assert!(elapsed < Duration::from_millis(200), "elapsed={elapsed:?} err={err}");
+    assert!(err.to_string().contains("timed out"), "{err}");
+    assert!(dropped.load(Ordering::SeqCst), "async call was not dropped");
+    assert!(!finished.load(Ordering::SeqCst), "async call ran to completion");
+}
+
+#[test]
+fn cooperative_timeout_signals_the_token() {
+    let mut engine = Engine::new();
+    let saw_cancel = Arc::new(AtomicBool::new(false));
+    let flag = saw_cancel.clone();
+    engine.register_cooperative(
+        "slow",
+        ToolSpec::effect(Effect::Read).with_arity(0).with_timeout(Duration::from_millis(40)),
+        move |_args, _kwargs, token: CancelToken| {
+            let started = std::time::Instant::now();
+            while started.elapsed() < Duration::from_millis(400) {
+                if token.is_cancelled() {
+                    flag.store(true, Ordering::SeqCst);
+                    return Err("stopped".into());
+                }
+                thread::sleep(Duration::from_millis(5));
+            }
+            Ok(Value::int(1))
+        },
+    );
+    let started = Instant::now();
+    let err = engine.run("slow()\n").unwrap_err();
+    assert!(started.elapsed() < Duration::from_millis(200), "{err}");
+    let deadline = Instant::now() + Duration::from_millis(200);
+    while Instant::now() < deadline && !saw_cancel.load(Ordering::SeqCst) {
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert!(saw_cancel.load(Ordering::SeqCst), "tool never observed cancellation");
 }
 
 #[test]
