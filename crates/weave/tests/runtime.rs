@@ -797,8 +797,7 @@ fn errors_inside_try_are_caught_under_nested_blocks() {
 #[test]
 fn audited_value_ingress_and_unicode_find() {
     let mut engine = Engine::new();
-    let mut limits = weave::Limits::default();
-    limits.max_value_size = 64;
+    let limits = weave::Limits { max_value_size: 64, ..Default::default() };
     engine.set_limits(limits);
     for n in [63, 64, 65, 4096] {
         let src = format!("x = {:?}\n", "a".repeat(n));
