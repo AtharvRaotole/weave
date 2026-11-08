@@ -51,6 +51,12 @@ PRICES = {
     "gpt-5.4-mini": (0.75, 0.075, 4.50),
     "gpt-6.1-sol": (2.00, 0.10, 10.00),
 }
+# The same reasoning effort is used in every mode. Chat Completions rejects
+# function tools while gpt-6.1-sol reasons, so native tool calling uses the
+# Responses API for every model.
+MODEL_PARAMS = {
+    "gpt-6.1-sol": {"reasoning_effort": "low"},
+}
 BUDGET_USD = float(os.environ.get("WEAVE_EVAL_BUDGET", "2.0"))
 SPENT = {"usd": 0.0}
 
@@ -104,8 +110,22 @@ def _post(url: str, payload: dict, headers: dict) -> dict:
         headers=headers,
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=90) as response:
-        return json.loads(response.read().decode())
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=90) as response:
+                return json.loads(response.read().decode())
+        except urllib.error.HTTPError as exc:
+            if exc.code < 500 and exc.code != 429:
+                detail = exc.read().decode(errors="replace")[:300]
+                raise ValueError(f"HTTP {exc.code}: {detail}") from None
+            if attempt == 2:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
+            # Transport failures are retried; they say nothing about the model.
+            if attempt == 2:
+                raise
+        time.sleep(2 * (attempt + 1))
+    raise RuntimeError("unreachable")
 
 
 def _usage(input_tokens, output_tokens, cached_tokens=0) -> dict:
@@ -113,7 +133,7 @@ def _usage(input_tokens, output_tokens, cached_tokens=0) -> dict:
 
 
 def openai_chat(model: str, payload: dict) -> dict:
-    payload = {"model": model, **payload}
+    payload = {"model": model, **MODEL_PARAMS.get(model, {}), **payload}
     if not model.startswith("gpt-4"):
         # GPT-5 and later reasoning models only accept the default temperature.
         payload.pop("temperature", None)
@@ -274,8 +294,29 @@ def _graded(task, output: str, world) -> bool:
     return task.expected_writes is None or tuple(world.writes) == task.expected_writes
 
 
+JSON_SYSTEM = (
+    "You plan tool calls as one JSON array. Each item is {\"tool\": name, \"args\": [...]}. "
+    "Calls run in order. Arguments must be literal values: there are no variables and no way to "
+    "pass one call's result into another call. The last call's return value is the answer. "
+    "Reply with the JSON array only."
+)
+JSON_SHOTS = (
+    ("Tools:\nsearch(query), effect read. Search one query.\nTask: Search for cats and print the result.",
+     '[{"tool": "search", "args": ["cats"]}]'),
+)
+
+
+def initial_messages(task, mode: str) -> list[dict]:
+    if mode == "weave":
+        return [system_message(), *few_shot_messages(), {"role": "user", "content": user_prompt(task, mode)}]
+    shots = []
+    for user, reply in JSON_SHOTS:
+        shots += [{"role": "user", "content": user}, {"role": "assistant", "content": reply}]
+    return [{"role": "system", "content": JSON_SYSTEM}, *shots, {"role": "user", "content": user_prompt(task, mode)}]
+
+
 def grade_task(provider: dict, task, mode: str) -> dict:
-    messages = [system_message(), *few_shot_messages(), {"role": "user", "content": user_prompt(task, mode)}]
+    messages = initial_messages(task, mode)
     attempts = []
     passed = False
     source = ""
@@ -343,6 +384,29 @@ def grade_task(provider: dict, task, mode: str) -> dict:
     }
 
 
+def openai_responses(model: str, payload: dict) -> dict:
+    extra = {}
+    if "reasoning_effort" in MODEL_PARAMS.get(model, {}):
+        extra["reasoning"] = {"effort": MODEL_PARAMS[model]["reasoning_effort"]}
+    body = _post(
+        "https://api.openai.com/v1/responses",
+        {"model": model, **extra, **payload},
+        {
+            "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
+            "Content-Type": "application/json",
+        },
+    )
+    usage = body.get("usage") or {}
+    cached = (usage.get("input_tokens_details") or {}).get("cached_tokens") or 0
+    body["_usage"] = _usage(usage.get("input_tokens"), usage.get("output_tokens"), cached)
+    _charge(model, body["_usage"])
+    return body
+
+
+def _response_tools(task) -> list[dict]:
+    return [{"type": "function", **tool["function"]} for tool in _openai_tools(task)]
+
+
 def _openai_tools(task) -> list[dict]:
     return [
         {
@@ -365,10 +429,8 @@ def _openai_tools(task) -> list[dict]:
 def grade_native(provider: dict, task) -> dict:
     """Standard function calling: one model round trip per turn, tools run one
     after another in the order the model asked for them."""
-    messages = [
-        {"role": "system", "content": "Use the tools to complete the task. When done, reply with only the final answer string."},
-        {"role": "user", "content": f"Task: {task.instruction}"},
-    ]
+    instructions = "Use the tools to complete the task. When done, reply with only the final answer string."
+    items: list = [{"role": "user", "content": f"Task: {task.instruction}"}]
     started = time.perf_counter()
     model_s = 0.0
     tool_calls_made = 0
@@ -381,26 +443,35 @@ def grade_native(provider: dict, task) -> dict:
         while turns < MAX_TOOL_TURNS:
             turns += 1
             t0 = time.perf_counter()
-            body = openai_chat(provider["model"], {"messages": messages, "tools": _openai_tools(task)})
+            body = openai_responses(
+                provider["model"],
+                {"instructions": instructions, "input": items, "tools": _response_tools(task)},
+            )
             model_s += time.perf_counter() - t0
             input_tokens += body["_usage"]["input_tokens"] or 0
             output_tokens += body["_usage"]["output_tokens"] or 0
-            message = body["choices"][0]["message"]
-            calls = message.get("tool_calls") or []
+            output = body.get("output") or []
+            calls = [item for item in output if item.get("type") == "function_call"]
             if not calls:
-                answer = (message.get("content") or "").strip()
+                answer = "".join(
+                    part.get("text", "")
+                    for item in output
+                    if item.get("type") == "message"
+                    for part in item.get("content") or []
+                    if part.get("type") == "output_text"
+                ).strip()
                 break
-            messages.append({"role": "assistant", "content": message.get("content"), "tool_calls": calls})
+            items.extend(output)
             for call in calls:
-                args = json.loads(call["function"]["arguments"] or "{}")
-                tool = next(t for t in task.tools if t.name == call["function"]["name"])
+                args = json.loads(call.get("arguments") or "{}")
+                tool = next(t for t in task.tools if t.name == call["name"])
                 time.sleep(TOOL_DELAY_S)
                 try:
                     result = render(call_tool(world, tool.name, [args[p] for p in tool.params]))
                 except ToolFailure as exc:
                     result = f"ERROR: {exc}"
                 tool_calls_made += 1
-                messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
+                items.append({"type": "function_call_output", "call_id": call["call_id"], "output": result})
         else:
             error = f"no final answer after {MAX_TOOL_TURNS} turns"
     except (urllib.error.URLError, KeyError, ValueError, TypeError, StopIteration) as exc:
@@ -523,6 +594,7 @@ def main() -> int:
             "summary": summarize(rows),
             "by_mode": by_mode(rows),
             "prices_per_1m": PRICES,
+            "model_params": MODEL_PARAMS,
             "estimated_cost_usd": round(SPENT["usd"], 4),
             "stopped_early": stopped,
             "passed": passed,
