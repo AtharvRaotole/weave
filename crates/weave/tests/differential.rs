@@ -2,8 +2,11 @@
 //! sequential, parallel, streaming and speculative execution, and replaying
 //! the recorded trace must reproduce the same output.
 //!
-//! "Sequential" tags every tool irreversible, which serialises every call in
-//! program order after the whole program is received. That is the reference.
+//! An independent tree-walking oracle (in this file, sharing no code with
+//! Weave) gives the expected result. "Sequential" tags every tool
+//! irreversible, which serialises every call in program order after the
+//! whole program is received; it must match the oracle, and every other mode
+//! must match it.
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
@@ -32,6 +35,29 @@ impl Rng {
 
 const KEYS: [&str; 3] = ["k0", "k1", "k2"];
 
+#[derive(Clone, Debug)]
+enum E {
+    Lit(i64),
+    Var(String),
+    Get(usize),
+    Add(Box<E>, Box<E>),
+    Plus(Box<E>, Box<E>),
+    Minus(Box<E>, Box<E>),
+    Put(usize, Box<E>),
+}
+
+#[derive(Clone, Debug)]
+enum S {
+    Assign(String, E),
+    AugAdd(String, E),
+    Put(usize, E),
+    Print(E),
+    Log(E),
+    If(E, Vec<S>, Vec<S>),
+    For(i64, Vec<S>),
+    Pass,
+}
+
 struct Gen {
     rng: Rng,
     vars: Vec<String>,
@@ -39,77 +65,65 @@ struct Gen {
 }
 
 impl Gen {
-    fn expr(&mut self, depth: u32) -> String {
+    fn expr(&mut self, depth: u32) -> E {
         let pick = if depth == 0 { self.rng.below(3) } else { self.rng.below(7) };
+        let key = |g: &mut Gen| g.rng.below(3) as usize;
         match pick {
-            0 => format!("{}", self.rng.below(10)),
-            1 if !self.vars.is_empty() => {
-                self.vars[self.rng.below(self.vars.len() as u64) as usize].clone()
+            0 => E::Lit(self.rng.below(10) as i64),
+            1 if !self.vars.is_empty() => E::Var(self.vars[self.rng.below(self.vars.len() as u64) as usize].clone()),
+            1 | 2 => E::Get(key(self)),
+            3 => E::Add(Box::new(self.expr(depth - 1)), Box::new(self.expr(depth - 1))),
+            4 => E::Plus(Box::new(self.expr(depth - 1)), Box::new(self.expr(depth - 1))),
+            5 => E::Minus(Box::new(self.expr(depth - 1)), Box::new(self.expr(depth - 1))),
+            _ => {
+                let k = key(self);
+                E::Put(k, Box::new(self.expr(depth - 1)))
             }
-            1 | 2 => format!("get(\"{}\")", KEYS[self.rng.below(3) as usize]),
-            3 => format!("add({}, {})", self.expr(depth - 1), self.expr(depth - 1)),
-            4 => format!("({} + {})", self.expr(depth - 1), self.expr(depth - 1)),
-            5 => format!("({} - {})", self.expr(depth - 1), self.expr(depth - 1)),
-            _ => format!("put(\"{}\", {})", KEYS[self.rng.below(3) as usize], self.expr(depth - 1)),
         }
     }
 
-    fn stmt(&mut self, out: &mut String, indent: usize, depth: u32) {
-        let pad = "    ".repeat(indent);
-        match self.rng.below(if depth == 0 { 5 } else { 7 }) {
+    fn stmt(&mut self, top: bool, depth: u32) -> S {
+        match self.rng.below(if depth == 0 { 6 } else { 8 }) {
             0 | 1 => {
                 // New variables only at top level so every use is defined.
-                let name = if indent == 0 && (self.vars.is_empty() || self.rng.chance(60)) {
+                let name = if top && (self.vars.is_empty() || self.rng.chance(60)) {
                     let name = format!("v{}", self.next_var);
                     self.next_var += 1;
                     name
                 } else if let Some(existing) = self.pick_var() {
                     existing
                 } else {
-                    out.push_str(&format!("{pad}pass\n"));
-                    return;
+                    return S::Pass;
                 };
                 let value = self.expr(2);
-                out.push_str(&format!("{pad}{name} = {value}\n"));
-                if indent == 0 && !self.vars.contains(&name) {
-                    self.vars.push(name);
+                if top && !self.vars.contains(&name) {
+                    self.vars.push(name.clone());
                 }
+                S::Assign(name, value)
             }
-            2 => {
-                let key = KEYS[self.rng.below(3) as usize];
-                let value = self.expr(2);
-                out.push_str(&format!("{pad}put(\"{key}\", {value})\n"));
-            }
-            3 => {
-                let value = self.expr(1);
-                out.push_str(&format!("{pad}print({value})\n"));
-            }
-            4 => {
-                let value = self.expr(1);
-                out.push_str(&format!("{pad}log({value})\n"));
-            }
-            5 => {
+            2 => S::Put(self.rng.below(3) as usize, self.expr(2)),
+            3 => S::Print(self.expr(1)),
+            4 => S::Log(self.expr(1)),
+            5 => match self.pick_var() {
+                Some(name) => S::AugAdd(name, self.expr(1)),
+                None => S::Pass,
+            },
+            6 => {
                 let test = self.expr(1);
-                out.push_str(&format!("{pad}if {test} > 3:\n"));
-                self.block(out, indent + 1, depth - 1);
-                if self.rng.chance(50) {
-                    out.push_str(&format!("{pad}else:\n"));
-                    self.block(out, indent + 1, depth - 1);
-                }
+                let body = self.block(depth - 1);
+                let orelse = if self.rng.chance(50) { self.block(depth - 1) } else { Vec::new() };
+                S::If(test, body, orelse)
             }
             _ => {
-                let n = self.rng.below(4);
-                out.push_str(&format!("{pad}for i in range({n}):\n"));
-                self.block(out, indent + 1, depth - 1);
+                let n = self.rng.below(4) as i64;
+                S::For(n, self.block(depth - 1))
             }
         }
     }
 
-    fn block(&mut self, out: &mut String, indent: usize, depth: u32) {
+    fn block(&mut self, depth: u32) -> Vec<S> {
         let n = 1 + self.rng.below(3);
-        for _ in 0..n {
-            self.stmt(out, indent, depth);
-        }
+        (0..n).map(|_| self.stmt(false, depth)).collect()
     }
 
     fn pick_var(&mut self) -> Option<String> {
@@ -121,21 +135,165 @@ impl Gen {
     }
 }
 
-fn program(seed: u64) -> String {
+fn render_e(e: &E) -> String {
+    match e {
+        E::Lit(n) => n.to_string(),
+        E::Var(v) => v.clone(),
+        E::Get(k) => format!("get(\"{}\")", KEYS[*k]),
+        E::Add(a, b) => format!("add({}, {})", render_e(a), render_e(b)),
+        E::Plus(a, b) => format!("({} + {})", render_e(a), render_e(b)),
+        E::Minus(a, b) => format!("({} - {})", render_e(a), render_e(b)),
+        E::Put(k, v) => format!("put(\"{}\", {})", KEYS[*k], render_e(v)),
+    }
+}
+
+fn render(stmts: &[S], indent: usize, out: &mut String) {
+    let pad = "    ".repeat(indent);
+    for s in stmts {
+        match s {
+            S::Assign(n, e) => out.push_str(&format!("{pad}{n} = {}\n", render_e(e))),
+            S::AugAdd(n, e) => out.push_str(&format!("{pad}{n} += {}\n", render_e(e))),
+            S::Put(k, e) => out.push_str(&format!("{pad}put(\"{}\", {})\n", KEYS[*k], render_e(e))),
+            S::Print(e) => out.push_str(&format!("{pad}print({})\n", render_e(e))),
+            S::Log(e) => out.push_str(&format!("{pad}log({})\n", render_e(e))),
+            S::If(t, body, orelse) => {
+                out.push_str(&format!("{pad}if {} > 3:\n", render_e(t)));
+                render(body, indent + 1, out);
+                if !orelse.is_empty() {
+                    out.push_str(&format!("{pad}else:\n"));
+                    render(orelse, indent + 1, out);
+                }
+            }
+            S::For(n, body) => {
+                out.push_str(&format!("{pad}for i in range({n}):\n"));
+                render(body, indent + 1, out);
+            }
+            S::Pass => out.push_str(&format!("{pad}pass\n")),
+        }
+    }
+}
+
+/// Independent tree-walking oracle with Python semantics (left-to-right
+/// evaluation, one statement at a time). It shares no code with Weave.
+#[derive(Default)]
+struct Oracle {
+    vars: BTreeMap<String, i64>,
+    store: HashMap<String, i64>,
+    log: Vec<i64>,
+    prints: Vec<String>,
+    calls: Vec<String>,
+}
+
+impl Oracle {
+    fn call(&mut self, tool: &str, args: Vec<Value>, result: i64) -> i64 {
+        self.calls.push(format!("{tool}|{args:?}|{{}}|{:?}|None", Value::Int(result)));
+        result
+    }
+
+    fn eval(&mut self, e: &E) -> i64 {
+        match e {
+            E::Lit(n) => *n,
+            E::Var(v) => self.vars[v],
+            E::Get(k) => {
+                let r = *self.store.get(KEYS[*k]).unwrap_or(&0);
+                self.call("get", vec![Value::str(KEYS[*k])], r)
+            }
+            E::Add(a, b) => {
+                let (x, y) = (self.eval(a), self.eval(b));
+                self.call("add", vec![Value::Int(x), Value::Int(y)], x.wrapping_add(y))
+            }
+            E::Plus(a, b) => {
+                let x = self.eval(a);
+                x + self.eval(b)
+            }
+            E::Minus(a, b) => {
+                let x = self.eval(a);
+                x - self.eval(b)
+            }
+            E::Put(k, v) => {
+                let v = self.eval(v);
+                let old = self.store.insert(KEYS[*k].to_string(), v).unwrap_or(0);
+                self.call("put", vec![Value::str(KEYS[*k]), Value::Int(v)], old)
+            }
+        }
+    }
+
+    fn run(&mut self, stmts: &[S]) {
+        for s in stmts {
+            match s {
+                S::Assign(n, e) => {
+                    let v = self.eval(e);
+                    self.vars.insert(n.clone(), v);
+                }
+                S::AugAdd(n, e) => {
+                    let old = self.vars[n];
+                    let v = self.eval(e);
+                    self.vars.insert(n.clone(), old + v);
+                }
+                S::Put(k, e) => {
+                    self.eval(&E::Put(*k, Box::new(e.clone())));
+                }
+                S::Print(e) => {
+                    let v = self.eval(e);
+                    self.prints.push(format!("{v}\n"));
+                }
+                S::Log(e) => {
+                    let v = self.eval(e);
+                    self.log.push(v);
+                    let len = self.log.len() as i64;
+                    self.call("log", vec![Value::Int(v)], len);
+                }
+                S::If(t, body, orelse) => {
+                    if self.eval(t) > 3 {
+                        self.run(body);
+                    } else {
+                        self.run(orelse);
+                    }
+                }
+                S::For(n, body) => {
+                    for i in 0..*n {
+                        self.vars.insert("i".into(), i);
+                        self.run(body);
+                    }
+                }
+                S::Pass => {}
+            }
+        }
+    }
+}
+
+fn build(seed: u64) -> Vec<S> {
     let mut gen = Gen {
         rng: Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1),
         vars: Vec::new(),
         next_var: 0,
     };
-    let mut out = String::new();
     let n = 2 + gen.rng.below(8);
-    for _ in 0..n {
-        gen.stmt(&mut out, 0, 2);
-    }
+    let mut stmts: Vec<S> = (0..n).map(|_| gen.stmt(true, 2)).collect();
     for var in gen.vars.clone() {
-        out.push_str(&format!("print({var})\n"));
+        stmts.push(S::Print(E::Var(var)));
     }
+    stmts
+}
+
+fn program(seed: u64) -> String {
+    let mut out = String::new();
+    render(&build(seed), 0, &mut out);
     out
+}
+
+fn oracle(seed: u64) -> Outcome {
+    let mut o = Oracle::default();
+    o.run(&build(seed));
+    let mut store: Vec<_> = o.store.iter().map(|(k, v)| (k.clone(), *v)).collect();
+    store.sort();
+    let bindings = o.vars.iter().map(|(k, v)| (k.clone(), Value::Int(*v))).collect();
+    let calls = o.calls.iter().enumerate().map(|(i, c)| format!("{i}|{c}")).collect();
+    Outcome {
+        result: Ok((o.prints, bindings, calls)),
+        store,
+        log: o.log,
+    }
 }
 
 #[derive(Default)]
@@ -233,6 +391,7 @@ fn check_seed(seed: u64) {
 
     let world = Arc::default();
     let (reference, trace) = outcome(&world, engine(&world, true, false).run(&source));
+    assert_eq!(unordered(&reference), unordered(&oracle(seed)), "{}", ctx("sequential vs oracle"));
 
     let world = Arc::default();
     let (parallel, _) = outcome(&world, engine(&world, false, true).run(&source));
