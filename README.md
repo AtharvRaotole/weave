@@ -72,9 +72,10 @@ Scripts are a subset of Python, parsed with `ruff_python_parser`. Supported:
 - assignment, including unpacking and augmented assignment (`+=`, `-=`, …)
 - calls, including keyword arguments on `print`
 - `if` / `elif` / `else` and conditional expressions
-- `for` over a list or string
+- `for` over a list or string, with `break` and `continue` (a loop that uses
+  them runs in order; calls within one iteration still overlap)
 - lists, dicts, f-strings, comparisons, boolean operators, and arithmetic
-- subscripts and methods such as `str.strip`, `str.find`, `str.title`, `dict.get`, `dict.items`, `list.index`, and `" ".join`
+- subscripts and methods such as `str.strip`, `str.find`, `str.split(sep, maxsplit)`, `str.rsplit`, `str.title`, `dict.get`, `dict.items`, `list.index`, and `" ".join`
 - builtins `len`, `range`, `sum`, `min`, `max`, `sorted`, `reversed`, `enumerate`, `zip`, `any`, `all`, and `list`
 - `try` / `except ToolError` and a bare `except`
 
