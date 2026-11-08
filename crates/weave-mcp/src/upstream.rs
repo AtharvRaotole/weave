@@ -26,6 +26,28 @@ pub struct UpstreamConfig {
     /// Per-tool effects. Tools not listed use MCP annotations: `readOnlyHint`
     /// means read; anything else is irreversible.
     pub effects: BTreeMap<String, Effect>,
+    /// Per-tool result shaping: `lines` turns text into a list of non-empty
+    /// lines; `json` parses the text as JSON. Other tools return text.
+    pub results: BTreeMap<String, ResultShape>,
+    /// Per-tool sample arguments. At startup each listed read-only tool is
+    /// called once and its (truncated) output is shown in the tool listing,
+    /// so a script writer knows the result format before parsing it.
+    pub examples: BTreeMap<String, Json>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResultShape {
+    Lines,
+    Json,
+}
+
+impl ResultShape {
+    pub fn describe(self) -> &'static str {
+        match self {
+            Self::Lines => "list of str, one per line",
+            Self::Json => "parsed JSON value",
+        }
+    }
 }
 
 /// One tool discovered on an upstream server.
@@ -40,6 +62,9 @@ pub struct UpstreamTool {
     pub params: Vec<String>,
     pub required: Vec<String>,
     pub effect: Effect,
+    pub shape: Option<ResultShape>,
+    /// `(arguments, output)` from one sample call made at startup.
+    pub example: Option<(Json, String)>,
 }
 
 type Pending = Arc<Mutex<HashMap<u64, Sender<Json>>>>;
@@ -97,7 +122,25 @@ impl UpstreamConfig {
                 effects.insert(tool.clone(), effect);
             }
         }
-        Ok(Self { name, command, args, prefix, effects })
+        let mut results = BTreeMap::new();
+        if let Some(map) = value.get("results") {
+            let map = map.as_object().ok_or_else(|| format!("upstream `{name}` results must be an object"))?;
+            for (tool, shape) in map {
+                let shape = match shape.as_str() {
+                    Some("lines") => ResultShape::Lines,
+                    Some("json") => ResultShape::Json,
+                    Some("text") => continue,
+                    _ => return Err(format!("upstream `{name}`: result shape for `{tool}` must be lines, json or text")),
+                };
+                results.insert(tool.clone(), shape);
+            }
+        }
+        let examples = match value.get("examples") {
+            None => BTreeMap::new(),
+            Some(Json::Object(map)) => map.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+            Some(_) => return Err(format!("upstream `{name}` examples must be an object")),
+        };
+        Ok(Self { name, command, args, prefix, effects, results, examples })
     }
 }
 
@@ -150,6 +193,7 @@ impl Upstream {
         let listed = upstream.request("tools/list", json!({}))?;
         let tools = listed.get("tools").and_then(|v| v.as_array()).cloned().unwrap_or_default();
         upstream.tools = tools.iter().map(|tool| discover(&upstream.config, tool)).collect::<Result<_, _>>()?;
+        upstream.capture_examples();
         Ok(Arc::new(upstream))
     }
 
@@ -202,6 +246,26 @@ impl Upstream {
         }
     }
 
+    /// Call each configured example once. Only read-only and pure tools are
+    /// sampled; a failing sample is shown as the error text it returned.
+    fn capture_examples(&mut self) {
+        let mut samples = Vec::new();
+        for (index, tool) in self.tools.iter().enumerate() {
+            let Some(arguments) = self.config.examples.get(&tool.upstream_name) else { continue };
+            if !matches!(tool.effect, Effect::Read | Effect::Pure) {
+                continue;
+            }
+            let output = match self.call(&tool.upstream_name, arguments.clone()) {
+                Ok(text) => text,
+                Err(text) => format!("ToolError: {text}"),
+            };
+            samples.push((index, (arguments.clone(), truncate(&output, 300))));
+        }
+        for (index, sample) in samples {
+            self.tools[index].example = Some(sample);
+        }
+    }
+
     /// Register every upstream tool on `engine`.
     pub fn register_all(self: &Arc<Self>, engine: &mut Engine) {
         for tool in &self.tools {
@@ -211,7 +275,8 @@ impl Upstream {
             spec.accepts_kwargs = true;
             engine.register(&tool.name, spec, move |args, kwargs| {
                 let arguments = arguments_for(&spec_tool, &args, &kwargs)?;
-                upstream.call(&spec_tool.upstream_name, arguments).map(Value::Str)
+                let text = upstream.call(&spec_tool.upstream_name, arguments)?;
+                shape_result(spec_tool.shape, text)
             });
         }
     }
@@ -243,12 +308,47 @@ fn discover(config: &UpstreamConfig, tool: &Json) -> Result<UpstreamTool, String
     Ok(UpstreamTool {
         name: format!("{}{}", config.prefix, upstream_name),
         description: tool.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        upstream_name,
         input_schema,
         params,
         required,
         effect,
+        shape: config.results.get(&upstream_name).copied(),
+        upstream_name,
+        example: None,
     })
+}
+
+fn truncate(text: &str, max: usize) -> String {
+    if text.chars().count() <= max {
+        return text.to_string();
+    }
+    let cut: String = text.chars().take(max).collect();
+    format!("{cut}...")
+}
+
+/// Apply a configured result shape to an upstream tool's text.
+pub fn shape_result(shape: Option<ResultShape>, text: String) -> Result<Value, String> {
+    match shape {
+        None => Ok(Value::Str(text)),
+        Some(ResultShape::Lines) => Ok(Value::List(
+            text.lines().filter(|line| !line.trim().is_empty()).map(|line| Value::str(line)).collect(),
+        )),
+        Some(ResultShape::Json) => serde_json::from_str::<Json>(&text)
+            .map(|json| from_plain_json(&json))
+            .map_err(|err| format!("result is not JSON: {err}")),
+    }
+}
+
+/// Weave value for untagged JSON.
+pub fn from_plain_json(json: &Json) -> Value {
+    match json {
+        Json::Null => Value::Null,
+        Json::Bool(b) => Value::Bool(*b),
+        Json::Number(n) => n.as_i64().map(Value::Int).unwrap_or_else(|| Value::Float(n.as_f64().unwrap_or(0.0))),
+        Json::String(s) => Value::Str(s.clone()),
+        Json::Array(items) => Value::List(items.iter().map(from_plain_json).collect()),
+        Json::Object(map) => Value::Dict(map.iter().map(|(k, v)| (Value::Str(k.clone()), from_plain_json(v))).collect()),
+    }
 }
 
 /// Map Weave positional and keyword arguments onto an MCP arguments object.
