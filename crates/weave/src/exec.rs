@@ -2362,6 +2362,8 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
             let suffix = one_str("endswith", args)?;
             Ok(Value::Bool(s.ends_with(&suffix)))
         }
+        (Value::Str(s), "splitlines") => no_args(name, args)
+            .map(|_| Value::List(s.lines().map(|line| Value::Str(line.to_string())).collect())),
         (Value::Str(s), "find") => {
             let needle = one_str("find", args)?;
             Ok(Value::Int(s.find(&needle).map(|i| i as i64).unwrap_or(-1)))

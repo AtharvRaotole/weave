@@ -617,3 +617,13 @@ fn parse_json_reads_tool_text() {
     let caught = engine.run("try:\n    x = parse_json(\"[\")\nexcept:\n    x = 0\n").unwrap();
     assert_eq!(caught.bindings["x"], Value::int(0));
 }
+
+#[test]
+fn str_splitlines() {
+    let engine = Engine::new();
+    let result = engine.run("xs = \"a\\r\\nb\\n\\nc\\n\".splitlines()\n").unwrap();
+    assert_eq!(
+        result.bindings["xs"],
+        Value::List(vec![Value::str("a"), Value::str("b"), Value::str(""), Value::str("c")])
+    );
+}
