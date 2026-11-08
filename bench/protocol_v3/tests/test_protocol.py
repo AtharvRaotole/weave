@@ -599,6 +599,24 @@ class ProtocolTests(unittest.TestCase):
             self.assertEqual(row["status"], "resource_limit")
             self.assertFalse(row["passed"])
 
+    def test_failed_forbidden_write_attempt_cannot_pass_unchanged_state(self):
+        for mode, action in [
+            ("native", calls(("write_file", {"path": "../outside", "text": "x"}))),
+            (
+                "weave",
+                {
+                    "script": 'try:\n    write_file(path="../outside",text="x")\nexcept ToolError:\n    pass\n'
+                },
+            ),
+        ]:
+            row = evaluate([action, {"answer": "31"}], mode, max_answers=1)
+            self.assertFalse(row["passed"])
+            self.assertEqual(row["writes"], [])
+            self.assertTrue(row["state_matches"])
+            self.assertTrue(row["unexpected_write_attempt"])
+            self.assertEqual(len(row["write_attempts"]), 1)
+            self.assertEqual(summarize([row])["unexpected_write_attempt_runs"], 1)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

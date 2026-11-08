@@ -4,7 +4,7 @@
   "synthetic_clock": true,
   "response_origin": "hand-authored scripted decisions, not recorded live model responses",
   "source_dirty": true,
-  "protocol_sources_hash": "8123bf82bf2469cf2c4acd04043bb8df812f30c259701947018a30fecf3285f3",
+  "protocol_sources_hash": "c627465097e0d27dcccf14dde96daae4fff206b3a17a8b04c2aae238ab2cda2e",
   "split_manifest": {
     "development": [
       "dev_sum",
@@ -29,6 +29,7 @@
     "state_mismatch_runs": 0,
     "write_log_mismatch_runs": 0,
     "unexpected_write_runs": 0,
+    "unexpected_write_attempt_runs": 0,
     "failures": {},
     "p50_all_wall_s": 2.0,
     "p95_all_wall_s": 3,
@@ -99,7 +100,7 @@
         "provider": "deterministic-fake",
         "model_revision": "fake-revision-001",
         "api_version": "offline-v1",
-        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "source_commit": "5d4be5d32f5fac06b25a1b5409f34d9e27815872",
         "server_versions": {
           "local-filesystem-fixture": "protocol-v3.1"
         },
@@ -122,6 +123,9 @@
       "initial_state_hash": "b4b6557d95e1969dc7022b617fd25498cdd7c4e7c02bcb414e85991c3891ced4",
       "final_state_hash": "b4b6557d95e1969dc7022b617fd25498cdd7c4e7c02bcb414e85991c3891ced4",
       "writes": [],
+      "write_attempts": [],
+      "write_attempt_log_matches": true,
+      "unexpected_write_attempt": false,
       "state_matches": true,
       "write_log_matches": true,
       "unexpected_write": false,
@@ -406,7 +410,7 @@
         "provider": "deterministic-fake",
         "model_revision": "fake-revision-001",
         "api_version": "offline-v1",
-        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "source_commit": "5d4be5d32f5fac06b25a1b5409f34d9e27815872",
         "server_versions": {
           "local-filesystem-fixture": "protocol-v3.1"
         },
@@ -429,6 +433,9 @@
       "initial_state_hash": "b4b6557d95e1969dc7022b617fd25498cdd7c4e7c02bcb414e85991c3891ced4",
       "final_state_hash": "b4b6557d95e1969dc7022b617fd25498cdd7c4e7c02bcb414e85991c3891ced4",
       "writes": [],
+      "write_attempts": [],
+      "write_attempt_log_matches": true,
+      "unexpected_write_attempt": false,
       "state_matches": true,
       "write_log_matches": true,
       "unexpected_write": false,
@@ -739,7 +746,7 @@
         "provider": "deterministic-fake",
         "model_revision": "fake-revision-001",
         "api_version": "offline-v1",
-        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "source_commit": "5d4be5d32f5fac06b25a1b5409f34d9e27815872",
         "server_versions": {
           "local-filesystem-fixture": "protocol-v3.1"
         },
@@ -762,6 +769,9 @@
       "initial_state_hash": "1ec5a8da8398a7235b8ca5e230ef96d4b72fa5a93c2806a1269947a5c09d0972",
       "final_state_hash": "1ec5a8da8398a7235b8ca5e230ef96d4b72fa5a93c2806a1269947a5c09d0972",
       "writes": [],
+      "write_attempts": [],
+      "write_attempt_log_matches": true,
+      "unexpected_write_attempt": false,
       "state_matches": true,
       "write_log_matches": true,
       "unexpected_write": false,
@@ -1198,7 +1208,7 @@
         "provider": "deterministic-fake",
         "model_revision": "fake-revision-001",
         "api_version": "offline-v1",
-        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "source_commit": "5d4be5d32f5fac06b25a1b5409f34d9e27815872",
         "server_versions": {
           "local-filesystem-fixture": "protocol-v3.1"
         },
@@ -1221,6 +1231,9 @@
       "initial_state_hash": "1ec5a8da8398a7235b8ca5e230ef96d4b72fa5a93c2806a1269947a5c09d0972",
       "final_state_hash": "1ec5a8da8398a7235b8ca5e230ef96d4b72fa5a93c2806a1269947a5c09d0972",
       "writes": [],
+      "write_attempts": [],
+      "write_attempt_log_matches": true,
+      "unexpected_write_attempt": false,
       "state_matches": true,
       "write_log_matches": true,
       "unexpected_write": false,
@@ -1511,7 +1524,7 @@
         "provider": "deterministic-fake",
         "model_revision": "fake-revision-001",
         "api_version": "offline-v1",
-        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "source_commit": "5d4be5d32f5fac06b25a1b5409f34d9e27815872",
         "server_versions": {
           "local-filesystem-fixture": "protocol-v3.1"
         },
@@ -1539,6 +1552,14 @@
           "RECEIVED blue"
         ]
       ],
+      "write_attempts": [
+        {
+          "path": "receipt.txt",
+          "text": "RECEIVED blue"
+        }
+      ],
+      "write_attempt_log_matches": true,
+      "unexpected_write_attempt": false,
       "state_matches": true,
       "write_log_matches": true,
       "unexpected_write": false,
@@ -1838,7 +1859,7 @@
         "provider": "deterministic-fake",
         "model_revision": "fake-revision-001",
         "api_version": "offline-v1",
-        "source_commit": "c2ebbcf42bcc20975dffef20eb536baad00ba234",
+        "source_commit": "5d4be5d32f5fac06b25a1b5409f34d9e27815872",
         "server_versions": {
           "local-filesystem-fixture": "protocol-v3.1"
         },
@@ -1866,6 +1887,14 @@
           "RECEIVED blue"
         ]
       ],
+      "write_attempts": [
+        {
+          "path": "receipt.txt",
+          "text": "RECEIVED blue"
+        }
+      ],
+      "write_attempt_log_matches": true,
+      "unexpected_write_attempt": false,
       "state_matches": true,
       "write_log_matches": true,
       "unexpected_write": false,

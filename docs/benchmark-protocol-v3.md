@@ -59,7 +59,8 @@ regraded as a new live evaluation, and no historical chart is regenerated.
    need another provider turn; scripts can express dependencies internally.
 5. Only a provider's final `answer` decision reaches the grader. Grading requires
    exact answer (outer whitespace ignored), exact actual file snapshot, and exact
-   ordered successful-write log. A correct claimed answer without its write,
+   ordered successful-write **and attempted-write** logs. Even a forbidden write
+   blocked by the backend fails the action contract; unchanged state is not enough. A correct claimed answer without its write,
    wrong content, an extra file, or a repeated same-content write fails. Grading
    reads real temporary files, not the provider's assertion or tool status alone.
 6. Both modes get at most 10 logical provider turns, 3 final-answer submissions,
@@ -157,7 +158,7 @@ in the provider request. Scripted cassette answers prove no model capability.
 
 ## Current acceptance evidence
 
-32 deterministic protocol tests pass, including real filesystem/native-versus-
+33 deterministic protocol tests pass, including real filesystem/native-versus-
 Engine checks, shared concurrency barriers (not a wall-clock speed assertion),
 negative cases, failure tails, oracle/schema hashing, resource-limit failure,
 and write completion before timeout. `tests/audit/test_benchmark.py` runs these

@@ -119,11 +119,13 @@ class Task:
     def public(self):
         return {"task_id": self.id, "instruction": self.instruction}
 
-    def grade(self, answer, files, writes):
+    def grade(self, answer, files, writes, write_attempts):
         return (
             answer.strip() == self.answer
             and files == self.final_files
             and writes == list(self.expected_writes)
+            and write_attempts
+            == [{"path": p, "text": t} for p, t in self.expected_writes]
         )
 
 
@@ -214,6 +216,7 @@ class Fixture:
     def __init__(self, root, task, clock, deadline, width=4):
         self.root, self.task, self.clock, self.deadline = root, task, clock, deadline
         self.events, self.writes, self.lock = [], [], threading.Lock()
+        self.write_attempts = []
         self.capacity = threading.BoundedSemaphore(width)
         self.exceeded = False
         self.tools = {t["name"]: t for t in manifest(task)}
@@ -253,6 +256,8 @@ class Fixture:
                 raise CallBudgetExceeded("64-call budget exceeded")
             event = {"name": name, "arguments": args, "result": None, "error": None}
             self.events.append(event)
+        if self.tools.get(name, {}).get("effect") == "irreversible":
+            self.write_attempts.append(json.loads(canonical(args)))
         try:
             if self.clock.now() >= self.deadline:
                 raise TimeoutError("deadline exceeded before tool dispatch")
@@ -489,7 +494,10 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
                 if set(decision) == {"answer"} and isinstance(decision["answer"], str):
                     answers += 1
                     passed = task.grade(
-                        decision["answer"], fixture.snapshot(), fixture.writes
+                        decision["answer"],
+                        fixture.snapshot(),
+                        fixture.writes,
+                        fixture.write_attempts,
                     )
                     if answers == 1:
                         first_answer_pass = passed
@@ -583,6 +591,13 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
             "initial_state_hash": initial_hash,
             "final_state_hash": digest(final_files),
             "writes": writes,
+            "write_attempts": fixture.write_attempts if fixture else [],
+            "write_attempt_log_matches": (fixture.write_attempts if fixture else [])
+            == [{"path": p, "text": t} for p, t in task.expected_writes],
+            "unexpected_write_attempt": (fixture.write_attempts if fixture else [])
+            != [{"path": p, "text": t} for p, t in task.expected_writes][
+                : len(fixture.write_attempts) if fixture else 0
+            ],
             "state_matches": final_files == task.final_files,
             "write_log_matches": writes == list(task.expected_writes),
             "unexpected_write": writes != list(task.expected_writes)[: len(writes)],
@@ -606,6 +621,9 @@ def summarize(rows):
         "state_mismatch_runs": sum(not r["state_matches"] for r in rows),
         "write_log_mismatch_runs": sum(not r["write_log_matches"] for r in rows),
         "unexpected_write_runs": sum(r["unexpected_write"] for r in rows),
+        "unexpected_write_attempt_runs": sum(
+            r["unexpected_write_attempt"] for r in rows
+        ),
         "failures": {
             s: sum(r["status"] == s for r in rows)
             for s in sorted({r["status"] for r in rows if not r["passed"]})

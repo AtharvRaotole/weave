@@ -2,6 +2,7 @@ test_answer_repairs_get_equal_feedback_and_budget_no_oracle_leak (bench.protocol
 test_backend_call_budget_is_fatal_and_never_hidden_as_a_pass (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_backend_call_budget_is_fatal_and_never_hidden_as_a_pass) ... ok
 test_backend_concurrency_cap_is_equal_for_weave_and_native (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_backend_concurrency_cap_is_equal_for_weave_and_native) ... ok
 test_development_heldout_partition_and_unfamiliar_schemas (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_development_heldout_partition_and_unfamiliar_schemas) ... ok
+test_failed_forbidden_write_attempt_cannot_pass_unchanged_state (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_failed_forbidden_write_attempt_cannot_pass_unchanged_state) ... ok
 test_failure_after_consumed_tokens_does_not_reset_row (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_failure_after_consumed_tokens_does_not_reset_row) ... ok
 test_failure_timeout_budget_and_malformed_rows_retained (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_failure_timeout_budget_and_malformed_rows_retained) ... ok
 test_final_answer_not_stdout_is_the_endpoint (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_final_answer_not_stdout_is_the_endpoint) ... ok
@@ -32,10 +33,10 @@ test_unknown_failure_usage_is_not_zero_or_silently_complete (bench.protocol_v3.t
 test_write_outcomes_reported_separately_from_missing_write (bench.protocol_v3.tests.test_protocol.ProtocolTests.test_write_outcomes_reported_separately_from_missing_write) ... ok
 
 ----------------------------------------------------------------------
-Ran 32 tests in 0.123s
+Ran 33 tests in 0.149s
 
 OK
-native 3x150ms direct-call batch elapsed seconds 0.15283161800107337
+native 3x150ms direct-call batch elapsed seconds 0.15257826400011254
 offline equal-final-endpoint, token accounting, and native parallel transport checks passed
 Historical v2 live driver retired: controlled v3 mechanics are offline-only; corrected live runs remain pending.
 v3 deterministic protocol mechanics passed; corrected live runs remain pending
