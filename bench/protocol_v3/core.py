@@ -404,6 +404,12 @@ def run(task: Task, mode: str, provider: Provider, config: Config, *, clock=None
                     else "calls or answer",
                     "history": json.loads(canonical(history)),
                     "generation": config.generation,
+                    "seed": config.seed,
+                    "target": {
+                        "provider": config.provider,
+                        "model_revision": config.model_revision,
+                        "api_version": config.api_version,
+                    },
                 }
                 requests.append(json.loads(canonical(request)))
                 turns += 1

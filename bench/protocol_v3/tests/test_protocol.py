@@ -70,7 +70,7 @@ class ProtocolTests(unittest.TestCase):
         a, b = rows
         self.assertEqual(a["schema_hash"], b["schema_hash"])
         self.assertEqual(a["context_hash"], b["context_hash"])
-        for key in ("system", "task", "tools", "generation"):
+        for key in ("system", "task", "tools", "generation", "seed", "target"):
             self.assertEqual(a["requests"][0][key], b["requests"][0][key])
         self.assertEqual(a["feedback"], b["feedback"])
         # No script stdout or trace is substituted as a final answer/context payload.
