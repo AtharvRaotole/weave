@@ -740,3 +740,43 @@ fn single_character_tool_argument_failure_hints_at_splitlines() {
     let err = engine.run("print(read(\"\"))\n").unwrap_err().to_string();
     assert!(!err.contains("splitlines"), "{err}");
 }
+
+#[test]
+fn parallel_loop_keeps_the_last_conditional_assignment() {
+    let engine = Engine::new();
+    let cases = [
+        ("c = \"\"\nfor x in [1, 2]:\n    if x == 1:\n        c = \"a\"\nprint(c)\n", "a\n"),
+        ("c = \"\"\nfor x in [1, 2, 3]:\n    if x != 2:\n        c = str(x)\nprint(c)\n", "3\n"),
+        ("c = \"\"\nfor x in [1, 2, 3]:\n    if x == 9:\n        c = \"z\"\nprint(c)\n", "\n"),
+        ("c = \"\"\nfor a in [1]:\n    for obs in [\"lives in London\", \"x\"]:\n        if \"lives in\" in obs:\n            c = obs.rsplit(\" \", 1)[-1]\nprint(c)\n", "London\n"),
+        ("c = 0\nfor x in [1, 2]:\n    try:\n        if x == 1:\n            c = 5\n    except:\n        pass\nprint(c)\n", "5\n"),
+    ];
+    for (src, want) in cases {
+        assert_eq!(run_src(&engine, src).stdout(), want, "{src}");
+    }
+}
+
+#[test]
+fn str_strip_chars_and_is_predicates_match_python() {
+    let engine = Engine::new();
+    let cases: &[(&str, &str)] = &[
+        ("\"  x  \".strip()", "[x]"),
+        ("\"..x.,\".strip(\".,\")", "[x]"),
+        ("\"xxhixx\".lstrip(\"x\")", "[hixx]"),
+        ("\"London.\".rstrip(\".\")", "[London]"),
+        ("\" a \".rstrip(None)", "[ a]"),
+        ("\"ab1\".isalnum()", "[True]"),
+        ("\"a-b\".isalnum()", "[False]"),
+        ("\"\".isalnum()", "[False]"),
+        ("\"a1\".isalpha()", "[False]"),
+        ("\" \\t\".isspace()", "[True]"),
+        ("\"ABC1\".isupper()", "[True]"),
+        ("\"AbC\".isupper()", "[False]"),
+        ("\"abc!\".islower()", "[True]"),
+        ("\"123\".islower()", "[False]"),
+    ];
+    for (expr, want) in cases {
+        let result = run_src(&engine, &format!("print(f\"[{{{expr}}}]\")\n"));
+        assert_eq!(result.stdout(), format!("{want}\n"), "{expr}");
+    }
+}

@@ -87,6 +87,18 @@ impl Gen {
     }
 
     fn stmt(&mut self, top: bool, depth: u32) -> S {
+        if self.loop_depth > 0 && self.rng.chance(15) {
+            // Conditional assignment that only some iterations make, in a
+            // body that can still run in parallel: the value after the loop
+            // must come from the last iteration that assigned it.
+            if let Some(name) = self.pick_var() {
+                let k = self.rng.below(5) as i64;
+                // True for the first k + 1 iterations only, so later ones skip it.
+                        let test = E::Minus(Box::new(E::Lit(4 + k)), Box::new(E::Var("i".into())));
+                let value = E::Plus(Box::new(E::Var("i".into())), Box::new(E::Lit(10 * k)));
+                return S::If(test, vec![S::Assign(name, value)], Vec::new());
+            }
+        }
         if self.loop_depth > 0 && self.rng.chance(20) {
             let test = self.expr(1);
             return if self.rng.chance(50) { S::BreakIf(test) } else { S::ContinueIf(test) };
@@ -125,8 +137,19 @@ impl Gen {
             _ => {
                 let n = self.rng.below(4) as i64;
                 self.loop_depth += 1;
-                let body = self.block(depth - 1);
+                let mut body = self.block(depth - 1);
                 self.loop_depth -= 1;
+                // Sometimes a pure body (no store or log effects) so the loop
+                // takes the parallel path with a conditional assignment.
+                if self.rng.chance(25) {
+                    if let Some(name) = self.pick_var() {
+                        let k = self.rng.below(5) as i64;
+                        // True for the first k + 1 iterations only, so later ones skip it.
+                        let test = E::Minus(Box::new(E::Lit(4 + k)), Box::new(E::Var("i".into())));
+                        let value = E::Plus(Box::new(E::Var("i".into())), Box::new(E::Lit(10 * k)));
+                        body = vec![S::If(test, vec![S::Assign(name, value)], Vec::new())];
+                    }
+                }
                 S::For(n, body)
             }
         }

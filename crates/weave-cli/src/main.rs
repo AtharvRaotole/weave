@@ -33,6 +33,9 @@ fn run(args: impl Iterator<Item = String>) -> Result<String, String> {
     if args.is_empty() || args[0] == "-h" || args[0] == "--help" {
         return Ok(HELP.to_string());
     }
+    if args[0] == "-V" || args[0] == "--version" {
+        return Ok(format!("weave {}\n", env!("CARGO_PKG_VERSION")));
+    }
     let cmd = args[0].as_str();
     let rest = &args[1..];
     match cmd {

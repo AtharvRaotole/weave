@@ -35,8 +35,12 @@ fn config_from_args() -> Result<weave_mcp::ServerConfig, String> {
             "--config" => {
                 path = Some(args.next().ok_or("--config needs a path")?);
             }
+            "-V" | "--version" => {
+                println!("weave-mcp {}", env!("CARGO_PKG_VERSION"));
+                std::process::exit(0);
+            }
             "-h" | "--help" => {
-                println!("weave-mcp [--config tools.json]");
+                println!("weave-mcp [--config tools.json] [--version]");
                 std::process::exit(0);
             }
             other => return Err(format!("unknown argument `{other}`")),

@@ -8,13 +8,16 @@ replays the same output.
 
 ## Quickstart
 
+Build and install the Python package from a checkout (Rust 1.97+ and Python 3.9+):
+
 ```bash
-cargo test --workspace
 python3 -m venv .venv
 .venv/bin/pip install 'maturin>=1.8,<2'
-.venv/bin/maturin develop --release
-.venv/bin/python examples/speedup.py
+.venv/bin/maturin develop --release     # or: maturin build --release && pip install target/wheels/*.whl
+.venv/bin/python examples/speedup.py    # measures sequential vs Weave on this machine
 ```
+
+Run a script over your own Python tools:
 
 ```python
 from weave import Engine
@@ -24,9 +27,33 @@ def weather(city: str) -> str:
 
 engine = Engine()
 engine.tool("weather", weather, effect="read", timeout_ms=1000, retries=1)
-result = engine.run('temp = weather("Paris")\nprint(temp)\n')
+source = 'a = weather("Paris")\nb = weather("Oslo")\nprint(a, b)\n'   # the two reads run together
+result = engine.run(source)
 print(result.stdout)
-engine.replay('temp = weather("Paris")\nprint(temp)\n', result.trace_json())
+engine.replay(source, result.trace_json())                          # same output, no tool calls
+```
+
+Give an agent one tool that runs Weave scripts over your functions
+(`examples/run_weave_tool.py` shows a full OpenAI loop):
+
+```python
+import weave
+
+@weave.declare(effect="read", arity=1)
+def order_total(order_id):
+    """Integer total of one order."""
+    return {"o1": 12, "o2": 30}[order_id]
+
+tool = weave.WeaveTool([order_total])
+tools = [tool.chat_tool()]              # pass to Chat Completions; tool.responses_tool() for Responses
+# for each tool call the model makes:  messages.append(tool.handle(call))
+```
+
+Or put Weave in front of existing MCP servers (see [MCP](#mcp)):
+
+```bash
+cargo build --release -p weave-mcp
+./target/release/weave-mcp --config my-upstreams.json
 ```
 
 `check` returns one diagnostic per line, with a column and a `hint` an LLM
@@ -75,7 +102,7 @@ Scripts are a subset of Python, parsed with `ruff_python_parser`. Supported:
 - `for` over a list or string, with `break` and `continue` (a loop that uses
   them runs in order; calls within one iteration still overlap)
 - lists, dicts, f-strings, comparisons, boolean operators, and arithmetic
-- subscripts and methods such as `str.strip`, `str.find`, `str.split(sep, maxsplit)`, `str.rsplit`, `str.title`, `dict.get`, `dict.items`, `list.index`, and `" ".join`
+- subscripts and methods such as `str.strip(chars)`, `str.isalnum`, `str.find`, `str.split(sep, maxsplit)`, `str.rsplit`, `str.title`, `dict.get`, `dict.items`, `list.index`, and `" ".join`
 - builtins `len`, `range`, `sum`, `min`, `max`, `sorted`, `reversed`, `enumerate`, `zip`, `any`, `all`, and `list`
 - `try` / `except ToolError` and a bare `except`
 
@@ -221,19 +248,56 @@ engine.replay(source, result.trace_json())
 
 ## MCP
 
-`weave-mcp` speaks MCP over stdio with `Content-Length` framing.
+`weave-mcp` is an MCP server over stdio. It accepts both newline-delimited
+JSON (the MCP stdio transport) and `Content-Length` framing, and answers in the
+framing the client used.
 
 ```bash
-cargo run -p weave-mcp --release
+cargo run -p weave-mcp --release -- --config examples/tools.json
 ```
 
 Tools:
 
 - `weave_check` — `{ "source": "..." }` returns `ok`, or one diagnostic per line
-- `weave_run` — runs `source` with scripted tools (`behavior` `echo` or `const`, optional `effect`, `arity`, `delay_ms`, `result`)
-- `weave_replay` — replays `source` from `trace`; pass the same `tools` list so the checker knows their arity
+- `weave_run` — runs `source`; returns `stdout`, `prints`, `bindings`, and the `trace`
+- `weave_replay` — replays `source` from `trace`
 
-`echo` returns the single positional argument. `const` returns the tagged `result`.
+A config's `tools` list declares scripted tools (`behavior` `echo` or
+`const`, optional `effect`, `arity`, `delay_ms`, `result`). `echo` returns the
+single positional argument. `const` returns the tagged `result`. A request
+that omits `tools` uses the config. `examples/mcp-client-config.json` is a
+client entry, and `python examples/mcp_client.py` performs the handshake,
+calls `weather`, and runs a script.
+
+### Proxying real MCP servers
+
+A config's `upstreams` list starts other MCP servers and exposes their tools to
+scripts. Their tools are listed in the `weave_run` description, one line each,
+with parameters in positional order:
+
+```json
+{"upstreams": [
+  {"name": "fs", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"],
+   "prefix": "fs_",
+   "results": {"list_directory": "lines"},
+   "examples": {"list_directory": {"path": "/data"}}},
+  {"name": "fetch", "command": "uvx", "args": ["mcp-server-fetch"], "prefix": "web_",
+   "effects": {"fetch": "read"}}
+]}
+```
+
+- `prefix` is prepended to each upstream tool name.
+- `effects` overrides a tool's effect. Without an override, a tool marked
+  `readOnlyHint` is `read`, and anything else is `irreversible`.
+- `results` shapes a tool's text result: `lines` returns a list of non-empty
+  lines, and `json` returns the parsed value.
+- `examples` gives sample arguments. At startup each listed read-only tool is
+  called once, and its truncated output appears in the listing, so a model
+  knows the result format before it writes a parser.
+- Parameters that take objects or lists of objects are spelled out in the
+  listing, e.g. `entities: list[{name: str, entityType: str, observations: list[str]}]`.
+
+`examples/real_mcp_upstream.py` runs a script against the real filesystem server.
 
 ## Measured results
 
@@ -413,6 +477,53 @@ of 18 without it. Config example:
  "examples": {"list_directory": {"path": "/data"}}}
 ```
 
+### Does it generalize? (M11: 16 tasks, 4 servers, 2 models)
+
+The real-tools eval now has 16 tasks across four reference MCP servers:
+`server-filesystem`, `mcp-server-fetch`, `mcp-server-git`, and
+`server-memory`. Five of them write, and the harness checks the real result
+after each run: file contents, the git commit (`git log`), and the memory
+graph's JSONL file. The task categories are parallel reads, loops, write
+ordering, tool errors, fetch, git reads, a git commit, memory reads, memory
+writes, and one cross-server task (config file to memory entity). Each run uses
+the M10 defaults (`examples,structured`) and 3 repeats, which gives 48 runs per
+model and mode. Example outputs come from a scratch git repo and queries that no
+task asks about.
+
+| run (UTC) | model | code | Weave passed (first try) | Weave median | Weave mean turns | native passed | native median | native mean turns | cost |
+|---|---|---|---|---|---|---|---|---|---|
+| 17:37:35 | gpt-5.4-mini | M10 | 45/48 (33) | 1.159 s | 1.46 | 48/48 | 3.556 s | 2.69 | $0.2383 |
+| 17:52:51 | gpt-5.4-mini | + fixes 1-2 | **48/48 (44)** | 0.849 s | 1.10 | 48/48 | 3.108 s | 2.65 | $0.2215 |
+| 17:55:00 | gpt-6.1-sol | + fixes 1-2 | **48/48 (42)** | 1.833 s | 1.15 | 48/48 | 4.923 s | 2.75 | $0.4944 |
+| 18:00:40 | both, Weave only | + fix 3 | mini 37/37 (36), sol 32/32 (32) | 0.786 s / 1.877 s | 1.03 / 1.00 | — | — | — | $0.3504 |
+
+The last run hit its $0.35 cap after 69 of 96 planned runs (`stopped_early`
+in the JSON), so it covers repeats 0 and 1 of both models and part of repeat 2.
+M11 spent $1.3046 in total.
+
+What failed in the first run, and the fixes:
+
+1. **Runtime bug.** A parallel `for` loop dropped a conditional assignment
+   when a later iteration skipped the `if`. For example, in
+   `for obs in obs_list: if "lives in" in obs: city = ...`, `city` came out as
+   its pre-loop value. That caused all three `mem_lookup` failures. Now the
+   value comes from the last iteration that assigned it, as in Python. The
+   differential fuzzer generates this pattern, and it fails on the old code.
+2. **Structured parameters.** The listing showed only parameter names, so
+   scripts guessed `type` for `entityType` and `observations` for `contents`.
+   Native function calling sees the JSON schema. The listing now spells out
+   object parameters, e.g.
+   `entities: list[{name: str, entityType: str, observations: list[str]}]`.
+3. **Missing string methods** that gpt-6.1-sol used: `strip`/`rstrip` with a
+   character set, and `isalnum`.
+
+After fixes 1 and 2, both models passed 48/48 in Weave and in native mode.
+Per task, Weave's median wall time was 1.6x to 6.7x lower than native on
+gpt-5.4-mini. On gpt-6.1-sol it was 0.9x to 4.0x lower: `count_urgent` and
+`mem_lookup` took a retry on gpt-6.1-sol because of the missing methods in fix 3,
+which made them about as slow as native. In the partial run after fix 3,
+gpt-6.1-sol passed every task on the first try.
+
 ### Streaming into a live session
 
 `bench/streaming.py` turns OpenAI chat chunks (`choices[0].delta.content`) and Anthropic events (`content_block_delta` / `delta.text`) into text and pushes each piece into `Session.push`. Safe calls start once their statement is complete, before the rest of the script arrives.
@@ -449,10 +560,6 @@ weave trace trace.json
 ```
 
 `cargo run -p weave-cli --` is the same four commands (`check`, `run`, `replay`, `trace`) for echo and const tools. `@weave.declare(...)` marks a function; `engine.install([fn])` registers it. `@engine.declare(...)` registers it immediately.
-
-## MCP
-
-`weave-mcp --config examples/tools.json` lists `weave_check`, `weave_run`, `weave_replay`, and each configured tool. A request that omits `tools` uses the config. `examples/mcp-client-config.json` is a client entry. `python examples/mcp_client.py` performs the handshake, calls `weather`, and runs a script.
 
 ## Layout
 

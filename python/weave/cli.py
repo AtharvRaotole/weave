@@ -38,6 +38,10 @@ def main(argv: list[str] | None = None) -> int:
 def dispatch(args: list[str]) -> str:
     if not args or args[0] in ("-h", "--help"):
         return HELP
+    if args[0] in ("-V", "--version"):
+        from weave import __version__
+
+        return f"weave {__version__}"
     cmd, rest = args[0], args[1:]
     if cmd == "check":
         return cmd_check(rest)
