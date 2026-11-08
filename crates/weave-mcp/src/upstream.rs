@@ -400,3 +400,39 @@ pub fn plain_json(value: &Value) -> Json {
         ),
     }
 }
+
+#[cfg(test)]
+mod shape_tests {
+    use super::*;
+
+    #[test]
+    fn lines_shape_drops_blank_lines() {
+        let value = shape_result(Some(ResultShape::Lines), "[FILE] a.txt\n\n[DIR] sub\n".into()).unwrap();
+        assert_eq!(value, Value::List(vec![Value::str("[FILE] a.txt"), Value::str("[DIR] sub")]));
+        assert_eq!(shape_result(None, "x\ny".into()).unwrap(), Value::str("x\ny"));
+    }
+
+    #[test]
+    fn json_shape_parses_plain_json() {
+        let value = shape_result(Some(ResultShape::Json), r#"{"a": [1, 2.5, null]}"#.into()).unwrap();
+        assert_eq!(
+            value,
+            Value::Dict(vec![(Value::str("a"), Value::List(vec![Value::Int(1), Value::Float(2.5), Value::Null]))])
+        );
+        assert!(shape_result(Some(ResultShape::Json), "nope".into()).is_err());
+    }
+
+    #[test]
+    fn config_reads_results_and_examples() {
+        let config = UpstreamConfig::parse(&json!({
+            "name": "fs", "command": "x",
+            "results": {"list_directory": "lines", "read_text_file": "text"},
+            "examples": {"list_directory": {"path": "/tmp"}}
+        }))
+        .unwrap();
+        assert_eq!(config.results.get("list_directory"), Some(&ResultShape::Lines));
+        assert!(!config.results.contains_key("read_text_file"));
+        assert_eq!(config.examples["list_directory"], json!({"path": "/tmp"}));
+        assert!(UpstreamConfig::parse(&json!({"name": "fs", "command": "x", "results": {"a": "csv"}})).is_err());
+    }
+}

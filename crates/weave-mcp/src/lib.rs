@@ -331,17 +331,8 @@ fn render_result(result: &weave::RunResult) -> String {
     for (name, value) in &result.bindings {
         bindings.insert(name.clone(), value.to_json());
     }
-    // A run that finished despite failed calls caught those errors. List
-    // them so a caller can see failures that an `except` swallowed.
-    let caught: Vec<String> = result
-        .trace
-        .events
-        .iter()
-        .filter_map(|e| e.error.as_ref().map(|err| format!("L{}: {} failed (caught): {err}", e.line, e.tool)))
-        .collect();
     serde_json::to_string_pretty(&json!({
         "stdout": result.stdout(),
-        "caught_errors": caught,
         "prints": result.prints,
         "bindings": bindings,
         "trace": result.trace

@@ -14,11 +14,9 @@ Optional: OPENAI_MODELS (default gpt-5.4-mini), WEAVE_EVAL_REPEATS (3),
 WEAVE_EVAL_BUDGET (USD, default 1.0), WEAVE_MCP (path to the binary),
 WEAVE_FETCH_ARGS (extra mcp-server-fetch flags, e.g. --allow-private-ips when
 DNS resolves through a proxy), WEAVE_EVAL_MODES (weave,native_tools),
-WEAVE_EVAL_VARIANT (comma-separated Weave-side fixes, default none):
+WEAVE_EVAL_VARIANT (comma-separated, default examples,structured; set to "none" for neither):
   examples    weave-mcp samples each read tool once at startup and shows the output
   structured  listing tools return a list of lines instead of one string
-  hybrid      a script may end with `# continue` to see its output, then write more
-  lint        a wrong answer's feedback lists tool errors the script caught
 """
 
 from __future__ import annotations
@@ -44,13 +42,7 @@ from bench.prompts import few_shot_messages, repair_message, system_message  # n
 
 MAX_ATTEMPTS = 3
 MAX_TURNS = 10
-MAX_EXPLORE = 2
-VARIANT = frozenset(v for v in os.environ.get("WEAVE_EVAL_VARIANT", "").split(",") if v)
-HYBRID_RULE = (
-    "If you must see a tool's output before you can write the rest, write a short script that prints it "
-    "and end the script with the line `# continue`. You will get its output and then write a new script "
-    "(variables do not carry over). Skip this when the task is clear."
-)
+VARIANT = frozenset(v for v in os.environ.get("WEAVE_EVAL_VARIANT", "examples,structured").split(",") if v)
 
 
 @dataclass(frozen=True)
@@ -173,49 +165,36 @@ def graded(task: RealTask, answer: str, root: Path) -> bool:
 
 def run_weave(model: str, task: RealTask, client: McpClient, tools: list[dict], root: Path) -> dict:
     returns = "Tools (results are strings unless a tool says otherwise)" if "structured" in VARIANT else "Tools (all return strings)"
-    hybrid = f"\n{HYBRID_RULE}" if "hybrid" in VARIANT else ""
     prompt = (
         f"{returns}:\n{tool_listing(tools)}\n"
         f"All files are under {root}; pass absolute paths.\n"
-        f"Task: {task.instruction}\nWrite a Weave script only. Print the final answer.{hybrid}"
+        f"Task: {task.instruction}\nWrite a Weave script only. Print the final answer."
     )
     messages = [system_message(), *few_shot_messages(), {"role": "user", "content": prompt}]
     log, usage_in, usage_out, passed = [], 0, 0, False
-    attempt = explored = turns = 0
+    attempt = turns = 0
     started = time.perf_counter()
     while attempt < MAX_ATTEMPTS:
         text, usage = llm_eval.complete("openai", model, messages)
         turns += 1
+        attempt += 1
         usage_in += usage["input_tokens"] or 0
         usage_out += usage["output_tokens"] or 0
         source = llm_eval._strip_fence(text)
-        exploring = "hybrid" in VARIANT and source.rstrip().endswith("# continue") and explored < MAX_EXPLORE
-        if not exploring:
-            attempt += 1
         body, is_error = client.call("weave_run", {"source": source + ("\n" if not source.endswith("\n") else "")})
         if is_error:
             log.append({"attempt": attempt, "error": body[:500], "source": source})
             messages += [{"role": "assistant", "content": source}, {"role": "user", "content": repair_message(source, [body])}]
             continue
-        result = json.loads(body)
-        stdout = result["stdout"].strip()
-        if exploring:
-            explored += 1
-            log.append({"explore": explored, "source": source, "output": stdout[:500]})
-            messages += [{"role": "assistant", "content": source},
-                         {"role": "user", "content": f"Output:\n{stdout[:4000]}\nNow write the next script (it starts fresh)."}]
-            continue
+        stdout = json.loads(body)["stdout"].strip()
         if graded(task, stdout, root):
             log.append({"attempt": attempt, "ok": True})
             passed = True
             break
         feedback = llm_eval.wrong_answer(stdout)
-        caught = result.get("caught_errors") or []
-        if "lint" in VARIANT and caught:
-            feedback += "\nThese tool errors were caught by your script, so they may hide the real problem:\n" + "\n".join(caught[:5])
         log.append({"attempt": attempt, "error": feedback, "source": source})
         messages += [{"role": "assistant", "content": source}, {"role": "user", "content": feedback + "\nReply with only the corrected Weave script."}]
-    return {"passed": passed, "attempts": attempt, "model_turns": turns, "explore_turns": explored, "input_tokens": usage_in,
+    return {"passed": passed, "attempts": attempt, "model_turns": turns, "input_tokens": usage_in,
             "output_tokens": usage_out, "wall_s": time.perf_counter() - started, "attempt_log": log}
 
 
