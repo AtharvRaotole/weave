@@ -27,7 +27,8 @@ RULES = (
     "or comprehensions. Use assignment, calls, if/else, for (with break/continue), try/except ToolError, lists, dicts, "
     "f-strings, string/list/dict methods, and builtins (str, int, len, range, sum, min, max, "
     "sorted, enumerate, zip, any, all, list, parse_json). Independent calls on separate lines run "
-    "in parallel. A failing tool raises ToolError. print() the values you need; the tool returns "
+    "in parallel. `for x in text` loops over characters; use text.splitlines() for lines. "
+    "A failing tool raises ToolError. print() the values you need; the tool returns "
     "what the script printed, or the error with a hint so you can fix the script."
 )
 
