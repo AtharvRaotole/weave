@@ -83,7 +83,12 @@ fn closed_end(toks: &[Tok]) -> usize {
     let mut nesting: i32 = 0;
     let mut indent: i32 = 0;
     let mut last_completed = 0usize;
+    let mut prev_kind: Option<TokenKind> = None;
     for (i, tok) in toks.iter().enumerate() {
+        let before = prev_kind;
+        if !matches!(tok.kind, TokenKind::Comment | TokenKind::NonLogicalNewline) {
+            prev_kind = Some(tok.kind);
+        }
         match tok.kind {
             TokenKind::Lpar | TokenKind::Lsqb | TokenKind::Lbrace => nesting += 1,
             TokenKind::Rpar | TokenKind::Rsqb | TokenKind::Rbrace => nesting -= 1,
@@ -93,7 +98,16 @@ fn closed_end(toks: &[Tok]) -> usize {
                 let next = next_significant(toks, i);
                 let synthetic = matches!(next.map(|t| t.kind), Some(TokenKind::EndOfFile) | None);
                 let clause = matches!(next.map(|t| t.kind), Some(k) if is_clause(k));
-                if indent == 0 && !synthetic && !clause {
+                // `el` may still become `else`. Only trust the next token once
+                // something real follows it on the stream.
+                let settled = next.is_some_and(|n| {
+                    toks.iter().any(|t| {
+                        t.start >= n.end
+                            && t.start != t.end
+                            && !matches!(t.kind, TokenKind::EndOfFile)
+                    })
+                });
+                if indent == 0 && !synthetic && !clause && settled {
                     // The compound statement ended where the next line begins.
                     last_completed = tok.start;
                 }
@@ -103,7 +117,9 @@ fn closed_end(toks: &[Tok]) -> usize {
                 if real_newline && indent == 0 {
                     let next = next_significant(toks, i).map(|t| t.kind);
                     // A header's newline is followed by Indent. The suite is still open.
-                    if !matches!(next, Some(TokenKind::Indent)) {
+                    // A header whose body has not arrived yet ends in `:` with no Indent.
+                    let open_header = before == Some(TokenKind::Colon);
+                    if !matches!(next, Some(TokenKind::Indent)) && !open_header {
                         last_completed = tok.end;
                     }
                 }
@@ -164,6 +180,22 @@ mod tests {
     fn fstring_with_inner_quotes() {
         let src = "x = f\"value {obj[\"key\"]}\"\n";
         assert_eq!(split_complete(src), (src, ""));
+    }
+
+    #[test]
+    fn header_without_body_stays_open() {
+        let src = "a = 1\nif cond:\n";
+        assert_eq!(split_complete(src), ("a = 1\n", "if cond:\n"));
+        let src = "a = 1\nfor i in range(3):\n";
+        assert_eq!(split_complete(src), ("a = 1\n", "for i in range(3):\n"));
+    }
+
+    #[test]
+    fn partial_else_keyword_keeps_if_open() {
+        let src = "if a:\n    b = 1\nel";
+        assert_eq!(split_complete(src), ("", src));
+        let src = "if a:\n    b = 1\nelse";
+        assert_eq!(split_complete(src), ("", src));
     }
 
     #[test]

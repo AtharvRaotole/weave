@@ -26,6 +26,11 @@ pub struct TraceEvent {
     /// Set when the call failed. Replay raises the same tool error instead of returning `result`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// Completion order of the call within the run (0 = finished first).
+    /// Replay uses it to pick among identical calls. Traces written before
+    /// this field existed read it as 0 and fall back to `seq` order.
+    #[serde(default)]
+    pub done: u64,
 }
 
 impl Trace {
@@ -61,10 +66,15 @@ impl Trace {
 #[derive(Default)]
 pub(crate) struct TraceBuilder {
     events: Vec<Option<TraceEvent>>,
+    next_done: u64,
 }
 
 impl TraceBuilder {
-    pub(crate) fn record(&mut self, event: TraceEvent) {
+    /// Record a finished call. `done` overrides the completion index
+    /// (replay copies it from the recorded event so traces compare equal).
+    pub(crate) fn record(&mut self, mut event: TraceEvent, done: Option<u64>) {
+        event.done = done.unwrap_or(self.next_done);
+        self.next_done += 1;
         let seq = event.seq as usize;
         if self.events.len() <= seq {
             self.events.resize(seq + 1, None);

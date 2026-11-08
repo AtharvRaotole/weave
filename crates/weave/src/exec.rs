@@ -59,7 +59,21 @@ fn join_ok(a: ValFut, b: ValFut) -> ValFut {
 #[derive(Clone)]
 enum RunMode {
     Execute,
-    Replay(Arc<Trace>),
+    Replay(Arc<Replay>),
+}
+
+/// A recorded trace plus which of its events have been consumed.
+///
+/// Calls are matched by identity (tool, args, kwargs), taking the earliest
+/// unused event with that identity. Sequence numbers depend on when a call
+/// was scheduled, which differs between a batch run and a streamed run
+/// (a loop that starts before later lines arrive numbers its calls later).
+/// Identical calls keep their relative order in every mode: two identical
+/// reads separated by a write are ordered by the write barrier, and
+/// identical calls with no write between them return the same value.
+struct Replay {
+    events: Vec<TraceEvent>,
+    used: Mutex<Vec<bool>>,
 }
 
 struct Launch {
@@ -226,7 +240,10 @@ impl Engine {
         if !diags.is_empty() {
             return Err(WeaveError::new(diags));
         }
-        let mut session = self.open(RunMode::Replay(Arc::new(trace.clone())), None);
+        let mut session = self.open(RunMode::Replay(Arc::new(Replay {
+            events: trace.events.clone(),
+            used: Mutex::new(vec![false; trace.events.len()]),
+        })), None);
         session.push(source)?;
         let result = session.finish()?;
         if result.trace.events.len() != trace.events.len() {
@@ -1450,8 +1467,13 @@ fn schedule_tool(
         let args = args?;
         let kwargs = kwargs?;
         gate_res?;
+        let mut done = None;
         let outcome = match &mode {
-            RunMode::Replay(recorded) => replay_tool(line, col, seq, &tool_name, &args, &kwargs, recorded),
+            RunMode::Replay(recorded) => {
+                let (outcome, recorded_done) = replay_tool(line, col, &tool_name, &args, &kwargs, recorded);
+                done = recorded_done;
+                outcome
+            }
             RunMode::Execute => {
                 execute_tool(
                     line,
@@ -1489,7 +1511,8 @@ fn schedule_tool(
             kwargs,
             result: result.clone(),
             error: error.clone(),
-        });
+            done: 0,
+        }, done);
         match error {
             Some(message) => Err(WeaveError::tool(line, col, message)),
             None => Ok(result),
@@ -1553,36 +1576,49 @@ fn fmt_call(args: &[Value], kwargs: &BTreeMap<String, Value>) -> String {
 fn replay_tool(
     line: usize,
     col: usize,
-    seq: u64,
     tool_name: &str,
     args: &[Value],
     kwargs: &BTreeMap<String, Value>,
-    recorded: &Trace,
-) -> Result<Value, WeaveError> {
-    let Some(event) = recorded.events.get(seq as usize) else {
-        return Err(WeaveError::runtime(
-            line,
-            col,
-            format!("replay diverged at call {seq}: trace has no such call"),
-        ));
-    };
-    if event.tool != tool_name || event.args != args || &event.kwargs != kwargs {
-        return Err(WeaveError::runtime(
-            line,
-            col,
-            format!(
-                "replay diverged at call {seq}: expected {}({}), got {}({})",
-                event.tool,
-                fmt_call(&event.args, &event.kwargs),
+    recorded: &Replay,
+) -> (Result<Value, WeaveError>, Option<u64>) {
+    let mut used = recorded.used.lock().expect("replay state");
+    // Earliest-finished unused identical call. Ties (old traces) go to seq.
+    let found = recorded
+        .events
+        .iter()
+        .enumerate()
+        .filter(|(index, event)| {
+            !used[*index] && event.tool == tool_name && event.args == args && &event.kwargs == kwargs
+        })
+        .min_by_key(|(index, event)| (event.done, *index))
+        .map(|(index, _)| index);
+    let Some(index) = found else {
+        let message = match used.iter().position(|taken| !taken) {
+            Some(next) => {
+                let event = &recorded.events[next];
+                format!(
+                    "replay diverged: expected {}({}), got {}({})",
+                    event.tool,
+                    fmt_call(&event.args, &event.kwargs),
+                    tool_name,
+                    fmt_call(args, kwargs)
+                )
+            }
+            None => format!(
+                "replay diverged: trace has no call {}({})",
                 tool_name,
                 fmt_call(args, kwargs)
             ),
-        ));
-    }
+        };
+        return (Err(WeaveError::runtime(line, col, message)), None);
+    };
+    used[index] = true;
+    let event = &recorded.events[index];
+    let done = Some(event.done);
     if let Some(message) = &event.error {
-        return Err(WeaveError::tool(line, col, message.clone()));
+        return (Err(WeaveError::tool(line, col, message.clone())), done);
     }
-    Ok(event.result.clone())
+    (Ok(event.result.clone()), done)
 }
 
 fn ensure_running(line: usize, col: usize, cancel: &watch::Receiver<bool>) -> Result<(), WeaveError> {
