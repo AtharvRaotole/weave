@@ -156,3 +156,57 @@ fn footprint_parse_and_overlap() {
     assert!(!Footprint::only(["a"]).overlaps(&Footprint::only(["b"])));
     assert!(!Footprint::only(Vec::<String>::new()).overlaps(&Footprint::only(["a"])));
 }
+
+#[test]
+fn argument_footprints_only_drop_the_written_key() {
+    let store: Store = Arc::default();
+    store.lock().unwrap().insert("a:x".into(), 1);
+    store.lock().unwrap().insert("a:y".into(), 2);
+    let mut engine = Engine::new();
+    let s = store.clone();
+    engine.register(
+        "get",
+        ToolSpec::effect(Effect::Read).with_arity(1).with_reads(Footprint::only(["key:{0}"])),
+        move |args, _| Ok(Value::Int(*s.lock().unwrap().get(&format!("a:{}", args[0].as_str().unwrap())).unwrap_or(&0))),
+    );
+    let s = store.clone();
+    engine.register(
+        "put",
+        ToolSpec::effect(Effect::Reversible).with_arity(2).with_writes(Footprint::only(["key:{0}"])),
+        move |args, _| {
+            let Value::Int(v) = args[1] else { return Err("int".into()) };
+            s.lock().unwrap().insert(format!("a:{}", args[0].as_str().unwrap()), v);
+            Ok(Value::Null)
+        },
+    );
+    let cache = wait_started(
+        &engine,
+        &[
+            PredictedCall::new("get", vec![Value::str("x")]),
+            PredictedCall::new("get", vec![Value::str("y")]),
+        ],
+    );
+    let result = engine
+        .run_with("put(\"x\", 9)\nprint(get(\"x\"), get(\"y\"))\n", Some(&cache))
+        .unwrap();
+    assert_eq!(result.stdout(), "9 2\n");
+    let stats = result.speculation.unwrap();
+    assert_eq!(stats.invalidated, 1, "{stats:?}");
+    assert_eq!(stats.hits, 1, "{stats:?}");
+    assert_eq!(stats.misses, 1, "{stats:?}");
+}
+
+#[test]
+fn footprint_templates_resolve() {
+    use std::collections::BTreeMap;
+    let mut kw = BTreeMap::new();
+    kw.insert("region".to_string(), Value::str("eu"));
+    let t = Footprint::only(["user:{0}", "cfg:{region}", "n:{1}"]);
+    assert_eq!(
+        t.resolve(&[Value::str("u1"), Value::Int(7)], &kw),
+        Footprint::only(["user:u1", "cfg:eu", "n:7"])
+    );
+    // A missing argument widens to All rather than missing a conflict.
+    assert_eq!(Footprint::only(["user:{3}"]).resolve(&[], &kw), Footprint::All);
+    assert_eq!(Footprint::only(["user:{nope"]).resolve(&[], &kw), Footprint::All);
+}
