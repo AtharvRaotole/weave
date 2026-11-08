@@ -59,6 +59,9 @@ the wheel builds.
 - A parallel `for` loop dropped a conditional assignment when a later
   iteration skipped it; the value now comes from the last iteration that
   assigned it, as in Python. The differential fuzzer now generates this case.
+- An error inside an `if` or loop nested in `try` could rarely escape the
+  handler (2 of 5000 runs of one script), because nested statements were
+  also tracked as top-level roots. They no longer are.
 
 ### Testing and measurement
 - A differential fuzzer compares an independent oracle with sequential,

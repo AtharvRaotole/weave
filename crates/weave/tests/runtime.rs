@@ -780,3 +780,16 @@ fn str_strip_chars_and_is_predicates_match_python() {
         assert_eq!(result.stdout(), format!("{want}\n"), "{expr}");
     }
 }
+
+#[test]
+fn errors_inside_try_are_caught_under_nested_blocks() {
+    // A statement nested in an `if` or loop inside `try` used to be recorded as
+    // a top-level root too, so its error could escape the handler when the
+    // branch launched before the run finished. Seen in about 2 of 5000 release
+    // runs; this loop does not reliably reproduce it in a debug build.
+    let engine = Engine::new();
+    let src = "n = 0\nfor s in [\"1\", \"x\", \"3\", \"stop\", \"5\"]:\n    try:\n        if s == \"stop\":\n            break\n        n += int(s)\n    except:\n        continue\nprint(n)\n";
+    for _ in 0..1000 {
+        assert_eq!(run_src(&engine, src).stdout(), "4\n");
+    }
+}
