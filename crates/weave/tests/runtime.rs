@@ -677,3 +677,37 @@ fn loops_with_break_stop_calling_tools_and_replay() {
     let replayed = engine.replay(src, &r.trace).unwrap();
     assert_eq!(replayed.stdout(), "Title\n");
 }
+
+#[test]
+fn str_split_and_rsplit_with_maxsplit_match_python() {
+    let engine = Engine::new();
+    let cases: &[(&str, &[&str])] = &[
+        ("\"a,b,c,d\".split(\",\")", &["a", "b", "c", "d"]),
+        ("\"a,b,c,d\".rsplit(\",\")", &["a", "b", "c", "d"]),
+        ("\"a,b,c,d\".split(\",\", 1)", &["a", "b,c,d"]),
+        ("\"a,b,c,d\".rsplit(\",\", 1)", &["a,b,c", "d"]),
+        ("\"a,b,c,d\".split(\",\", 0)", &["a,b,c,d"]),
+        ("\"a,b,c,d\".rsplit(\",\", 0)", &["a,b,c,d"]),
+        ("\"a,b,c,d\".split(\",\", -1)", &["a", "b", "c", "d"]),
+        ("\"a,b,c,d\".rsplit(\",\", -1)", &["a", "b", "c", "d"]),
+        ("\"  a  b \\t c  \".split()", &["a", "b", "c"]),
+        ("\"  a  b \\t c  \".rsplit()", &["a", "b", "c"]),
+        ("\"  a  b \\t c  \".split(None, 1)", &["a", "b \t c  "]),
+        ("\"  a  b \\t c  \".rsplit(None, 1)", &["  a  b", "c"]),
+        ("\"  a  b \\t c  \".split(None, 0)", &["a  b \t c  "]),
+        ("\"  a  b \\t c  \".rsplit(None, 0)", &["  a  b \t c"]),
+        ("\"k=v=w\".split(\"=\", 1)", &["k", "v=w"]),
+        ("\"k=v=w\".rsplit(\"=\", 1)", &["k=v", "w"]),
+        ("\"a::b::c\".split(\"::\", 5)", &["a", "b", "c"]),
+        ("\"a::b::c\".rsplit(\"::\", 5)", &["a", "b", "c"]),
+        ("\"\".split(\",\")", &[""]),
+        ("\"\".rsplit(\",\")", &[""]),
+        ("\"   \".split()", &[]),
+        ("\"   \".rsplit()", &[]),
+    ];
+    for (expr, want) in cases {
+        let result = run_src(&engine, &format!("xs = {expr}\n"));
+        let want = Value::List(want.iter().map(|s| Value::str(*s)).collect());
+        assert_eq!(result.bindings["xs"], want, "{expr}");
+    }
+}

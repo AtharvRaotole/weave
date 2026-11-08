@@ -2342,19 +2342,26 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
         (Value::Str(s), "strip") => no_args(name, args).map(|_| Value::Str(s.trim().to_string())),
         (Value::Str(s), "lstrip") => no_args(name, args).map(|_| Value::Str(s.trim_start().to_string())),
         (Value::Str(s), "rstrip") => no_args(name, args).map(|_| Value::Str(s.trim_end().to_string())),
-        (Value::Str(s), "split") => {
-            let parts: Vec<Value> = if args.is_empty() {
-                s.split_whitespace().map(Value::str).collect()
-            } else if args.len() == 1 {
-                let sep = args[0].as_str().ok_or("split() separator must be str")?;
-                if sep.is_empty() {
-                    return Err("split() separator must not be empty".into());
-                }
-                s.split(sep).map(Value::str).collect()
-            } else {
-                return Err("split() takes at most 1 argument".into());
+        (Value::Str(s), method @ ("split" | "rsplit")) => {
+            if args.len() > 2 {
+                return Err(format!("{method}() takes at most 2 arguments"));
+            }
+            let maxsplit = match args.get(1) {
+                None => None,
+                Some(Value::Int(n)) if *n < 0 => None,
+                Some(Value::Int(n)) => Some(*n as usize),
+                Some(_) => return Err(format!("{method}() maxsplit must be int")),
             };
-            Ok(Value::List(parts))
+            let sep = match args.first() {
+                None | Some(Value::Null) => None,
+                Some(Value::Str(sep)) if sep.is_empty() => {
+                    return Err(format!("{method}() separator must not be empty"))
+                }
+                Some(Value::Str(sep)) => Some(sep.as_str()),
+                Some(_) => return Err(format!("{method}() separator must be str or None")),
+            };
+            let parts = split_str(s, sep, maxsplit, method == "rsplit");
+            Ok(Value::List(parts.into_iter().map(Value::str).collect()))
         }
         (Value::Str(s), "startswith") => {
             let prefix = one_str("startswith", args)?;
@@ -2499,4 +2506,67 @@ fn one_str(name: &str, args: &[Value]) -> Result<String, String> {
         .as_str()
         .map(str::to_string)
         .ok_or_else(|| format!("{name}() expects str"))
+}
+
+/// Python's `str.split` / `str.rsplit` with an optional separator and maxsplit.
+fn split_str(s: &str, sep: Option<&str>, maxsplit: Option<usize>, reverse: bool) -> Vec<String> {
+    let limit = maxsplit.unwrap_or(usize::MAX);
+    match sep {
+        Some(sep) => {
+            let mut parts: Vec<String> = if limit == usize::MAX {
+                s.split(sep).map(str::to_string).collect()
+            } else if reverse {
+                s.rsplitn(limit + 1, sep).map(str::to_string).collect()
+            } else {
+                s.splitn(limit + 1, sep).map(str::to_string).collect()
+            };
+            if reverse && limit != usize::MAX {
+                parts.reverse();
+            }
+            parts
+        }
+        None => {
+            let mut parts = Vec::new();
+            if reverse {
+                let mut rest = s.trim_end();
+                while !rest.is_empty() {
+                    if parts.len() == limit {
+                        parts.push(rest.to_string());
+                        break;
+                    }
+                    match rest.rfind(char::is_whitespace) {
+                        Some(i) => {
+                            let ws = rest[i..].chars().next().map_or(1, char::len_utf8);
+                            parts.push(rest[i + ws..].to_string());
+                            rest = rest[..i].trim_end();
+                        }
+                        None => {
+                            parts.push(rest.to_string());
+                            break;
+                        }
+                    }
+                }
+                parts.reverse();
+            } else {
+                let mut rest = s.trim_start();
+                while !rest.is_empty() {
+                    if parts.len() == limit {
+                        parts.push(rest.to_string());
+                        break;
+                    }
+                    match rest.find(char::is_whitespace) {
+                        Some(i) => {
+                            parts.push(rest[..i].to_string());
+                            rest = rest[i..].trim_start();
+                        }
+                        None => {
+                            parts.push(rest.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+            parts
+        }
+    }
 }
