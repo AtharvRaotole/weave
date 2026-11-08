@@ -141,8 +141,30 @@ A run records every host call in program order:
 Values are tagged (`none`, `bool`, `int`, `float`, `str`, `list`, `dict`) so
 integers and dict order round-trip. Replay runs the same script, returns the
 recorded results instead of calling tools, and reproduces the prints and
-bindings. If a call's tool or arguments differ, replay stops with
-`replay diverged at call N`.
+bindings. Replay matches each call by tool and arguments (identical calls in
+the order they finished), so a trace recorded from a streamed run replays
+against the full script. If the script makes a call the trace doesn't have,
+replay stops with `replay diverged`.
+
+## Correctness tests
+
+`crates/weave/tests/differential.rs` generates random programs over a small
+key-value store (pure, read, reversible, and irreversible tools, `if`, `for`,
+`+=`, `print`) and runs each one five ways: an independent tree-walking oracle
+in the test file, Weave with every tool forced sequential, normal parallel
+Weave with jittered tool delays, a streamed session fed in random chunks, and
+a speculative run that pre-runs every read the program makes. Prints,
+bindings, the final store, the irreversible log, and the multiset of calls must
+match. Each successful trace, including the streamed one, must replay. 300
+seeds run in `cargo test`; set `WEAVE_DIFF_SEEDS` for more.
+
+## Sandbox
+
+Scripts can't import, open files, reach the network, define functions, or
+touch Python objects; host tools are the only way out. Runs are limited to
+1,000,000 steps, 16 MiB per value, and nesting depth 100 by default. See
+[docs/runtime.html](docs/runtime.html#sandbox-and-limits) for the review and
+what is not covered.
 
 ## Static check
 
@@ -268,7 +290,7 @@ A deterministic demo sleeps 12 ms between 4-character chunks and 80 ms inside ea
 
 ### Speculative pre-execution
 
-An optional predictor pre-runs pure and read calls and stores each result under the tool name plus canonical arguments, the tool cache from Nichols et al., [arXiv 2512.15834](https://arxiv.org/abs/2512.15834). Reversible and irreversible calls are rejected. Data-dependent calls are not guessed. One unused prediction per task is included so wasted work is measured. Generation is an 80 ms sleep; the predictor returns after 10 ms; tool sleep is 40 ms. Three repeats, medians, from [`bench/results/spec-20261108T023548Z.json`](bench/results/spec-20261108T023548Z.json):
+An optional predictor pre-runs pure and read calls and stores each result under the tool name plus canonical arguments, the tool cache from Nichols et al., [arXiv 2512.15834](https://arxiv.org/abs/2512.15834). Reversible and irreversible calls are rejected. Before a write runs, cached reads whose `reads` footprint overlaps the write's `writes` footprint are dropped and re-run live; footprints default to every resource. Data-dependent calls are not guessed. One unused prediction per task is included so wasted work is measured. Generation is an 80 ms sleep; the predictor returns after 10 ms; tool sleep is 40 ms. Three repeats, medians, from [`bench/results/spec-20261108T023548Z.json`](bench/results/spec-20261108T023548Z.json):
 
 | Task | After generate (s) | Speculative (s) | Hits | Misses | Wasted | Hit rate |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
