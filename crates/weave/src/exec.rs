@@ -1499,9 +1499,10 @@ fn schedule_call(
             let max = g.limits.max_value_size;
             share(async move {
                 let recv = recv.await?;
-                let args = join_values(arg_futs).await?;
+                let mut args = join_values(arg_futs).await?;
                 if !kw_futs.is_empty() {
-                    return Err(WeaveError::runtime(line, col, format!("method `{attr}` does not take keyword arguments")));
+                    let kwargs = join_kwargs(kw_futs).await?;
+                    args = method_keywords(&attr, args, kwargs).map_err(|msg| WeaveError::runtime(line, col, msg))?;
                 }
                 let value = call_method(&recv, &attr, &args).map_err(|msg| WeaveError::runtime(line, col, msg))?;
                 checked(line, col, max, value)
@@ -2569,4 +2570,35 @@ fn split_str(s: &str, sep: Option<&str>, maxsplit: Option<usize>, reverse: bool)
             parts
         }
     }
+}
+
+/// Folds keyword arguments into positional ones for the methods that accept
+/// them (`split`/`rsplit` take `sep` and `maxsplit`, as in Python).
+fn method_keywords(attr: &str, mut args: Vec<Value>, kwargs: BTreeMap<String, Value>) -> Result<Vec<Value>, String> {
+    let params: &[&str] = match attr {
+        "split" | "rsplit" => &["sep", "maxsplit"],
+        _ => return Err(format!("method `{attr}` does not take keyword arguments")),
+    };
+    let mut slots: Vec<Option<Value>> = args.drain(..).map(Some).collect();
+    if slots.len() > params.len() {
+        return Err(format!("{attr}() takes at most {} arguments", params.len()));
+    }
+    slots.resize(params.len(), None);
+    for (key, value) in kwargs {
+        let Some(i) = params.iter().position(|p| *p == key) else {
+            return Err(format!("{attr}() got an unexpected keyword argument `{key}`"));
+        };
+        if slots[i].is_some() {
+            return Err(format!("{attr}() got multiple values for argument `{key}`"));
+        }
+        slots[i] = Some(value);
+    }
+    let defaults = [Value::Null, Value::Int(-1)];
+    let last = slots.iter().rposition(Option::is_some).map_or(0, |i| i + 1);
+    Ok(slots
+        .into_iter()
+        .take(last)
+        .enumerate()
+        .map(|(i, v)| v.unwrap_or_else(|| defaults[i].clone()))
+        .collect())
 }

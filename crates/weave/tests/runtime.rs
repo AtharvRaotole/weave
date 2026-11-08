@@ -711,3 +711,19 @@ fn str_split_and_rsplit_with_maxsplit_match_python() {
         assert_eq!(result.bindings["xs"], want, "{expr}");
     }
 }
+
+#[test]
+fn split_accepts_sep_and_maxsplit_keywords() {
+    let engine = Engine::new();
+    let result = run_src(
+        &engine,
+        "a = \"[FILE] my notes.txt\".split(maxsplit=1)\nb = \"k=v=w\".rsplit(sep=\"=\", maxsplit=1)\nc = \"x,y\".split(sep=\",\")\n",
+    );
+    assert_eq!(result.bindings["a"], Value::List(vec![Value::str("[FILE]"), Value::str("my notes.txt")]));
+    assert_eq!(result.bindings["b"], Value::List(vec![Value::str("k=v"), Value::str("w")]));
+    assert_eq!(result.bindings["c"], Value::List(vec![Value::str("x"), Value::str("y")]));
+    let err = engine.run("a = \"x\".split(limit=1)\n").unwrap_err().to_string();
+    assert!(err.contains("unexpected keyword argument `limit`"), "{err}");
+    let err = engine.run("a = \"x\".strip(chars=\"x\")\n").unwrap_err().to_string();
+    assert!(err.contains("does not take keyword arguments"), "{err}");
+}
