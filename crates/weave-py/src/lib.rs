@@ -74,6 +74,7 @@ impl PyEngine {
             })?,
         };
         let mut spec = ToolSpec::effect(effect);
+        spec.accepts_kwargs = accepts_keywords(py, &func).unwrap_or(false);
         if let Some(reads) = reads {
             spec = spec.with_reads(footprint_from(py, &func, reads));
         }
@@ -607,6 +608,19 @@ fn weave_err(err: weave_core::WeaveError) -> PyErr {
     PyValueError::new_err(err.to_string())
 }
 
+fn accepts_keywords(py: Python<'_>, func: &Py<PyAny>) -> PyResult<bool> {
+    let inspect = py.import("inspect")?;
+    let sig = inspect.call_method1("signature", (func,))?;
+    for param in sig.getattr("parameters")?.call_method0("values")?.try_iter()? {
+        let param = param?;
+        let name: String = param.getattr("name")?.extract()?;
+        let kind: i32 = param.getattr("kind")?.extract()?;
+        // POSITIONAL_OR_KEYWORD=1, KEYWORD_ONLY=3, VAR_KEYWORD=4.
+        if name != "cancel" && matches!(kind, 1 | 3 | 4) { return Ok(true); }
+    }
+    Ok(false)
+}
+
 fn wants_cancel(py: Python<'_>, func: &Py<PyAny>) -> PyResult<bool> {
     let inspect = py.import("inspect")?;
     let sig = match inspect.call_method1("signature", (func,)) {
@@ -645,6 +659,9 @@ fn call_python(
     let dict = PyDict::new(py);
     let mut has_kw = false;
     for (key, value) in kwargs {
+        if key == "cancel" && token.is_some() {
+            return Err(PyValueError::new_err("cancel is injected by the host, not a script argument"));
+        }
         dict.set_item(key, value_to_py(py, value)?)?;
         has_kw = true;
     }
@@ -697,6 +714,11 @@ fn value_to_py<'py>(py: Python<'py>, value: &Value) -> PyResult<Bound<'py, PyAny
 }
 
 fn py_to_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
+    py_to_value_depth(obj, 0)
+}
+
+fn py_to_value_depth(obj: &Bound<'_, PyAny>, depth: usize) -> PyResult<Value> {
+    if depth > 100 { return Err(PyValueError::new_err("Python result exceeds depth 100 (possibly cyclic)")); }
     if obj.is_none() {
         return Ok(Value::Null);
     }
@@ -718,21 +740,21 @@ fn py_to_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(list) = obj.cast::<PyList>() {
         let mut out = Vec::with_capacity(list.len());
         for item in list.iter() {
-            out.push(py_to_value(&item)?);
+            out.push(py_to_value_depth(&item, depth + 1)?);
         }
         return Ok(Value::List(out));
     }
     if let Ok(tuple) = obj.cast::<PyTuple>() {
         let mut out = Vec::with_capacity(tuple.len());
         for item in tuple.iter() {
-            out.push(py_to_value(&item)?);
+            out.push(py_to_value_depth(&item, depth + 1)?);
         }
         return Ok(Value::List(out));
     }
     if let Ok(dict) = obj.cast::<PyDict>() {
         let mut out = Vec::with_capacity(dict.len());
         for (key, value) in dict.iter() {
-            out.push((py_to_value(&key)?, py_to_value(&value)?));
+            out.push((py_to_value_depth(&key, depth + 1)?, py_to_value_depth(&value, depth + 1)?));
         }
         return Ok(Value::Dict(out));
     }
