@@ -251,6 +251,50 @@ def test_weave_tool_worker_pool(tmp):
     assert tool.run('print(echo("ok"))\n') == "ok\n"
 
 
+def test_asyncio_cancellation_kills_isolated_worker(tmp):
+    """Cancelling the awaiting asyncio task (agent frameworks do this) kills the worker."""
+    import asyncio
+    tool = weave.WeaveTool([weave.declare(effect="read")(sleeper)], worker_pool=1, max_wall_time_ms=60_000)
+    path = str(tmp / "async.pid")
+
+    async def scenario():
+        try:
+            await asyncio.wait_for(tool.run_async(f"sleeper({path!r})\n"), 0.5)
+        except asyncio.TimeoutError:
+            return
+        raise AssertionError("expected cancellation")
+
+    start = time.monotonic()
+    asyncio.run(scenario())
+    assert time.monotonic() - start < BOUND
+    assert wait_dead(int(Path(path).read_text())), "worker survived asyncio cancellation"
+    assert not Path(path + ".finished").exists()
+
+
+def test_agents_sdk_invoke_cancellation(tmp):
+    """Same through the OpenAI Agents SDK FunctionTool, when installed."""
+    try:
+        import agents  # noqa: F401
+    except ImportError:
+        return "skipped (openai-agents not installed)"
+    import asyncio
+    import json
+    tool = weave.WeaveTool([weave.declare(effect="read")(sleeper)], worker_pool=1, max_wall_time_ms=60_000)
+    function_tool = tool.agents_tool()
+    path = str(tmp / "sdk.pid")
+
+    async def scenario():
+        call = function_tool.on_invoke_tool(None, json.dumps({"source": f"sleeper({path!r})\n"}))
+        try:
+            await asyncio.wait_for(call, 0.5)
+        except asyncio.TimeoutError:
+            return
+        raise AssertionError("expected cancellation")
+
+    asyncio.run(scenario())
+    assert wait_dead(int(Path(path).read_text())), "worker survived SDK cancellation"
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0

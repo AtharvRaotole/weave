@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased cancellation propagation
+- `Session.cancel_handle()` returns a thread-safe `SessionCancel`.
+- `WeaveTool.run_async()` and the Agents SDK tool cancel the script session when
+  the awaiting task is cancelled, so isolated workers are killed instead of
+  running on after the agent gave up.
+- `tests/python/test_bounded_phases.py` bounds the phases cancellation cannot
+  interrupt (parse, check, replay) by the input budgets.
+
 ## Unreleased MCP schema forwarding and reference-server compatibility
 - `weave-mcp` forwards upstream `outputSchema`, `title` and `annotations`
   (with `readOnlyHint` set from the effect Weave enforces); the `weave_run`
