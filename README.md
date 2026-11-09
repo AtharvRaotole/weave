@@ -10,9 +10,9 @@ Python bindings, and an MCP proxy.
 [![CI](https://github.com/AtharvRaotole/weave/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AtharvRaotole/weave/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AtharvRaotole/weave)](https://github.com/AtharvRaotole/weave/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)
+![Status: 1.0](https://img.shields.io/badge/status-1.0-green.svg)
 
-[Quickstart](#quickstart) · [Agent integration](#give-your-agent-one-workflow-tool) · [MCP](#connect-mcp-servers) · [Benchmarks](#benchmarks) · [Execution boundaries](#execution-boundaries) · [Contributing](CONTRIBUTING.md)
+[Quickstart](#quickstart) · [Agent integration](#give-your-agent-one-workflow-tool) · [MCP](#connect-mcp-servers) · [Benchmarks](#benchmarks) · [Production use](docs/production.md) · [Execution boundaries](#execution-boundaries) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -26,9 +26,13 @@ code. Tasks that need fresh model reasoning after each result can still use
 several model turns. Native function calling can also batch independent calls;
 Weave adds local control flow and scheduling across a script.
 
-> **Experimental release (not production-ready):** v0.1.0 is available as source and release wheels. Start with
-> read-only tools in an isolated development environment. Review the
-> [execution boundaries](#execution-boundaries) before connecting production systems.
+> **Production posture (1.0):** Weave is supported in production when the host
+> trusts its own tools, runs them with worker isolation and deadlines, and treats
+> tool results as model-visible. Each guarantee is tied to a CI test; the
+> non-guarantees are inherent (no rollback of remote effects, tool code is not
+> sandboxed, in-process tools have soft deadlines). Read
+> [Running Weave in production](docs/production.md) before connecting write tools.
+> v0.1.0 is a historic experimental release with known defects; do not use it.
 
 ## Quickstart
 
@@ -37,7 +41,7 @@ No model account or API key is needed for this example.
 ### Install
 
 **Prebuilt wheels:** download the wheel matching your Python version, operating
-system, and architecture from [v0.1.0](https://github.com/AtharvRaotole/weave/releases/tag/v0.1.0).
+system, and architecture from the [latest release](https://github.com/AtharvRaotole/weave/releases/latest).
 In a virtual environment, run `python -m pip install /path/to/downloaded.whl`,
 replacing the path with the actual filename. The release includes CPython
 3.9–3.13 wheels for Linux x86_64/aarch64, macOS Intel/Apple Silicon, and Windows
@@ -66,16 +70,17 @@ cd weave
 py -m venv .venv
 .\.venv\Scripts\python -m pip install "maturin>=1.8,<2"
 .\.venv\Scripts\maturin build --release --locked --out dist
-.\.venv\Scripts\python -m pip install --no-index --find-links dist weave
+.\.venv\Scripts\python -m pip install --no-index --find-links dist weave-lang
 ```
 
 Run the example below with `.\.venv\Scripts\python`.
 
 </details>
 
-**Package name:** this project is not published on PyPI. `pip install weave`
+**Package name:** the distribution is `weave-lang` (import name `weave`). It is
+not published on PyPI yet; install the release wheels. `pip install weave`
 installs [Weights & Biases Weave](https://github.com/wandb/weave), a different
-project. Both use the import name `weave`; use a separate virtual environment.
+project with the same import name, so do not install both in one environment.
 
 ### Run your first workflow
 
@@ -154,8 +159,13 @@ with the optional `openai-agents` package.
 loop and an offline smoke test. The wrapper returns printed output or repairable
 errors; successful output is truncated to 20,000 characters by default.
 
-In v0.1.0, call registered Python tools positionally from scripts and use
-synchronous functions. Current source also accepts signature-bound keyword arguments; v0.1.0 does not. Rust hosts also have async tool registration.
+Registered Python tools are synchronous functions; scripts may pass positional
+or signature-bound keyword arguments. Rust hosts also have async tool registration.
+For production, pass `worker_pool=N` so every tool runs in a killable worker
+process (see [isolation](docs/isolation.md)); `await tool.run_async(source)` and
+the Agents SDK tool kill that work when the awaiting task is cancelled. Raise
+`weave.ToolError("message")` for error text the model should see; other
+exceptions reach the script as their type only.
 
 ## Connect MCP servers
 
@@ -200,10 +210,12 @@ upstream and review its tools and directory permissions before connecting it.
 
 The proxy exposes `weave_check`, `weave_run`, and `weave_replay`, **plus upstream
 tools**. To give a model only the script interface, filter the tool list in your
-host. Current source returns only stdout/status by default. Explicit `debug: true`
-returns bindings and a full trace, which may contain sensitive intermediate data.
-The v0.1.0 build returns full bindings/trace by default. Error diagnostics may
-also expose arguments; this is not a complete redaction/privacy boundary.
+host. `weave_run` returns only stdout/status by default; `debug: true` returns
+bindings and a full trace, which may contain sensitive intermediate data.
+Upstreams start with an allowlisted environment and discarded stderr, and their
+error payloads are withheld from scripts unless the upstream sets `"debug": true`.
+Upstream `outputSchema`, titles and annotations are forwarded. See
+[privacy](docs/privacy.md).
 
 Optional settings include `effects`, text-result shaping with `results` (`text`, `lines`
 or `json`), and `examples` that make sample read calls at startup. Without an
@@ -256,49 +268,36 @@ establish cross-provider results.
 
 ## Execution boundaries
 
-The audit-fix checkout differs from the v0.1.0 wheel/tag. Read the
-[17-finding verification ledger](docs/audit-status.md) for reproduced cases,
-acceptance evidence, partial fixes, and deferred work. No blanket safety claim
-is made. v0.1.0 downloads have **not** been rebuilt.
+[Running Weave in production](docs/production.md) is the authoritative list of
+guarantees (each with its test), non-guarantees and the threat model. In short:
 
-The **unchanged v0.1.0 downloads** remain experimental with these known defects:
+- **Scripts are untrusted; the host and its tools are trusted.** Scripts reach
+  the outside world only through registered tools and are bounded by step,
+  value, nesting, source, stdout and trace budgets ([budgets](docs/budgets.md)).
+- **Deadlines are hard only for isolated tools.** With a worker pool, a runaway
+  tool is SIGKILLed with its process group (POSIX) at its timeout, run deadline
+  or cancellation, and `WorkerLimits` cap CPU, memory (Linux), open files and
+  file size ([isolation](docs/isolation.md)). In-process tools and MCP upstream
+  calls have soft, cooperative cancellation.
+- **No rollback.** Effects order calls; a failed expression stops later writes,
+  but nothing undoes a remote effect already started. Writes are not retried
+  unless the host marks them `retry_safe` ([cancellation and retries](docs/cancellation-and-retries.md)).
+- **Privacy is by channel.** Tool results are model-visible; host exceptions,
+  stderr, environment and upstream error payloads are not, unless opted in
+  ([privacy](docs/privacy.md)). Traces are sensitive host artifacts.
+- **Not an OS sandbox for tool code**, and the host process has no memory cap.
 
-- **Permissions and writes:** host tools control external access. Completing a
-  script is not human approval. Errors do not roll back effects, and known
-  exception-ordering cases can allow a later independent write after an earlier
-  expression fails. Keep production writes out of initial trials.
-- **Resource control:** step, wall-clock, value-size, and depth controls exist,
-  but value-limit coverage has gaps and there is no total memory or output budget.
-  Use process isolation for untrusted workloads.
-- **Cancellation and retries:** synchronous tools can outlive timeouts. Worker
-  processes support hard deadlines, with known pool-saturation edge cases in
-  this release. Retrying a tool can repeat side effects.
-- **Replay and data:** replay makes no live calls, but repeated identical reads
-  returning different values can replay in the wrong order. Traces contain tool
-  arguments and results; review them before sharing.
-- **MCP compatibility:** stdio text results are the current focus. Remote HTTP,
-  paginated discovery, cancellation forwarding, and full structured/multimodal
-  result preservation need further work.
-
-Current source includes targeted error/replay/worker/routing fixes and nested
-exception differential coverage; see the ledger, not the old downloads.
-[Aggregate source/stdout/trace and MCP-frame budgets](docs/budgets.md) are byte
-accounting, **not a process memory cap**. [Cancellation/retry semantics](docs/cancellation-and-retries.md)
-include best-effort upstream forwarding and default no-retry writes unless the
-host explicitly attests real idempotency support. Already-started effects may
-continue; debug/traces and host errors can expose sensitive data. No production
-readiness, hard real-time deadline or exactly-once claim is made.
+The [17-finding audit ledger](docs/audit-status.md) records how each audited
+defect was reproduced and fixed. The v0.1.0 tag and downloads are unchanged and
+still contain those defects; 1.0.0 is the first release built with the fixes.
 
 See [runtime reference](docs/runtime.html) for API details and
 [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
-**Benchmark remediation:** [controlled v3 protocol](docs/benchmark-protocol-v3.md)
-now has deterministic offline mechanics tests, not new model-performance evidence.
-[The finite adapter stage](docs/benchmark-adapter-stage.md) now exercises shipped
-WeaveTool/MCP paths and Responses wire messages with synthetic loopback HTTP,
-real disposable file/git/memory writes and append-only trial accounting.
-Corrected live runs remain pending. Public candidate held-out fixtures are not
-claimed unseen or statistically independent; no new speedup headline is derived.
+**Benchmark status:** the [controlled v3 protocol](docs/benchmark-protocol-v3.md)
+and [adapter stage](docs/benchmark-adapter-stage.md) are tested offline;
+corrected live model runs are still pending, so no new speedup headline is
+derived. The numbers above measure different completion boundaries.
 
 ## Documentation and development
 
@@ -319,6 +318,8 @@ Core code is in `crates/weave`; Python bindings in `crates/weave-py` and
 cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 python tests/python/test_agent_tool.py
+python tests/python/test_isolation.py
+python tests/python/test_privacy.py
 ```
 
 The Rust suite includes differential tests against an independent interpreter

@@ -3,8 +3,7 @@
 This finite stage connects the controlled harness to **shipped execution paths**
 and OpenAI Responses wire messages. Tests use hand-authored **synthetic loopback
 HTTP responses**, not live models or an unseen evaluation. No live run is started
-by the tests or CLI. Weave remains experimental; existing v0.1.0 assets/tag and
-warnings are unchanged. No new speedup, model-accuracy or cost claim follows.
+by the tests or CLI. Existing v0.1.0 assets/tag and warnings are unchanged. No new speedup, model-accuracy or cost claim follows.
 
 ## What is connected
 

@@ -8,7 +8,7 @@ from weave.workers import WorkerLimits
 try:
     from importlib.metadata import PackageNotFoundError, version
 
-    __version__ = version("weave")
+    __version__ = version("weave-lang")  # distribution name; import name is `weave`
 except PackageNotFoundError:  # running from a source tree without an install
     __version__ = "0.0.0"
 

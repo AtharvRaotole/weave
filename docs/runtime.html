@@ -18,7 +18,7 @@
     <h1>Runtime</h1>
   </header>
   <main>
-    <p><strong>Experimental source checkout; not a hardened isolation boundary.</strong> See the audit verification ledger in <code>docs/audit-status.md</code>. Trace v2 exact replay requires identical source (except trailing whitespace), tool declarations and stable invocation paths; old v1 traces are rejected. Host function code/remote schema identity is not attested by this manifest.</p>
+    <p><strong>Scripts are sandboxed; host tools are not.</strong> Hard deadlines and resource limits need a worker pool (<code>docs/isolation.md</code>); guarantees and the threat model are in <code>docs/production.md</code>. Trace v2 exact replay requires identical source (except trailing whitespace), tool declarations and stable invocation paths; old v1 traces are rejected. Host function code/remote schema identity is not attested by this manifest.</p>
     <h2>Effects</h2>
     <p>Untagged tools are irreversible. Pure and read calls start when their inputs are ready. Reversible calls wait for earlier observable work. Irreversible calls also wait until the whole script has arrived.</p>
     <h2>Timeouts</h2>

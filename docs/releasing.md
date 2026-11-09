@@ -19,9 +19,8 @@ is stored in the repo. It runs only for a `v*` tag and only when the repository
 variable `PYPI_PUBLISH` is `true`.
 
 **The name `weave` is taken on PyPI** (it is Weights & Biases' Weave, which also
-imports as `weave`). Before the first upload, pick a free distribution name
-(for example `weave-lang`, which was free on 2026-11-08) and set
-`[project] name` in `pyproject.toml`. The import name can stay `weave`, but it
+imports as `weave`). Since 1.0.0 the distribution name in `pyproject.toml` is
+`weave-lang` (free on PyPI on 2026-11-09; not reserved until the first upload). The import name can stay `weave`, but it
 will clash with W&B's package if both are installed.
 
 One-time setup, done by the repository owner:
