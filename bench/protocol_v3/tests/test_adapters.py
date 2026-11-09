@@ -260,7 +260,7 @@ class AdapterTests(unittest.TestCase):
             with http_fixture(responses) as (endpoint, requests):
                 row, p = trial(endpoint, mode=mode)
             observed.append(requests)
-            self.assertTrue(row["passed"])
+            self.assertTrue(row["passed"], row["status"])
             first = requests[0]["body"]
             second = requests[1]["body"]
             self.assertTrue(first["parallel_tool_calls"])
@@ -323,7 +323,7 @@ class AdapterTests(unittest.TestCase):
             ]
         ) as (endpoint, requests):
             row, _ = trial(endpoint)
-        self.assertTrue(row["passed"])
+        self.assertTrue(row["passed"], row["status"])
         self.assertEqual(row["writes"], list(WRITES))
         self.assertEqual(len(row["provider_attempts"]), 3)
         self.assertGreaterEqual(row["wall_s"], row["rate_limit_wait_s"])
@@ -340,7 +340,7 @@ class AdapterTests(unittest.TestCase):
                 _,
             ):
                 row, _ = trial(endpoint, ledger=ledger, trial_id="missing")
-            self.assertTrue(row["passed"])
+            self.assertTrue(row["passed"], row["status"])
             self.assertEqual(row["known_tokens"]["input_tokens"], 0)
             recovered = ledger.trials()[0]
             self.assertEqual(recovered["unknown_usage_attempts"], 1)
@@ -491,7 +491,7 @@ class AdapterTests(unittest.TestCase):
         )
         with http_fixture([first, answer()]) as (endpoint, requests):
             row, _ = trial(endpoint)
-        self.assertTrue(row["passed"])
+        self.assertTrue(row["passed"], row["status"])
         self.assertTrue(
             any(i.get("id") == "rs_synthetic" for i in requests[1]["body"]["input"])
         )

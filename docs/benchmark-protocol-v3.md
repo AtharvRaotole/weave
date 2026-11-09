@@ -23,8 +23,10 @@ protocol mechanics with scripted fake provider responses; the second also keeps
 legacy v2 endpoint/parallel-MCP regression checks. The final command emits six
 **hand-authored development cassette** rows using a synthetic clock. This is
 not a recorded model replay, a model prediction, or a live performance sample.
-No API credentials are read by v3. No network provider adapters are implemented;
-`offline=False` is rejected before a request. This is an interface guard, not a
+No API credentials are read by v3. [The completed adapter stage](benchmark-adapter-stage.md) adds Responses wire
+formatting and tests with synthetic loopback HTTP, plus actual local MCP execution.
+Remote providers remain rejected by default; adapter and runner both require
+explicit non-default opt-ins, which are not enabled in these tests. This is an interface guard, not a
 network sandbox against malicious Python code claiming to be offline.
 
 The old `real_tools_eval.py` live entrypoint exits 2 without contacting a provider.
@@ -36,8 +38,9 @@ regraded as a new live evaluation, and no historical chart is regenerated.
 
 1. Each task/mode/repeat gets a new temporary filesystem backend and a new provider
    conversation. Baseline bytes are identical; initial/final state hashes and the
-   canonical schema/context hashes are recorded. Runtime/fixture startup and
-   grading are inside the row timer; cleanup follows the endpoint and is excluded.
+   canonical schema/context hashes are recorded. Runtime/fixture startup, grading and owned-process quiescence before final
+   inspection are inside the row timer; temporary-directory deletion follows the
+   endpoint and is excluded.
    Roots are never put into model prompts. Requests use relative paths, reject
    traversal, and do not access an arbitrary user's files.
 2. Both modes receive the **same** task instruction, complete JSON input/output
@@ -102,11 +105,12 @@ and incomplete configurations are rejected. Reports whitelist config fields and
 never dump environment variables, authentication headers or keys. The standalone
 runner additionally reports source dirty state and a hash of protocol source files.
 
-These checks validate reporting mechanics, **not remote attestation**. A literal
+The adapter stage also checks actual local artifact SHA-256 pins before HTTP
+dispatch. These checks validate reporting mechanics, **not remote attestation**. A literal
 version string is not proof of immutable server/model weights; no live package
 lock resolution, artifact download, SDK retry interception or billing verification
-has occurred. Caching is requested disabled; reported cached usage is still
-retained if a provider reports it. Live price/cost accounting is not implemented.
+has occurred. No client cache/session is reused; provider-side caching is not guaranteed
+disabled and reported cached usage is retained. Live price/cost accounting is not implemented.
 Seed/config fields do not assert provider determinism. Controlled mode has no
 cache or shared provider session across rows.
 
@@ -131,19 +135,22 @@ in the provider request. Scripted cassette answers prove no model capability.
 
 ## Remaining gates before a valid live evaluation
 
-- Implement/review actual provider wire adapters with hidden SDK retries disabled,
+- The completed adapter stage now implements/reviews Responses wire mechanics
+  with synthetic loopback HTTP and disabled hidden retries. Actual provider-side
+  acceptance and billing attestation have not been exercised; retain
   bounded transport calls, returned model IDs, all usage/cache/thinking categories,
   rate-limit/budget accounting, model/package/API/price pins and partial evidence
   checkpoints. Unknown billable usage must remain an explicit cost gap.
 - Validate both provider wire schemas/results/error feedback and actual shipped
   MCP/agent-SDK integrations against this core. The normalized action grammar
   is minimal; actual language guides, provider wire prompts and equivalent
-  affordances still require independent review before live use. Current backend is local filesystem,
-  not the historical filesystem/fetch/git/memory MCP stack. Git/memory/network
-  side-effect oracles and unfamiliar real tool schemas still need isolated tests.
+  affordances still require independent review before live use. The core default backend is local filesystem; the completed adapter stage adds
+  actual local MCP subprocesses with file/git/memory mutation oracles. These are
+  explicitly pinned fixture subsets, not the reference packages or network stack.
 - Provide owned process/transport cancellation and termination for timeout cases;
-  synchronous callbacks can overrun. Temp-directory allocation/process death can
-  still abort before a durable row exists; no live crash-recovery ledger yet.
+  synchronous callbacks can overrun. The completed stage now journals trial start before allocation and retains
+  crash/interrupted rows. Hard-death elapsed/usage values can remain unknown; no
+  distributed reconciliation or rollback guarantee is implied.
 - Preregister a seeded, counterbalanced/interleaved run schedule, frozen private
   held-out family groups, repeat/sample sizes, total spend cap, stopping rules,
   error/timeout/wrong-write rates and uncertainty analysis. The offline demonstration
@@ -158,11 +165,17 @@ in the provider request. Scripted cassette answers prove no model capability.
 
 ## Current acceptance evidence
 
-33 deterministic protocol tests pass, including real filesystem/native-versus-
+33 deterministic protocol tests plus 21 synthetic-HTTP/local-MCP adapter tests
+(54 combined) cover real filesystem/native-versus-
 Engine checks, shared concurrency barriers (not a wall-clock speed assertion),
 negative cases, failure tails, oracle/schema hashing, resource-limit failure,
-and write completion before timeout. `tests/audit/test_benchmark.py` runs these
+and write completion before timeout. The adapter stage adds real git/memory
+writes, shipped execution paths, artifact pins and durable interruption recovery.
+`tests/audit/test_benchmark.py` runs these
 inside the existing audit matrix. `bench/results/offline-v3-mechanics.json` is
 six scripted development rows, explicitly offline and synthetic-clock; it is not
 a new model success measurement. Full local Rust/clippy, SDK and eight audit
 acceptance gates are retained under `tests/audit/evidence/benchmark-protocol/`.
+
+Adapter-stage logs are retained separately under
+`tests/audit/evidence/protocol-v3-adapters/`; original evidence is unchanged.

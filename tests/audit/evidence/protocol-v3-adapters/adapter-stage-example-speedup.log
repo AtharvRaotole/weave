@@ -1,0 +1,9 @@
+sequential_s=0.480670
+weave_s=0.121714
+speedup=3.949
+sequential_output=A,B,C,D
+weave_stdout:
+A
+B
+C
+D
