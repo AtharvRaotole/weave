@@ -521,6 +521,64 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(row["status"], "resource_limit")
         self.assertEqual(len(requests), 1)
 
+    def test_several_scripts_in_one_turn_run_in_order_with_own_outputs(self):
+        two = response(
+            [
+                call("run_weave", {"source": 'x=fs_read(path="item.txt")\nprint(x)\n'}, "s1"),
+                call("run_weave", {"source": "print(git_head())\n"}, "s2"),
+            ]
+        )
+        for path in ("weave_tool", "weave_mcp"):
+            with http_fixture([two, script(), answer()]) as (endpoint, requests):
+                row, _ = trial(endpoint, mode="weave", path=path)
+            self.assertTrue(row["passed"], row["status"])
+            self.assertEqual(row["execution_errors"], 0)
+            self.assertTrue(row["first_pass"])
+            self.assertEqual(row["model_turns"], 3)
+            outputs = {
+                x["call_id"]: json.loads(x["output"])
+                for x in requests[1]["body"]["input"]
+                if x.get("type") == "function_call_output"
+            }
+            self.assertEqual(set(outputs), {"s1", "s2"})
+            self.assertEqual([o["name"] for o in outputs["s1"]["observations"]], ["fs_read"])
+            self.assertEqual([o["name"] for o in outputs["s2"]["observations"]], ["git_head"])
+
+    def test_too_many_scripts_in_one_turn_get_repair_feedback(self):
+        many = response(
+            [call("run_weave", {"source": 'print("x")\n'}, f"s{i}") for i in range(9)]
+        )
+        with http_fixture([many, script(), answer()]) as (endpoint, requests):
+            row, _ = trial(endpoint, mode="weave")
+        self.assertTrue(row["passed"], row["status"])
+        self.assertEqual(row["execution_errors"], 1)
+        outputs = [
+            x for x in requests[1]["body"]["input"] if x.get("type") == "function_call_output"
+        ]
+        self.assertEqual(len(outputs), 9)
+        self.assertIn("execution failed", outputs[0]["output"])
+
+    def test_unsent_generation_fields_and_request_timeout_bounds(self):
+        cfg = pinned_config(
+            generation={"temperature": None, "max_output_tokens": 64, "reasoning": "low"}
+        )
+        with http_fixture([script(), answer()]) as (endpoint, requests):
+            row, _ = trial(endpoint, cfg=cfg)
+        self.assertTrue(row["passed"], row["status"])
+        body = requests[0]["body"]
+        self.assertNotIn("temperature", body)
+        self.assertEqual(body["reasoning"], {"effort": "low"})
+        cfg = pinned_config(
+            generation={"temperature": 0, "max_output_tokens": 64, "reasoning": None}
+        )
+        with http_fixture([script(), answer()]) as (endpoint, requests):
+            trial(endpoint, cfg=cfg)
+        self.assertNotIn("reasoning", requests[0]["body"])
+        self.assertEqual(requests[0]["body"]["temperature"], 0)
+        for bad in (0, -1, 601):
+            with self.assertRaises(ValueError):
+                ResponsesAdapter("http://127.0.0.1:9/v1/responses", request_timeout_s=bad)
+
     def test_malformed_success_body_keeps_known_usage(self):
         body = response(["not-an-output-item"])
         with tempfile.TemporaryDirectory() as tmp:

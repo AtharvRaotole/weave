@@ -1,4 +1,4 @@
-"""Versioned controlled comparison; deliberately no live/network implementation.
+"""Versioned controlled comparison core. Network access lives only in the opt-in adapters and live runner.
 
 Both modes use the same public tool contract and complete at a final provider
 answer validated against private answer AND actual state/write-log oracles.
@@ -292,7 +292,46 @@ class Fixture:
         return event
 
 
+MAX_SCRIPTS_PER_TURN = 8
+
+
+def valid_scripts(script):
+    """One script, or several well-formed scripts the provider emitted in ONE
+    turn (parallel tool calls). Several run in call order, one after another,
+    and each call receives its own observations, as in an ordinary agent loop."""
+    return isinstance(script, str) or (
+        isinstance(script, list)
+        and 1 <= len(script) <= MAX_SCRIPTS_PER_TURN
+        and all(isinstance(x, str) for x in script)
+    )
+
+
+def per_script(run_one, decision):
+    """Execute ``decision['script']`` (str or list) with ``run_one(source)``,
+    which returns one normalized feedback dict per script."""
+    script = decision["script"]
+    if isinstance(script, str):
+        return run_one(script)
+    parts = [run_one(source) for source in script]
+    return {
+        "observations": [o for p in parts for o in p["observations"]],
+        "execution_error": next(
+            (p["execution_error"] for p in parts if p["execution_error"]), None
+        ),
+        "scripts": parts,
+    }
+
+
 def execute(fixture, mode, decision, width):
+    if mode == "weave":
+        return per_script(
+            lambda source: _execute(fixture, mode, {"script": source}, width),
+            decision,
+        )
+    return _execute(fixture, mode, decision, width)
+
+
+def _execute(fixture, mode, decision, width):
     before = len(fixture.events)
     error = None
     if mode == "native":
@@ -631,7 +670,7 @@ def _run(
                     }
                 elif set(decision) == ({"script"} if mode == "weave" else {"calls"}):
                     invalid = (
-                        mode == "weave" and not isinstance(decision["script"], str)
+                        mode == "weave" and not valid_scripts(decision["script"])
                     ) or (
                         mode == "native"
                         and (

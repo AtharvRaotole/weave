@@ -47,6 +47,22 @@ def calls(*entries):
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_several_scripts_in_one_turn_run_in_order_and_bounded(self):
+        two = {"script": ['a=read_file(path="a.txt")\n', 'b=read_file(path="b.txt")\n']}
+        row = evaluate([two, {"answer": "31"}])
+        self.assertTrue(row["passed"], row["status"])
+        self.assertEqual(row["execution_errors"], 0)
+        fb = row["feedback"][0]
+        self.assertEqual(len(fb["scripts"]), 2)
+        self.assertEqual(
+            [o["arguments"]["path"] for p in fb["scripts"] for o in p["observations"]],
+            ["a.txt", "b.txt"],
+        )
+        for bad in ([], ["print(1)\n"] * 9, ["print(1)\n", 3]):
+            row = evaluate([{"script": bad}, {"answer": "31"}])
+            self.assertEqual(row["execution_errors"], 1)
+            self.assertEqual(row["feedback"][0]["observations"], [])
+
     def test_final_answer_not_stdout_is_the_endpoint(self):
         for mode, action in [("weave", {"script": "print(31)\n"}), ("native", calls())]:
             bad = evaluate([action, {"answer": "wrong"}], mode, max_answers=1)

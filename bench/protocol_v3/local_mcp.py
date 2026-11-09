@@ -12,7 +12,14 @@ import sys
 import threading
 from types import SimpleNamespace
 
-from .core import CallBudgetExceeded, canonical, digest, execute, normalized_feedback
+from .core import (
+    CallBudgetExceeded,
+    canonical,
+    digest,
+    execute,
+    normalized_feedback,
+    per_script,
+)
 from .fixture_server import contracts, git
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -477,6 +484,11 @@ class RemoteFixture:
 def execute_shipped(fixture, mode, decision, width):
     if mode == "native":
         return execute(fixture, mode, decision, width)
+    return per_script(lambda source: _run_script(fixture, source), decision)
+
+
+def _run_script(fixture, source):
+    decision = {"script": source}
     before = len(fixture.logs())
     result = fixture.weave_tool.handle(
         {

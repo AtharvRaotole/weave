@@ -48,7 +48,7 @@ complete property over arbitrary scripts, hosts, protocols, or operating systems
 | Custom fixtures only | **Official reference servers in CI**: filesystem 2.2.0, memory 2.1.0 (npm lockfile), git 2026.11.4 (hash-locked pip), with real writes and structured results: `tests/compat/test_reference_servers.py`. |
 | Non-preemptible phases | **Documented and bounded**: parse/check/replay bounded by budgets; run and replay made linear in call count (were quadratic: 6000 calls ~6 s). `tests/python/test_bounded_phases.py`. |
 | macOS/Windows worker timing not revalidated | **CI `python-cross` job** and every release build run the isolation suite on macOS and Windows. |
-| Live evaluation pending (W06) | **Still pending.** No new performance claim. |
+| Live evaluation (W06) | **Run 2026-11-09 (OpenAI only):** three pinned models, ten frozen tasks, 60 trials each, two recorded runs; success on par with native, no speedup. See [benchmarks](benchmarks.md). Other providers and held-out tasks remain unmeasured. |
 | Debugger | Future work; not built. |
 
 ## Retained W13 counterexample (now fixed)
@@ -119,3 +119,8 @@ Finite adapter stage: **21 synthetic local-HTTP/MCP tests**, **54 combined**
 protocol tests inside the benchmark acceptance gate. No provider API spending or
 new performance measurements; see `tests/audit/evidence/protocol-v3-adapters/`
 and [bounded stage semantics](benchmark-adapter-stage.md).
+
+Live follow-up (2026-11-09): `bench/protocol_v3/live.py` ran the protocol live
+with explicit spending authorization; 34 + 24 = **58** protocol tests now gate it.
+Results, including a run with a since-fixed harness defect, are in
+[benchmarks](benchmarks.md#live-results-protocol-v3-2026-11-09).

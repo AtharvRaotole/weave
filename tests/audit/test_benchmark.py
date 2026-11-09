@@ -78,4 +78,4 @@ suite = unittest.defaultTestLoader.loadTestsFromNames(
 result = unittest.TextTestRunner(verbosity=2).run(suite)
 if not result.wasSuccessful():
     raise SystemExit(1)
-print("v3 deterministic protocol mechanics passed; corrected live runs remain pending")
+print("v3 deterministic protocol mechanics passed (live runs: python -m bench.protocol_v3.live, see docs/benchmarks.md)")

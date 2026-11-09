@@ -78,10 +78,11 @@ guarantees.
 - Remote (HTTP/SSE) MCP transports; `weave-mcp` is stdio only.
 - Async Python tool functions.
 - A step debugger or partial traces for failed runs.
-- Live model benchmark results for the corrected v3 protocol (pending; the
-  committed numbers measure different completion boundaries, see
-  [benchmarks](benchmarks.md)).
-- PyPI distribution. Install the wheels from the GitHub release.
+- A performance claim. Live protocol-v3 results (OpenAI only, ten small
+  tasks) show success on par with native tool calling and no speedup; see
+  [benchmarks](benchmarks.md).
+- PyPI distribution. Install the wheels from the GitHub release
+  ([getting started](getting-started.md)).
 
 ## Checklist
 

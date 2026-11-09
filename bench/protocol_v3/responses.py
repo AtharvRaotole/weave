@@ -1,7 +1,7 @@
 """OpenAI Responses wire adapter. Tests use labelled loopback HTTP only.
 
 No SDK retries, implicit environment credentials, redirects, or proxy inheritance.
-Remote requests require adapter AND runner opt-in; this stage never enables them.
+Remote requests require adapter AND runner opt-in; only bench/protocol_v3/live.py sets both.
 """
 
 import json
@@ -10,7 +10,14 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, ProxyHandler, HTTPRedirectHandler, build_opener
 
-from .core import ProviderFailure, Reply, Usage, canonical, digest
+from .core import (
+    MAX_SCRIPTS_PER_TURN,
+    ProviderFailure,
+    Reply,
+    Usage,
+    canonical,
+    digest,
+)
 from weave.agent_tool import RULES
 
 
@@ -21,7 +28,13 @@ class NoRedirects(HTTPRedirectHandler):
 
 class ResponsesAdapter:
     def __init__(
-        self, endpoint, *, live_opt_in=False, api_key=None, max_live_requests=0
+        self,
+        endpoint,
+        *,
+        live_opt_in=False,
+        api_key=None,
+        max_live_requests=0,
+        request_timeout_s=10,
     ):
         parsed = urlsplit(endpoint)
         self.offline = (
@@ -51,6 +64,9 @@ class ResponsesAdapter:
         self.endpoint = endpoint
         self._api_key = api_key if not self.offline else None
         self.max_live_requests = max_live_requests
+        if not 0 < request_timeout_s <= 600:
+            raise ValueError("request timeout must be in (0, 600] seconds")
+        self.request_timeout_s = request_timeout_s
         self.sent = 0
         self.opener = build_opener(ProxyHandler({}), NoRedirects())
         self.accounting = None
@@ -130,7 +146,16 @@ class ResponsesAdapter:
             feedback = history[-1]["feedback"]
             if self.pending["calls"]:
                 if request["mode"] == "weave":
-                    outputs = [canonical(feedback)]
+                    # One output per call_id (the API requires it). Several
+                    # scripts in one turn each get their own observations; an
+                    # invalid shape gives every call the same repair feedback.
+                    n = len(self.pending["calls"])
+                    parts = feedback.get("scripts")
+                    outputs = (
+                        [canonical(p) for p in parts]
+                        if isinstance(parts, list) and len(parts) == n
+                        else [canonical(feedback)] * n
+                    )
                 else:
                     remaining = list(feedback.get("observations", []))
                     outputs = []
@@ -194,10 +219,15 @@ class ResponsesAdapter:
             "parallel_tool_calls": True,
             "store": False,
             "max_output_tokens": generation["max_output_tokens"],
-            "temperature": generation["temperature"],
-            "reasoning": {"effort": generation["reasoning"]},
         }
-        if "top_p" in generation:
+        # A pinned generation field set to None is declared "not sent": some
+        # models reject temperature (reasoning models) or reasoning effort
+        # (non-reasoning models). Both modes of a trial share the same config.
+        if generation["temperature"] is not None:
+            payload["temperature"] = generation["temperature"]
+        if generation["reasoning"] is not None:
+            payload["reasoning"] = {"effort": generation["reasoning"]}
+        if generation.get("top_p") is not None:
             payload["top_p"] = generation["top_p"]
         return payload
 
@@ -226,7 +256,7 @@ class ResponsesAdapter:
         headers = {"Content-Type": "application/json"}
         if self._api_key:
             headers["Authorization"] = "Bearer " + self._api_key
-        timeout = max(0.001, min(10, deadline - time.monotonic()))
+        timeout = max(0.001, min(self.request_timeout_s, deadline - time.monotonic()))
         try:
             with self.opener.open(
                 Request(
@@ -309,15 +339,27 @@ class ResponsesAdapter:
                 raise ValueError()
             if calls:
                 if request["mode"] == "weave":
-                    if (
-                        len(calls) != 1
-                        or calls[0]["name"] != self.script_definition["name"]
-                    ):
-                        raise ValueError()
-                    args = json.loads(calls[0]["arguments"])
-                    if set(args) != {"source"} or not isinstance(args["source"], str):
-                        raise ValueError()
-                    decision = {"script": args["source"]}
+                    sources = []
+                    for c in calls:
+                        if c["name"] != self.script_definition["name"]:
+                            raise ValueError()
+                        args = json.loads(c["arguments"])
+                        if set(args) != {"source"} or not isinstance(
+                            args["source"], str
+                        ):
+                            raise ValueError()
+                        sources.append(args["source"])
+                    # Several well-formed scripts in one turn (parallel tool
+                    # calls) run in call order, like an ordinary agent loop;
+                    # more than core.MAX_SCRIPTS_PER_TURN is an invalid shape
+                    # that gets the generic repair feedback (rule 6).
+                    decision = {
+                        "script": sources[0]
+                        if len(sources) == 1
+                        else sources
+                        if len(sources) <= MAX_SCRIPTS_PER_TURN
+                        else None
+                    }
                 else:
                     decision = {
                         "calls": [

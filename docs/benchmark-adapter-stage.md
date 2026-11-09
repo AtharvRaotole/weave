@@ -121,9 +121,10 @@ python -m unittest bench.protocol_v3.tests.test_adapters -v
 python tests/audit/test_benchmark.py
 ```
 
-Use the installed local Weave extension. The adapter suite has **21 tests**; the
-existing 33 mechanics tests plus these **54 tests** run inside the audit acceptance
-matrix. Coverage includes both shipped paths/native parity, real mutations,
+Use the installed local Weave extension. The adapter suite had **21 tests** at the
+end of this stage (24 after the live runner added multi-script and generation
+field tests); with the mechanics tests, **58 tests** now run inside the audit
+acceptance matrix. Coverage includes both shipped paths/native parity, real mutations,
 actual cross-process capacity, error/call-budget controls, model/artifact drift,
 HTTP retry/no-write-retry, zero/missing usage, durable pre-dispatch records,
 timeout-after-write, actual abrupt process exit and SIGINT, truncated recovery,
@@ -146,4 +147,5 @@ concurrent append and terminal uniqueness. Test evidence is retained under
   Hard process death cannot invent missing elapsed/billing data; it preserves the
   started row and explicit unknowns instead.
 
-Stage complete. There is no self-initiated follow-on live run.
+Stage complete. The later live runs (2026-11-09) used `bench/protocol_v3/live.py`;
+see [benchmarks](benchmarks.md#live-results-protocol-v3-2026-11-09).

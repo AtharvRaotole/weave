@@ -1,25 +1,132 @@
-# Historical benchmarks — unequal endpoints
-
-**Do not interpret the historical Weave/native timings as apples-to-apples speedups.**
-Weave stopped at script stdout; native included a final model answer and ran calls
-serially within a turn. New methodology must use final-answer endpoints for both
-and bounded concurrent native reads. No corrected live measurements exist yet.
-
-## Current successor: controlled v3 (offline only)
-
-[Exact protocol, tests and remaining live gates](benchmark-protocol-v3.md).
-The controlled harness now tests equal final-answer/state endpoints, canonical
-schemas/results/context, equal concurrency caps, repair feedback, isolated real
-file writes, config pins and retry-inclusive failure accounting with deterministic
-fake provider responses. These are **mechanics tests, not model-performance
-results**. Corrected live runs remain pending; the v2 real-tools CLI is retired.
-Development/candidate-held-out tasks are separated, but public related fixtures
-are not secret/unseen or statistically independent. Historical rows below are
-unchanged unequal-endpoint evidence, not a new comparison.
-
 # Benchmarks
 
-Every number on this page comes from a JSON file in [`bench/results/`](../bench/results/). The README chart is drawn from two of them by [`bench/make_charts.py`](../bench/make_charts.py). Times in tables are UTC, as recorded in the files.
+## Live results: protocol v3 (2026-11-09)
+
+![Weave vs native tool calling, live protocol v3](../assets/benchmark-v3.png)
+
+![Per-task model turns](../assets/benchmark-v3-tasks.png)
+
+**Setup.** [Protocol v3](benchmark-protocol-v3.md), live, OpenAI Responses API,
+three pinned model snapshots: `gpt-5.5-2026-04-23` and `gpt-5.4-mini-2026-03-17`
+at reasoning effort `low` (temperature not sent), and `gpt-4.1-2025-04-14` at
+temperature 0. `max_output_tokens` 4096, at most 10 model turns, 3 final answers
+and 2 transport retries per trial, 240 s trial deadline. Ten frozen tasks
+([`bench/protocol_v3/live_tasks.py`](../bench/protocol_v3/live_tasks.py), manifest
+hash recorded in every `run.json`) × 2 modes × 3 repeats = 60 trials per model,
+in a seeded interleaved order with the mode order randomised per task and
+repeat. Every trial gets a fresh disposable directory, git repository and memory
+store behind the real `weave-mcp` binary, used by **both** modes; native calls
+in one turn run in parallel (cap 4). A trial passes only if the final answer,
+the files, the git head and tracked files, the memory contents, and the ordered
+successful **and attempted** write logs all match. Timing includes model calls,
+tool execution, retries and fixture startup.
+
+**Weave mode** gives the model one `run_weave` tool (the shipped
+`WeaveTool` definition); **native mode** gives it the six fixture tools
+directly. Both see the same tool contracts in the first message.
+
+### Run B (headline, harness at `2ae6959`)
+
+| Model (run) | Mode | Passed | 95% CI | First try | Mean turns | p50 / p95 wall | Mean tokens / trial | Failures |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `gpt-5.5-2026-04-23` (low) | weave | 28/30 | 79%–98% | 11/30 | 2.97 | 5.5s / 23.8s | 3,882 | wrong_answer_or_state 2 |
+| `gpt-5.5-2026-04-23` (low) | native | 29/30 | 83%–99% | 29/30 | 3.27 | 3.9s / 6.9s | 3,474 | turn_limit 1 |
+| `gpt-5.4-mini-2026-03-17` (low) | weave | 28/30 | 79%–98% | 26/30 | 2.80 | 3.0s / 16.4s | 3,766 | wrong_answer_or_state 2 |
+| `gpt-5.4-mini-2026-03-17` (low) | native | 28/30 | 79%–98% | 27/30 | 3.27 | 3.3s / 15.3s | 3,556 | wrong_answer_or_state 2 |
+| `gpt-4.1-2025-04-14` (temp 0) | weave | 25/30 | 66%–93% | 20/30 | 3.23 | 2.5s / 7.2s | 4,023 | wrong_answer_or_state 5 |
+| `gpt-4.1-2025-04-14` (temp 0) | native | 26/30 | 70%–95% | 26/30 | 3.30 | 2.9s / 6.1s | 3,282 | wrong_answer_or_state 4 |
+
+| Model | Run id | Started (UTC) | Source commit | HTTP requests | Input / output / cached tokens (both modes) |
+| --- | --- | --- | --- | ---: | --- |
+| `gpt-5.5-2026-04-23` | [`20261109T210204Z-gpt-5.5-2026-04-23`](../bench/results/protocol-v3-live/20261109T210204Z-gpt-5.5-2026-04-23/summary.json) | 2026-11-09T21:02:04Z | `2ae6959` | 187 | 210,049 / 10,644 / 1,536 |
+| `gpt-5.4-mini-2026-03-17` | [`20261109T210204Z-gpt-5.4-mini-2026-03-17`](../bench/results/protocol-v3-live/20261109T210204Z-gpt-5.4-mini-2026-03-17/summary.json) | 2026-11-09T21:02:04Z | `2ae6959` | 182 | 204,962 / 14,700 / 36,864 |
+| `gpt-4.1-2025-04-14` | [`20261109T210204Z-gpt-4.1-2025-04-14`](../bench/results/protocol-v3-live/20261109T210204Z-gpt-4.1-2025-04-14/summary.json) | 2026-11-09T21:02:04Z | `2ae6959` | 196 | 213,531 / 5,596 / 58,880 |
+
+### Run A (harness defect, kept for the record)
+
+Run A used the same tasks, models, seed and schedule at harness commit
+`e09b33a`. Models often answered with two or more `run_weave` calls in one turn
+(parallel tool calls). That harness treated such a turn as an invalid shape and
+sent the generic repair message, so Weave lost turns and trials to the harness,
+not to the runtime; any ordinary agent loop runs each call. Commit `e4b274d`
+runs those scripts in call order and gives each call its own observations (up
+to 8 per turn). Run B was started at `2ae6959`, which adds only examples on
+top of that change; tasks, models, seed and schedule are identical. Run A's ledgers are unchanged.
+
+| Model (run) | Mode | Passed | 95% CI | First try | Mean turns | p50 / p95 wall | Mean tokens / trial | Failures |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `gpt-5.5-2026-04-23` (low) | weave | 28/30 | 79%–98% | 10/30 | 3.13 | 5.8s / 24.8s | 4,223 | wrong_answer_or_state 2 |
+| `gpt-5.5-2026-04-23` (low) | native | 29/30 | 83%–99% | 29/30 | 3.23 | 3.8s / 6.7s | 3,424 | wrong_answer_or_state 1 |
+| `gpt-5.4-mini-2026-03-17` (low) | weave | 28/30 | 79%–98% | 20/30 | 3.33 | 3.5s / 9.4s | 4,604 | wrong_answer_or_state 2 |
+| `gpt-5.4-mini-2026-03-17` (low) | native | 29/30 | 83%–99% | 28/30 | 3.13 | 3.5s / 6.6s | 3,358 | wrong_answer_or_state 1 |
+| `gpt-4.1-2025-04-14` (temp 0) | weave | 20/30 | 49%–81% | 14/30 | 4.63 | 2.6s / 14.2s | 7,007 | turn_limit 2, wrong_answer_or_state 8 |
+| `gpt-4.1-2025-04-14` (temp 0) | native | 26/30 | 70%–95% | 26/30 | 3.30 | 3.0s / 6.2s | 3,283 | wrong_answer_or_state 4 |
+
+| Model | Run id | Started (UTC) | Source commit | HTTP requests | Input / output / cached tokens (both modes) |
+| --- | --- | --- | --- | ---: | --- |
+| `gpt-5.5-2026-04-23` | [`20261109T205255Z-gpt-5.5-2026-04-23`](../bench/results/protocol-v3-live/20261109T205255Z-gpt-5.5-2026-04-23/summary.json) | 2026-11-09T20:52:55Z | `e09b33a` | 191 | 217,309 / 12,093 / 4,608 |
+| `gpt-5.4-mini-2026-03-17` | [`20261109T205255Z-gpt-5.4-mini-2026-03-17`](../bench/results/protocol-v3-live/20261109T205255Z-gpt-5.4-mini-2026-03-17/summary.json) | 2026-11-09T20:52:55Z | `e09b33a` | 194 | 225,155 / 13,702 / 51,712 |
+| `gpt-4.1-2025-04-14` | [`20261109T205255Z-gpt-4.1-2025-04-14`](../bench/results/protocol-v3-live/20261109T205255Z-gpt-4.1-2025-04-14/summary.json) | 2026-11-09T20:52:55Z | `e09b33a` | 238 | 298,396 / 10,307 / 112,256 |
+
+### Reading these numbers
+
+- **Success:** no detectable difference between modes for any model.
+- **Turns:** Weave averaged slightly fewer turns in run B (2.80–3.23 vs
+  3.27–3.30), mostly on multi-step write tasks; intervals overlap and some
+  tasks went the other way (see the per-task chart).
+- **Latency and tokens:** Weave was not faster. Mean wall-clock was similar for
+  GPT-5.4 mini and GPT-4.1 and higher for GPT-5.5; Weave used 6–23% more tokens
+  per trial. **No speedup is claimed.**
+- **First try:** GPT-5.5 passed on the first try in only 11/30 Weave trials,
+  versus 29/30 native, because its first scripts often failed (for example by
+  treating a `{"value": ...}` result as a string). Protocol v3 replaces
+  Weave's error message and hint with one generic line, so the model repairs
+  blind; the shipped `WeaveTool` returns the error text and a hint.
+
+### What this does not prove
+
+- Not a speedup claim, and not evidence about Weave's shipped compact-output
+  mode: to equalise observations, both modes receive the full tool results and
+  Weave's own error text is withheld.
+- One provider (OpenAI). Gemini was not run: protocol v3 has only an OpenAI
+  Responses adapter (a Gemini adapter with the same offline test coverage was
+  out of scope here), and the available Gemini key may be on a free-tier quota
+  of about 20 requests per day, far below the ~190 requests one model needs. No Anthropic key was available.
+- Ten small, public, maintainer-authored tasks, related to one another; not
+  held out, not secret, not statistically independent. Repeats are not new
+  workloads. One task wording (the memory step of `integration`) was clarified
+  after a 4-trial smoke run and before either recorded run.
+- The local MCP fixture is a pinned subset over real files, git and JSON
+  memory, not the reference servers or a network service.
+- Token counts are as reported by the API; USD cost is not computed. No
+  billing attestation, provider-side determinism or remote model-weight pin is
+  implied by the declared snapshot names.
+
+### Reproduce
+
+```bash
+cargo build -p weave-mcp
+maturin develop --release        # or install the matching wheel
+export OPENAI_API_KEY=...        # read only by the runner; never written to results
+python -m bench.protocol_v3.live --allow-live --model gpt-5.4-mini-2026-03-17:low --repeats 3
+python -m bench.protocol_v3.report bench/results/protocol-v3-live/<run>
+python bench/make_v3_charts.py   # reads bench/results/protocol-v3-live/chart-runs.json
+```
+
+The runner refuses to start from a dirty checkout (results pin a clean source
+commit) and caps HTTP requests (`--max-requests`, default 400). Each run
+directory holds `run.json` (config and pins), `trials.jsonl` (append-only,
+hash-chained ledger with every request body and response; no headers or keys),
+`rows.jsonl` (one graded row per trial) and `summary.json`.
+
+# History: earlier benchmarks with unequal endpoints
+
+**Do not interpret the historical Weave/native timings below as apples-to-apples
+speedups.** Weave stopped at script stdout; native included a final model answer
+and ran calls serially within a turn. They are kept unchanged as a record. The
+live protocol-v3 results above supersede them.
+
+Every number in this history section comes from a JSON file in [`bench/results/`](../bench/results/). The README chart is drawn from two of them by [`bench/make_charts.py`](../bench/make_charts.py). Times in tables are UTC, as recorded in the files.
 
 ## Mock tools (no model)
 
