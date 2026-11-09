@@ -521,6 +521,49 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(row["status"], "resource_limit")
         self.assertEqual(len(requests), 1)
 
+    def test_several_scripts_in_one_turn_get_repair_feedback_not_termination(self):
+        two = response(
+            [
+                call("run_weave", {"source": 'print("a")\n'}, "s1"),
+                call("run_weave", {"source": 'print("b")\n'}, "s2"),
+            ]
+        )
+        with http_fixture([two, script(), answer()]) as (endpoint, requests):
+            row, _ = trial(endpoint, mode="weave")
+        self.assertTrue(row["passed"], row["status"])
+        self.assertEqual(row["execution_errors"], 1)
+        self.assertFalse(row["first_pass"])
+        self.assertEqual(row["model_turns"], 3)
+        outputs = [
+            x
+            for x in requests[1]["body"]["input"]
+            if x.get("type") == "function_call_output"
+        ]
+        self.assertEqual({o["call_id"] for o in outputs}, {"s1", "s2"})
+        self.assertEqual(len({o["output"] for o in outputs}), 1)
+        self.assertIn("execution failed", outputs[0]["output"])
+
+    def test_unsent_generation_fields_and_request_timeout_bounds(self):
+        cfg = pinned_config(
+            generation={"temperature": None, "max_output_tokens": 64, "reasoning": "low"}
+        )
+        with http_fixture([script(), answer()]) as (endpoint, requests):
+            row, _ = trial(endpoint, cfg=cfg)
+        self.assertTrue(row["passed"], row["status"])
+        body = requests[0]["body"]
+        self.assertNotIn("temperature", body)
+        self.assertEqual(body["reasoning"], {"effort": "low"})
+        cfg = pinned_config(
+            generation={"temperature": 0, "max_output_tokens": 64, "reasoning": None}
+        )
+        with http_fixture([script(), answer()]) as (endpoint, requests):
+            trial(endpoint, cfg=cfg)
+        self.assertNotIn("reasoning", requests[0]["body"])
+        self.assertEqual(requests[0]["body"]["temperature"], 0)
+        for bad in (0, -1, 601):
+            with self.assertRaises(ValueError):
+                ResponsesAdapter("http://127.0.0.1:9/v1/responses", request_timeout_s=bad)
+
     def test_malformed_success_body_keeps_known_usage(self):
         body = response(["not-an-output-item"])
         with tempfile.TemporaryDirectory() as tmp:
