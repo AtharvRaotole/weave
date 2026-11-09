@@ -43,6 +43,7 @@ jobs:
           python examples/real_mcp_upstream.py
           python examples/run_weave_tool.py
           python tests/python/test_agent_tool.py
+          timeout 300 python tests/python/test_isolation.py
           python -m pip install openai-agents
           python tests/python/test_agent_tool.py
       - name: offline audit acceptance matrix

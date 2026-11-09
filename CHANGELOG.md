@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased process isolation
+- `Engine(worker_pool=N, isolate_all=True)` and `WeaveTool(..., worker_pool=N)`
+  run every host tool in a killable worker; tools opt out only with an explicit
+  `hard_deadline=False`. `engine.isolation()` reports what is enforced.
+- POSIX workers lead their own process group; timeouts, run deadlines and
+  cancellation `SIGKILL` the group, including subprocesses a tool started.
+- `weave.WorkerLimits` (memory/CPU/open files/file size via `setrlimit`) fail
+  closed where the OS cannot enforce them; worker results are capped at 16 MiB.
+- Worker exceptions cross as the exception type only unless they are
+  `weave.ToolError` or `debug=True` (**behavior change**).
+- Unpickleable tools are rejected at registration when isolation is requested.
+- See docs/isolation.md for exact guarantees and non-guarantees.
+
 ## Unreleased finite protocol-v3 adapter stage
 - Connect shipped WeaveTool/MCP execution and native Responses wire format to
   synthetic loopback HTTP and real disposable filesystem/git/memory MCP fixtures.
