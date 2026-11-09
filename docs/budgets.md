@@ -1,7 +1,8 @@
-# Aggregate byte budgets (experimental source)
+# Aggregate byte budgets
 
-These are runtime/transport accounting limits, **not a process memory cap**.
-Existing v0.1.0 downloads do not include them.
+These are runtime/transport accounting limits, **not a process memory cap**
+(use `WorkerLimits` in [isolation](isolation.md) to cap tool memory).
+The historic v0.1.0 downloads do not include them; 1.0.0 does.
 
 | Budget | Default | Accounting and failure |
 |---|---:|---|

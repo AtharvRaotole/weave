@@ -1,8 +1,9 @@
 # Independent audit remediation ledger
 
-**Experimental, source-only fixes. Not a production safety certification.**
-The v0.1.0 tag and its 43 download assets are unchanged. Its release notes now
-carry the experimental/audit warning. PR10's useful README/install/integration
+**Not a safety certification.** Release 1.0.0 is the first build containing
+these fixes and the production-hardening follow-ups below; guarantees are listed
+in [production.md](production.md). The v0.1.0 tag and its 43 download assets are
+unchanged and still contain the defects; its release notes carry the audit warning. PR10's useful README/install/integration
 and benchmark caveats were reviewed and preserved without its commit metadata.
 
 Baseline independently reproduced at main `e1a8be5` on Linux x86_64,
@@ -36,6 +37,20 @@ complete property over arbitrary scripts, hosts, protocols, or operating systems
 | W16 | `python -m weave typo` returned zero silently | **Fixed.** Nonzero exit and usage diagnostic asserted. |
 | W17 | Unicode find returned byte offset 2; slice empty | **Fixed targeted find/slice case.** Convert byte index to character index; `éx`.find(`x`) = 1 and slice = `x`. Does not assert full CPython string-method compatibility. |
 
+## Production-hardening follow-ups (1.0.0)
+
+| Former gap | Status and evidence |
+|---|---|
+| Timeouts soft without isolation (W02, W14) | **Supported hard deadlines for isolated tools.** `Engine(worker_pool=N, isolate_all=True)` / `WeaveTool(worker_pool=N)`; workers in their own session, process group SIGKILLed on tool timeout, run deadline, cancel, drop, close and asyncio cancellation. `tests/python/test_isolation.py` (14 tests) on Linux, macOS and Windows CI. In-process tools remain soft by design. See [isolation](isolation.md). |
+| No process-memory cap (W04) | **Per-worker kernel limits.** `WorkerLimits` sets RLIMIT_AS (Linux), RLIMIT_CPU, RLIMIT_NOFILE, RLIMIT_FSIZE; unsupported limits are rejected, results capped at 16 MiB before unpickling. The host process itself is still uncapped. |
+| Privacy leaks (W07) | **Fixed by channel, tested with planted secrets.** Host exceptions reduced to the type unless `weave.ToolError`/`debug`; upstream stderr discarded, environment allowlisted, upstream error payloads withheld. `tests/python/test_privacy.py` (6), `crates/weave-mcp/tests/privacy.rs` (4). See [privacy](privacy.md). |
+| MCP `outputSchema` omitted (W10) | **Forwarded** with `title` and annotations; listing shows compact return types. Unit tests plus reference servers. |
+| Custom fixtures only | **Official reference servers in CI**: filesystem 2.2.0, memory 2.1.0 (npm lockfile), git 2026.11.4 (hash-locked pip), with real writes and structured results: `tests/compat/test_reference_servers.py`. |
+| Non-preemptible phases | **Documented and bounded**: parse/check/replay bounded by budgets; run and replay made linear in call count (were quadratic: 6000 calls ~6 s). `tests/python/test_bounded_phases.py`. |
+| macOS/Windows worker timing not revalidated | **CI `python-cross` job** and every release build run the isolation suite on macOS and Windows. |
+| Live evaluation pending (W06) | **Still pending.** No new performance claim. |
+| Debugger | Future work; not built. |
+
 ## Retained W13 counterexample (now fixed)
 
 ```python
@@ -62,16 +77,16 @@ both print `1\n1\n`; the original evidence is preserved unchanged.
   Reversible/Irreversible retries are clamped to zero. Effects/opt-in are host
   declarations, not authorization, rollback or exactly-once guarantees. Errors
   report cancellation/uncertain completion; no durable reconciliation ledger.
-- Privacy remains partial: replay mismatch values and wholesale script upstream
-  errors are omitted, but host exceptions, direct envelopes, prints, debug/traces
-  and inherited upstream stderr can contain secrets. See [semantics/gaps](cancellation-and-retries.md).
+- Privacy is by channel (see [privacy](privacy.md)): host exceptions, upstream
+  stderr/env/error payloads are withheld by default; direct upstream envelopes,
+  prints, tool results and debug/traces are model- or host-visible by design.
 - Failed runs do not yet expose full partial trace/debugger state. No debugger,
   approval UI, hosted service, language expansion or publishing was substituted
   for audit fixes.
 - Exact-replay v1 compatibility intentionally removed. Trace source/manifest
   retain sensitive information in host/debug paths. Verify before sharing.
-- Tests run on this Linux box and Ubuntu CI. macOS/Windows worker timing and
-  all release wheels are not revalidated by these source-only tests.
+- Rust and audit suites run on Linux CI; the isolation, privacy and
+  bounded-phase suites also run on macOS and Windows CI and in release builds.
 
 ## Evidence and running gates
 

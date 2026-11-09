@@ -25,7 +25,7 @@ python3 -m venv .venv
 .venv/bin/pip install 'maturin&gt;=1.8,&lt;2'
 .venv/bin/maturin develop --release
 .venv/bin/weave check examples/hello.weave --tool name=weather,effect=read,arity=1</pre>
-    <p>Experimental v0.1.0 wheels and source are available on GitHub, with an audit warning. They have not been rebuilt with subsequent source fixes. Nothing is published to PyPI; the name weave belongs to another project.</p>
+    <p>Weave 1.0 wheels (distribution <code>weave-lang</code>, import <code>weave</code>) are on the GitHub releases page. Read <a href="https://github.com/AtharvRaotole/weave/blob/main/docs/production.md">Running Weave in production</a> for guarantees, non-guarantees and the threat model. v0.1.0 is a historic experimental release with known defects. Nothing is published to PyPI; the name weave belongs to another project.</p>
     <h2>A script</h2>
     <pre>city = "Paris"
 temp = weather(city)

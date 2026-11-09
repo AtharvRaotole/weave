@@ -1,9 +1,8 @@
 # Controlled benchmark protocol v3 — offline mechanics only
 
 **Corrected live runs are still pending. There are no new model-performance,
-cost, success-rate or speedup results here.** Weave remains experimental. The
-unchanged v0.1.0 downloads still contain the audited defects; source tests do not
-repair those assets.
+cost, success-rate or speedup results here.** The unchanged v0.1.0 downloads
+still contain the audited defects; 1.0.0 is the first release with the fixes.
 
 This implements a controlled comparison core, not a claim that the shipped MCP /
 public agent-SDK integration has been evaluated fairly end-to-end. It replaces

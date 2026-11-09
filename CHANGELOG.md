@@ -1,6 +1,32 @@
 # Changelog
 
-## Unreleased cancellation propagation
+## [1.0.0] - 2026-11-09
+
+First release built with the independent-audit fixes and production hardening.
+Guarantees, non-guarantees and the threat model: `docs/production.md`.
+v0.1.0 stays published unchanged as a historic experimental release.
+
+### Breaking changes from 0.1.0
+- Python distribution renamed to `weave-lang` (import name stays `weave`);
+  `weave.__version__` reads the `weave-lang` metadata.
+- Host exception text no longer reaches scripts: raise `weave.ToolError` for a
+  model-visible message, or use `debug=True`.
+- `weave-mcp` upstreams start with an allowlisted environment and discarded
+  stderr (`env`, `inherit_env`, `stderr` to opt in); upstream error payloads
+  are withheld unless the upstream sets `debug`.
+- `weave_run` / `weave_replay` return stdout/status only unless `debug: true`.
+- Trace v1 is rejected; exact replay needs trace v2 with identical source and
+  tool declarations.
+- Write retries are off unless a tool is declared `retry_safe=True`.
+
+### Release, packaging and documentation
+- `docs/production.md`: supported production posture, threat model, each
+  guarantee with the test that holds it, and inherent non-guarantees.
+- CI `python-cross` job runs the isolation, privacy and bounded-phase suites on
+  macOS and Windows; release builds run the isolation suite on each OS.
+- README, SECURITY.md (supported versions) and the audit ledger updated.
+
+### Cancellation propagation
 - `Session.cancel_handle()` returns a thread-safe `SessionCancel`.
 - `WeaveTool.run_async()` and the Agents SDK tool cancel the script session when
   the awaiting task is cancelled, so isolated workers are killed instead of
@@ -13,7 +39,7 @@
 - `tests/python/test_bounded_phases.py` bounds the phases cancellation cannot
   interrupt (parse, check, replay) by the input budgets.
 
-## Unreleased MCP schema forwarding and reference-server compatibility
+### MCP schema forwarding and reference-server compatibility
 - `weave-mcp` forwards upstream `outputSchema`, `title` and `annotations`
   (with `readOnlyHint` set from the effect Weave enforces); the `weave_run`
   listing shows the declared return type. `serverInfo.version` is the crate version.
@@ -24,7 +50,7 @@
 - The benchmark fixture now checks discovered output schemas against its pins.
 - Structured results are not validated against `outputSchema` by Weave.
 
-## Unreleased privacy hardening
+### Privacy hardening
 - **Behavior change:** Python host exceptions (in-process, cooperative and
   worker tools) reach scripts as the exception type only. Raise
   `weave.ToolError("...")` for model-visible messages, or use `debug=True`.
@@ -36,7 +62,7 @@
   are withheld unless the upstream sets `"debug": true`.
 - Planted-secret tests for every channel; see docs/privacy.md.
 
-## Unreleased process isolation
+### Process isolation
 - `Engine(worker_pool=N, isolate_all=True)` and `WeaveTool(..., worker_pool=N)`
   run every host tool in a killable worker; tools opt out only with an explicit
   `hard_deadline=False`. `engine.isolation()` reports what is enforced.
@@ -49,7 +75,7 @@
 - Unpickleable tools are rejected at registration when isolation is requested.
 - See docs/isolation.md for exact guarantees and non-guarantees.
 
-## Unreleased finite protocol-v3 adapter stage
+### Finite protocol-v3 adapter stage
 - Connect shipped WeaveTool/MCP execution and native Responses wire format to
   synthetic loopback HTTP and real disposable filesystem/git/memory MCP fixtures.
 - Pin actual artifacts, enforce equal backend concurrency/call controls, and retain
@@ -57,14 +83,14 @@
 - Keep remote spending disabled by default with dual explicit opt-in; no live runs,
   unseen evaluation, releases or model-performance claims.
 
-## Unreleased benchmark protocol remediation
+### Benchmark protocol remediation
 - Add deterministic offline controlled-comparison tests for endpoints, full-context
   parity, native parallel reads/equal backend caps, real state/write validation,
   configuration pins and retry-inclusive failure/usage accounting.
 - Separate public development/candidate-held-out tasks without independence claims;
   retire the legacy v2 real-tools live CLI. Corrected live runs remain pending.
 
-## Unreleased safety follow-up
+### Safety follow-up
 - Responsive MCP request-ID cancellation with best-effort upstream forwarding,
   EOF cleanup, bounded admission and duplicate active-ID rejection.
 - Reversible/irreversible retries require explicit host idempotency opt-in;
@@ -76,18 +102,18 @@ All notable changes to Weave. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+### Audit remediation and safety follow-ups
 
-### Aggregate budget follow-up
+#### Aggregate budget follow-up
 - Add configurable aggregate UTF-8 source/stdout and compact-JSON trace budgets.
 - Bound proxy and upstream MCP frames and headers before unbounded buffering.
 - Breaches are fatal, not silently truncated; these are not process memory caps.
 
-### Audit follow-up
+#### Audit follow-up
 - W13: preserve completed bindings through failing nested branches, loops and
   handlers; add independent CPython differential exception/write-log coverage.
 
-### Audit remediation (experimental source only)
+#### Audit remediation (experimental source only)
 - Preserve PR10 README improvements; remove unequal-endpoint speedup framing.
 - Gate writes on prior computation success; execute exception regions in order.
 - Trace v2 exact identity/source/declaration replay, with v1 rejection.
@@ -104,7 +130,7 @@ All notable changes to Weave. The format follows
   script cancellation forwarding, and idempotency-aware write retry policy.
 - No rebuilt release downloads or PyPI publication.
 
-### Documentation
+#### Documentation
 - Reorganize the README around installation, a runnable workflow, agent and MCP
   integration, and execution boundaries. Clarify package naming, release wheels,
   benchmark completion boundaries, and known v0.1.0 limitations.
