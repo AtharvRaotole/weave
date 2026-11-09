@@ -139,7 +139,7 @@ pub fn handle_with_control(message: &Json, config: &ServerConfig, control: &Requ
         "initialize" => Ok(json!({
             "protocolVersion": negotiated_version(&params),
             "capabilities": {"tools": {"listChanged": false}},
-            "serverInfo": {"name": "weave", "version": "0.1.0"}
+            "serverInfo": {"name": "weave", "version": env!("CARGO_PKG_VERSION")}
         })),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(tools_list(config)),
@@ -230,12 +230,24 @@ fn tools_list(config: &ServerConfig) -> Json {
     }
     for upstream in &config.upstreams {
         for tool in &upstream.tools {
-            tools.push(json!({
+            let mut annotations = tool.annotations.clone().unwrap_or_else(|| json!({}));
+            annotations["readOnlyHint"] = json!(tool.effect <= Effect::Read);
+            let mut entry = json!({
                 "name": tool.name,
                 "description": tool.description,
                 "inputSchema": tool.input_schema,
-                "annotations": {"readOnlyHint": tool.effect <= Effect::Read},
-            }));
+                "annotations": annotations,
+            });
+            if let Some(title) = &tool.title {
+                entry["title"] = json!(title);
+            }
+            // Direct calls return the upstream envelope unchanged, so the
+            // upstream's outputSchema still describes them. Script-side result
+            // shaping is described separately in the weave_run listing.
+            if let Some(schema) = &tool.output_schema {
+                entry["outputSchema"] = schema.clone();
+            }
+            tools.push(entry);
         }
     }
     if let Some(run) = tools.iter_mut().find(|t| t["name"] == "weave_run") {
@@ -278,6 +290,8 @@ pub fn script_tool_listing(config: &ServerConfig) -> String {
             }
             if let Some(shape) = tool.shape {
                 lines.push(format!("  returns: {}", shape.describe()));
+            } else if let Some(schema) = &tool.output_schema {
+                lines.push(format!("  returns: {}", compact_type(schema, 0)));
             }
             if let Some((arguments, output)) = &tool.example {
                 let output = match tool.shape {

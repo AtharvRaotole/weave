@@ -57,3 +57,28 @@ jobs:
           python tests/audit/test_mcp.py
           python tests/audit/test_benchmark.py
           timeout 35 python tests/audit/test_workers.py
+
+  reference-mcp:
+    # Official MCP reference servers, pinned by lockfiles (npm ci / pip --require-hashes).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: install pinned reference servers
+        run: |
+          npm ci --prefix tests/compat --ignore-scripts --no-audit --no-fund
+          python -m venv /tmp/gitserver
+          /tmp/gitserver/bin/python -m pip install --require-hashes --no-deps -r tests/compat/requirements-git.txt
+      - name: weave-mcp against filesystem, git and memory reference servers
+        env:
+          WEAVE_COMPAT_REQUIRED: "1"
+          WEAVE_COMPAT_GIT_PYTHON: /tmp/gitserver/bin/python
+        run: |
+          cargo build -p weave-mcp --locked
+          timeout 300 python tests/compat/test_reference_servers.py

@@ -282,6 +282,7 @@ class RemoteFixture:
                 actual = next(t for t in discovered if t["name"] == name)
                 if (
                     actual["inputSchema"] != tool["inputSchema"]
+                    or actual.get("outputSchema") != tool["outputSchema"]
                     or actual["description"] != tool["description"]
                     or actual["annotations"]["readOnlyHint"]
                     != (tool["effect"] == "read")
@@ -352,7 +353,7 @@ class RemoteFixture:
                 "git_version": subprocess.check_output(
                     ["git", "--version"], text=True
                 ).strip(),
-                "output_schema_origin": "pinned fixture contract; proxy discovery omits outputSchema",
+                "output_schema_origin": "proxy discovery, verified equal to the pinned fixture contract",
                 "global_backend_capacity": width,
             }
         except BaseException:

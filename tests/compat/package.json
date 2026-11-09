@@ -1,0 +1,9 @@
+{
+  "name": "weave-reference-mcp-compat",
+  "private": true,
+  "description": "Pinned official MCP reference servers used by tests/compat (not shipped).",
+  "dependencies": {
+    "@modelcontextprotocol/server-filesystem": "2.2.0",
+    "@modelcontextprotocol/server-memory": "2.1.0"
+  }
+}

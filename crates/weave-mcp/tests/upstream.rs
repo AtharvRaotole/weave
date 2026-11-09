@@ -61,3 +61,29 @@ fn bad_arguments_are_reported_before_calling() {
     let message = text(&result);
     assert!(message.contains("missing required argument(s): text"), "{message}");
 }
+
+#[test]
+fn output_schema_title_and_annotations_are_forwarded() {
+    let config = config();
+    let list = handle_with(&json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}), &config).unwrap();
+    let stats = list["result"]["tools"].as_array().unwrap().iter().find(|t| t["name"] == "n_stats").unwrap().clone();
+    assert_eq!(stats["outputSchema"]["required"], json!(["count", "keys"]), "{stats}");
+    assert_eq!(stats["outputSchema"]["properties"]["count"], json!({"type": "integer"}));
+    assert_eq!(stats["title"], json!("Note statistics"));
+    assert_eq!(stats["annotations"], json!({"readOnlyHint": true, "idempotentHint": true}));
+    let write = list["result"]["tools"].as_array().unwrap().iter().find(|t| t["name"] == "n_write_note").unwrap().clone();
+    assert!(write.get("outputSchema").is_none());
+    assert_eq!(write["annotations"]["readOnlyHint"], json!(false));
+    let listing = weave_mcp::script_tool_listing(&config);
+    assert!(listing.contains("n_stats(), effect read") && listing.contains("returns: {count: int, keys: list[str]}"), "{listing}");
+}
+
+#[test]
+fn structured_results_reach_scripts_and_direct_calls_unchanged() {
+    let config = config();
+    let direct = call(&config, "n_stats", json!({}));
+    assert_eq!(direct["structuredContent"]["count"], json!(direct["structuredContent"]["keys"].as_array().unwrap().len()));
+    let result = call(&config, "weave_run", json!({"source": "s = n_stats()\nprint(s[\"count\"] == len(s[\"keys\"]), type_ok(s))\n".replace("type_ok(s)", "\"keys\" in s")}));
+    let body: Json = serde_json::from_str(&text(&result)).unwrap_or_else(|_| panic!("{}", text(&result)));
+    assert_eq!(body["stdout"], json!("True True\n"), "{body}");
+}

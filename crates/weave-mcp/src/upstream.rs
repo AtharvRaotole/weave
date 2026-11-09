@@ -85,6 +85,13 @@ pub struct UpstreamTool {
     pub upstream_name: String,
     pub description: String,
     pub input_schema: Json,
+    /// The upstream's declared `outputSchema`, forwarded unchanged in listings.
+    pub output_schema: Option<Json>,
+    /// The upstream's `title`, forwarded unchanged.
+    pub title: Option<String>,
+    /// The upstream's `annotations`, forwarded with `readOnlyHint` set from the
+    /// effect Weave actually enforces.
+    pub annotations: Option<Json>,
     /// Parameter names in schema order; positional arguments map onto these.
     pub params: Vec<String>,
     pub required: Vec<String>,
@@ -450,6 +457,9 @@ fn discover(config: &UpstreamConfig, tool: &Json) -> Result<UpstreamTool, String
         name: script_alias(&format!("{}{}", config.prefix, upstream_name)),
         description: tool.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
         input_schema,
+        output_schema: tool.get("outputSchema").filter(|v| v.is_object()).cloned(),
+        title: tool.get("title").and_then(Json::as_str).map(str::to_string),
+        annotations: tool.get("annotations").filter(|v| v.is_object()).cloned(),
         params,
         required,
         effect,

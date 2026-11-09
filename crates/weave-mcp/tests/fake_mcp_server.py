@@ -14,6 +14,11 @@ TOOLS = [
     {"name": "write_note", "description": "Write a note.",
      "inputSchema": {"type": "object", "properties": {"key": {"type": "string"}, "text": {"type": "string"}},
                      "required": ["key", "text"]}},
+    {"name": "stats", "title": "Note statistics", "description": "Count notes.",
+     "inputSchema": {"type": "object", "properties": {}},
+     "outputSchema": {"type": "object", "properties": {"count": {"type": "integer"}, "keys": {"type": "array", "items": {"type": "string"}}},
+                      "required": ["count", "keys"]},
+     "annotations": {"readOnlyHint": True, "idempotentHint": True}},
     {"name": "leak", "description": "Fail with a secret in the error content.",
      "inputSchema": {"type": "object", "properties": {}}, "annotations": {"readOnlyHint": True}},
     {"name": "rpc_fail", "description": "Fail with a secret in a JSON-RPC error.",
@@ -42,7 +47,11 @@ def handle(msg):
         reply(msg_id, {"tools": TOOLS})
     elif method == "tools/call":
         args = params["arguments"]
-        if params["name"] == "leak":
+        if params["name"] == "stats":
+            keys = sorted(notes)
+            structured = {"count": len(keys), "keys": keys}
+            reply(msg_id, {"content": [{"type": "text", "text": json.dumps(structured)}], "structuredContent": structured})
+        elif params["name"] == "leak":
             sys.stderr.write("leak called: UPSTREAM-STDERR-SECRET\n")
             sys.stderr.flush()
             reply(msg_id, {"content": [{"type": "text", "text": "UPSTREAM-ERROR-SECRET"}], "isError": True})

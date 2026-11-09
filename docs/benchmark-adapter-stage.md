@@ -56,9 +56,8 @@ Configuration requires the real checkout commit and exact SHA-256 pins for the
 local fixture server, proxy binary, installed native extension and shipped
 WeaveTool source. Pins are checked **before HTTP dispatch**; actual source-file,
 schema/contract hashes, dirty-source state, Git version and initial commit are
-also recorded. Output schemas come from the pinned fixture contract because the
-current proxy listing omits `outputSchema`; that provenance is explicit rather
-than pretending the proxy discovered a schema it did not return.
+also recorded. Since weave-mcp now forwards upstream `outputSchema`, discovered
+output schemas are checked equal to the pinned fixture contract before HTTP.
 
 The provider's reported model revision must match the declared snapshot. Reasoning
 items and token-detail subsets are preserved, not added twice to total usage.
