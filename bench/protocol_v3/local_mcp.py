@@ -243,6 +243,14 @@ class RemoteFixture:
                             str(delay),
                         ],
                         "prefix": kind + "_",
+                        # weave-mcp passes only an allowlisted environment by default.
+                        "env": {
+                            "PYTHONPATH": str(ROOT),
+                            "PYTHONNOUSERSITE": "1",
+                            "GIT_CONFIG_GLOBAL": os.devnull,
+                            "XDG_CONFIG_HOME": str(self.root / "home"),
+                        },
+                        "stderr": {"file": str(self.root / "upstream-errors.log")},
                     }
                     for kind in ("fs", "git", "memory")
                 ]

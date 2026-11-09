@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased privacy hardening
+- **Behavior change:** Python host exceptions (in-process, cooperative and
+  worker tools) reach scripts as the exception type only. Raise
+  `weave.ToolError("...")` for model-visible messages, or use `debug=True`.
+- **Behavior change:** `weave-mcp` discards upstream stderr by default
+  (`"stderr": "inherit" | {"file": path}` to keep it) and passes upstreams an
+  allowlisted environment plus explicit `"env"` (`"inherit_env": true` restores
+  the old behavior).
+- Upstream `isError` text, JSON-RPC error payloads and failed example samples
+  are withheld unless the upstream sets `"debug": true`.
+- Planted-secret tests for every channel; see docs/privacy.md.
+
 ## Unreleased process isolation
 - `Engine(worker_pool=N, isolate_all=True)` and `WeaveTool(..., worker_pool=N)`
   run every host tool in a killable worker; tools opt out only with an explicit
