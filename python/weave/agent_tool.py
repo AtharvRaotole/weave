@@ -59,13 +59,32 @@ class WeaveTool:
         name: str = "run_weave",
         engine: Engine | None = None,
         max_output_chars: int = 20_000,
+        worker_pool: int | None = None,
+        worker_limits: Any = None,
+        max_wall_time_ms: int | None = None,
+        debug: bool = False,
     ):
+        """`worker_pool=N` runs every function in killable worker processes
+        (`Engine(worker_pool=N, isolate_all=True)`): a tool timeout or the run
+        deadline kills the worker. Functions must then be module-level and
+        pickleable; opt one out with `weave.declare(hard_deadline=False)`.
+        `max_wall_time_ms` bounds each script run (default 30s)."""
         self.functions = list(functions)
         self.name = name
         self.max_output_chars = max_output_chars
-        self.engine = engine or Engine()
+        if engine is not None and (worker_pool is not None or worker_limits is not None or debug):
+            raise ValueError("pass worker_pool/worker_limits/debug to the Engine you supply, not to WeaveTool")
         if engine is None:
-            self.engine.install(self.functions)
+            if worker_pool is not None:
+                engine = Engine(worker_pool, isolate_all=True, worker_limits=worker_limits, debug=debug)
+            else:
+                if worker_limits is not None:
+                    raise ValueError("worker_limits needs worker_pool=N")
+                engine = Engine(debug=debug)
+            engine.install(self.functions)
+        self.engine = engine
+        if max_wall_time_ms is not None:
+            self.engine.set_limits(max_wall_time_ms=max_wall_time_ms)
 
     # ---- tool definitions -------------------------------------------------
     @property

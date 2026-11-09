@@ -2,6 +2,8 @@
 
 from weave._native import CancelToken, Engine, Run, Session, Speculation, declare
 from weave.agent_tool import WeaveTool
+from weave.errors import ToolError
+from weave.workers import WorkerLimits
 
 try:
     from importlib.metadata import PackageNotFoundError, version
@@ -16,7 +18,9 @@ __all__ = [
     "Run",
     "Session",
     "Speculation",
+    "ToolError",
     "WeaveTool",
+    "WorkerLimits",
     "__version__",
     "declare",
 ]

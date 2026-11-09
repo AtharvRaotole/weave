@@ -11,15 +11,38 @@ use weave_core::{
 struct PyEngine {
     inner: Engine,
     pool: Option<Py<PyAny>>,
+    isolate_all: bool,
+    debug: bool,
+    isolated_tools: Vec<String>,
+    in_process_tools: Vec<String>,
 }
 
 #[pymethods]
 impl PyEngine {
-    /// `worker_pool` starts that many Python interpreters. Tools registered
-    /// with `hard_deadline=True` run there, and a timeout SIGKILLs the worker.
+    /// `worker_pool` starts that many Python worker processes. Tools registered
+    /// with `hard_deadline=True` run there, and a timeout, run deadline or
+    /// cancel kills the worker (its whole process group on POSIX).
+    ///
+    /// `isolate_all=True` makes worker isolation the default for every tool
+    /// registered on this engine; a tool must then opt out explicitly with
+    /// `hard_deadline=False`. `worker_limits` applies OS limits inside each
+    /// worker (see `weave.workers.WorkerLimits`); unsupported limits fail here.
+    /// `debug=True` lets host exception text and tracebacks reach scripts.
     #[new]
-    #[pyo3(signature = (worker_pool=None))]
-    fn new(py: Python<'_>, worker_pool: Option<usize>) -> PyResult<Self> {
+    #[pyo3(signature = (worker_pool=None, *, isolate_all=false, worker_limits=None, max_result_bytes=None, debug=false))]
+    fn new(
+        py: Python<'_>,
+        worker_pool: Option<usize>,
+        isolate_all: bool,
+        worker_limits: Option<Py<PyAny>>,
+        max_result_bytes: Option<usize>,
+        debug: bool,
+    ) -> PyResult<Self> {
+        if worker_pool.is_none() && (isolate_all || worker_limits.is_some() || max_result_bytes.is_some()) {
+            return Err(PyValueError::new_err(
+                "isolate_all, worker_limits and max_result_bytes need Engine(worker_pool=N)",
+            ));
+        }
         let pool = match worker_pool {
             None => None,
             Some(0) => {
@@ -33,13 +56,40 @@ impl PyEngine {
                         "weave.workers is not installed; reinstall the weave wheel",
                     )
                 })?;
-                Some(module.getattr("Pool")?.call1((size,))?.unbind())
+                let kwargs = PyDict::new(py);
+                if let Some(limits) = &worker_limits {
+                    kwargs.set_item("limits", limits.bind(py))?;
+                }
+                if let Some(bytes) = max_result_bytes {
+                    kwargs.set_item("max_result_bytes", bytes)?;
+                }
+                kwargs.set_item("debug", debug)?;
+                Some(module.getattr("Pool")?.call((size,), Some(&kwargs))?.unbind())
             }
         };
         Ok(Self {
             inner: Engine::new(),
             pool,
+            isolate_all,
+            debug,
+            isolated_tools: Vec::new(),
+            in_process_tools: Vec::new(),
         })
+    }
+
+    /// What isolation this engine enforces: the worker pool (kill mechanism,
+    /// applied OS limits, result cap) and which tools run in workers vs in-process.
+    fn isolation<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let out = PyDict::new(py);
+        out.set_item("isolate_all", self.isolate_all)?;
+        out.set_item("debug", self.debug)?;
+        match &self.pool {
+            Some(pool) => out.set_item("pool", pool.call_method0(py, "describe")?)?,
+            None => out.set_item("pool", py.None())?,
+        }
+        out.set_item("isolated_tools", self.isolated_tools.clone())?;
+        out.set_item("in_process_tools", self.in_process_tools.clone())?;
+        Ok(out)
     }
 
     /// Register a host tool.
@@ -50,7 +100,7 @@ impl PyEngine {
     /// `reads` / `writes` name the resources the tool touches (a list of
     /// strings, or `"*"`). They default to every resource, so any write drops
     /// every speculated read. Narrow them to keep unrelated cached reads.
-    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None, retry_safe=false))]
+    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false))]
     #[allow(clippy::too_many_arguments)]
     fn tool(
         &mut self,
@@ -61,7 +111,7 @@ impl PyEngine {
         arity: Option<usize>,
         timeout_ms: Option<u64>,
         retries: Option<u32>,
-        hard_deadline: bool,
+        hard_deadline: Option<bool>,
         reads: Option<Vec<String>>,
         writes: Option<Vec<String>>,
     retry_safe: bool,
@@ -92,10 +142,11 @@ impl PyEngine {
             spec = spec.with_timeout(std::time::Duration::from_millis(timeout_ms));
         }
         let pass_cancel = wants_cancel(py, &func).unwrap_or(false);
-        if hard_deadline {
+        let isolated = hard_deadline.unwrap_or(self.isolate_all);
+        if isolated {
             if pass_cancel {
                 return Err(PyValueError::new_err(
-                    "hard_deadline runs the tool in a worker process; pass cancel by polling it in-process, or drop the cancel parameter",
+                    "this tool would run in a worker process, which cannot receive a cancel token; drop the cancel parameter, or register it with hard_deadline=False to run in-process",
                 ));
             }
             let pool = self
@@ -107,10 +158,17 @@ impl PyEngine {
                     )
                 })?
                 .clone_ref(py);
+            pool.call_method1(py, "check_sendable", (func.bind(py),))?;
+            self.isolated_tools.retain(|n| n != &name);
+            self.in_process_tools.retain(|n| n != &name);
+            self.isolated_tools.push(name.clone());
             self.inner.register_isolated(&name, spec, move |args, kwargs| {
                 start_isolated(&pool, &func, &args, &kwargs)
             });
         } else if pass_cancel {
+            self.isolated_tools.retain(|n| n != &name);
+            self.in_process_tools.retain(|n| n != &name);
+            self.in_process_tools.push(name.clone());
             self.inner.register_cooperative(&name, spec, move |args, kwargs, token| {
                 match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, Some(token))) {
                     Some(result) => result.map_err(|err| err.to_string()),
@@ -118,6 +176,9 @@ impl PyEngine {
                 }
             });
         } else {
+            self.isolated_tools.retain(|n| n != &name);
+            self.in_process_tools.retain(|n| n != &name);
+            self.in_process_tools.push(name.clone());
             self.inner.register(&name, spec, move |args, kwargs| {
                 match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, None)) {
                     Some(result) => result.map_err(|err| err.to_string()),
@@ -202,7 +263,7 @@ impl PyEngine {
     }
 
     /// Decorator that registers the function on this engine.
-    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None, retry_safe=false))]
+    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false))]
     #[allow(clippy::too_many_arguments)]
     fn declare(
         slf: Bound<'_, Self>,
@@ -211,7 +272,7 @@ impl PyEngine {
         arity: Option<usize>,
         timeout_ms: Option<u64>,
         retries: Option<u32>,
-        hard_deadline: bool,
+        hard_deadline: Option<bool>,
         reads: Option<Vec<String>>,
         writes: Option<Vec<String>>,
     retry_safe: bool,
@@ -379,7 +440,7 @@ struct EngineDecl {
     arity: Option<usize>,
     timeout_ms: Option<u64>,
     retries: Option<u32>,
-    hard_deadline: bool,
+    hard_deadline: Option<bool>,
     reads: Option<Vec<String>>,
     writes: Option<Vec<String>>,
     retry_safe: bool,
@@ -412,7 +473,7 @@ struct MarkDecl {
     arity: Option<usize>,
     timeout_ms: Option<u64>,
     retries: Option<u32>,
-    hard_deadline: bool,
+    hard_deadline: Option<bool>,
     reads: Option<Vec<String>>,
     writes: Option<Vec<String>>,
     retry_safe: bool,
@@ -436,14 +497,14 @@ impl MarkDecl {
 }
 
 #[pyfunction]
-#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=false, reads=None, writes=None, retry_safe=false))]
+#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false))]
 #[allow(clippy::too_many_arguments)]
 fn declare(
     effect: Option<String>,
     arity: Option<usize>,
     timeout_ms: Option<u64>,
     retries: Option<u32>,
-    hard_deadline: bool,
+    hard_deadline: Option<bool>,
     reads: Option<Vec<String>>,
     writes: Option<Vec<String>>,
     retry_safe: bool,
@@ -474,7 +535,7 @@ fn install_marked(engine: &mut PyEngine, py: Python<'_>, func: &Bound<'_, PyAny>
         dict_opt_usize(meta, "arity")?,
         dict_opt_u64(meta, "timeout_ms")?,
         dict_opt_u32(meta, "retries")?,
-        dict_bool(meta, "hard_deadline")?,
+        dict_opt_bool(meta, "hard_deadline")?,
         dict_opt_strings(meta, "reads")?,
         dict_opt_strings(meta, "writes")?,
         dict_bool(meta, "retry_safe")?,
@@ -533,6 +594,13 @@ fn dict_opt_u64(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<u64>> {
 }
 
 fn dict_opt_u32(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<u32>> {
+    match meta.get_item(key)? {
+        Some(value) if !value.is_none() => Ok(Some(value.extract()?)),
+        _ => Ok(None),
+    }
+}
+
+fn dict_opt_bool(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<bool>> {
     match meta.get_item(key)? {
         Some(value) if !value.is_none() => Ok(Some(value.extract()?)),
         _ => Ok(None),
