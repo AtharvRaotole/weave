@@ -1,0 +1,380 @@
+{
+  "protocol": "weave-benchmark-protocol-v3",
+  "kind": "live_explicit_opt_in",
+  "run_id": "20261109T205255Z-gpt-4.1-2025-04-14",
+  "started_utc": "2026-11-09T20:52:55Z",
+  "source_commit": "e09b33a199f455950043bd417b75398a5af59740",
+  "source_dirty": false,
+  "config": {
+    "provider": "openai-responses",
+    "model_revision": "gpt-4.1-2025-04-14",
+    "api_version": "responses-v1",
+    "source_commit": "e09b33a199f455950043bd417b75398a5af59740",
+    "server_versions": {
+      "fixture_server": "sha256:1545f3ff4da37720b638d6ffd3adf91d20d718de6956723191f15bc13c8223af",
+      "weave_mcp": "sha256:c603a9f342e425ebdbce62c16902ada61f60276b258eae294f6c160b97c1b59e",
+      "weave_native": "sha256:0d03271b9d01da646d4eecad6ac17195f1bb3521175c8c0807916037f74e44eb",
+      "weave_tool": "sha256:b8edf69162b926fb650de5cbbdb86a3420628c9af8d556d4c665df3a5b009c3e"
+    },
+    "generation": {
+      "temperature": 0,
+      "max_output_tokens": 4096,
+      "reasoning": null
+    },
+    "resolved_model_revision": "gpt-4.1-2025-04-14",
+    "native_parallel": 4,
+    "max_turns": 10,
+    "max_answers": 3,
+    "provider_retries": 2,
+    "timeout_s": 240,
+    "seed": 73,
+    "cache_policy": "disabled"
+  },
+  "task_manifest": {
+    "task_set": "live-v1",
+    "tasks": [
+      "sum3",
+      "fallback",
+      "chain",
+      "index_max",
+      "receipt",
+      "journal",
+      "integration",
+      "conditional_memory",
+      "deny_noop",
+      "git_head"
+    ],
+    "manifest_hash": "023e36b78ab10e7d40b91b4397b8537ab7c2270ca7544f23e05e074889f33486",
+    "statistically_independent": false,
+    "secret_or_unseen": false
+  },
+  "task_subset": null,
+  "repeats": 3,
+  "planned_trials": 60,
+  "max_requests": 600,
+  "request_timeout_s": 120,
+  "fixture": "local_mcp.RemoteFixture(path='weave_mcp') for BOTH modes",
+  "endpoint": "https://api.openai.com/v1/responses",
+  "python": "3.13.5",
+  "finished_utc": "2026-11-09T20:57:24Z",
+  "completed_trials": 60,
+  "skipped_for_request_cap": 0,
+  "http_requests_sent": 238,
+  "summary": {
+    "weave": {
+      "trials": 30,
+      "passed": 20,
+      "pass_rate": 0.6666666666666666,
+      "pass_rate_wilson95": [
+        0.48779725813830266,
+        0.807697044731538
+      ],
+      "first_pass": 14,
+      "failures": {
+        "turn_limit": 2,
+        "wrong_answer_or_state": 8
+      },
+      "mean_model_turns": 4.633333333333334,
+      "mean_model_turns_boot95": [
+        3.533333333333333,
+        5.766666666666667
+      ],
+      "provider_attempts": 139,
+      "p50_wall_s": 2.647773390501243,
+      "p95_wall_s": 14.222045470000012,
+      "mean_wall_s": 5.586727815433793,
+      "mean_wall_s_boot95": [
+        4.084051349400519,
+        7.168270190367063
+      ],
+      "mean_total_tokens": 7006.966666666666,
+      "mean_total_tokens_boot95": [
+        4871.233333333334,
+        9330.7
+      ],
+      "known_tokens": {
+        "input_tokens": 201895,
+        "output_tokens": 8314,
+        "cached_input_tokens": 102784
+      },
+      "unknown_usage_attempts": 0,
+      "token_totals_complete": true,
+      "unexpected_write_runs": 1,
+      "unexpected_write_attempt_runs": 1,
+      "state_mismatch_runs": 6,
+      "execution_error_turns": 63,
+      "transport_retries": 0,
+      "rate_limit_wait_s": 0,
+      "by_task": {
+        "sum3": {
+          "trials": 3,
+          "passed": 1,
+          "mean_model_turns": 8.333333333333334,
+          "p50_wall_s": 10.801886895002099,
+          "statuses": [
+            "passed",
+            "wrong_answer_or_state",
+            "wrong_answer_or_state"
+          ]
+        },
+        "fallback": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 2.0,
+          "p50_wall_s": 2.1844254940006067,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "chain": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 6.0,
+          "p50_wall_s": 6.2786119890006375,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "index_max": {
+          "trials": 3,
+          "passed": 1,
+          "mean_model_turns": 7.0,
+          "p50_wall_s": 14.222045470000012,
+          "statuses": [
+            "passed",
+            "wrong_answer_or_state",
+            "wrong_answer_or_state"
+          ]
+        },
+        "receipt": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 2.0,
+          "p50_wall_s": 2.037061425002321,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "journal": {
+          "trials": 3,
+          "passed": 0,
+          "mean_model_turns": 9.666666666666666,
+          "p50_wall_s": 11.653055620998202,
+          "statuses": [
+            "turn_limit",
+            "turn_limit",
+            "wrong_answer_or_state"
+          ]
+        },
+        "integration": {
+          "trials": 3,
+          "passed": 0,
+          "mean_model_turns": 5.333333333333333,
+          "p50_wall_s": 5.825856417999603,
+          "statuses": [
+            "wrong_answer_or_state",
+            "wrong_answer_or_state",
+            "wrong_answer_or_state"
+          ]
+        },
+        "conditional_memory": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 2.0,
+          "p50_wall_s": 2.215667189000669,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "deny_noop": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 2.0,
+          "p50_wall_s": 2.3891123729990795,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "git_head": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 2.0,
+          "p50_wall_s": 2.1771209970029304,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        }
+      }
+    },
+    "native": {
+      "trials": 30,
+      "passed": 26,
+      "pass_rate": 0.8666666666666667,
+      "pass_rate_wilson95": [
+        0.7031831605558306,
+        0.9469043057578189
+      ],
+      "first_pass": 26,
+      "failures": {
+        "wrong_answer_or_state": 4
+      },
+      "mean_model_turns": 3.3,
+      "mean_model_turns_boot95": [
+        2.8666666666666667,
+        3.7666666666666666
+      ],
+      "provider_attempts": 99,
+      "p50_wall_s": 3.020817653998165,
+      "p95_wall_s": 6.183915700999933,
+      "mean_wall_s": 3.2604308457661926,
+      "mean_wall_s_boot95": [
+        2.791752304932864,
+        3.7875271702665487
+      ],
+      "mean_total_tokens": 3283.133333333333,
+      "mean_total_tokens_boot95": [
+        2801.866666666667,
+        3812.0666666666666
+      ],
+      "known_tokens": {
+        "input_tokens": 96501,
+        "output_tokens": 1993,
+        "cached_input_tokens": 9472
+      },
+      "unknown_usage_attempts": 0,
+      "token_totals_complete": true,
+      "unexpected_write_runs": 3,
+      "unexpected_write_attempt_runs": 3,
+      "state_mismatch_runs": 3,
+      "execution_error_turns": 0,
+      "transport_retries": 0,
+      "rate_limit_wait_s": 0,
+      "by_task": {
+        "sum3": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 2.0,
+          "p50_wall_s": 2.051179186997615,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "fallback": {
+          "trials": 3,
+          "passed": 2,
+          "mean_model_turns": 3.0,
+          "p50_wall_s": 3.0175623649993213,
+          "statuses": [
+            "passed",
+            "passed",
+            "wrong_answer_or_state"
+          ]
+        },
+        "chain": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 5.0,
+          "p50_wall_s": 4.675145106997661,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "index_max": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 3.0,
+          "p50_wall_s": 3.3489448299988,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "receipt": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 3.0,
+          "p50_wall_s": 2.6122439639984805,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "journal": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 4.0,
+          "p50_wall_s": 3.9515989889987395,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "integration": {
+          "trials": 3,
+          "passed": 0,
+          "mean_model_turns": 6.0,
+          "p50_wall_s": 6.183915700999933,
+          "statuses": [
+            "wrong_answer_or_state",
+            "wrong_answer_or_state",
+            "wrong_answer_or_state"
+          ]
+        },
+        "conditional_memory": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 3.0,
+          "p50_wall_s": 3.0734196429984877,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "deny_noop": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 2.0,
+          "p50_wall_s": 1.8258478030002152,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        },
+        "git_head": {
+          "trials": 3,
+          "passed": 3,
+          "mean_model_turns": 2.0,
+          "p50_wall_s": 1.7333670049993088,
+          "statuses": [
+            "passed",
+            "passed",
+            "passed"
+          ]
+        }
+      }
+    }
+  },
+  "rows_sha256": "1a8b107ce6635e24901333c47de0b7a15ef41b2b6eb0eb97efde399f50e01fc1",
+  "ledger_sha256": "aa710e1570ac94f69476f7e73686426860da9ab5489354dab6d6cd5d994c6eaf"
+}

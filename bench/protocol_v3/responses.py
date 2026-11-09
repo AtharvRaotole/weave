@@ -10,7 +10,14 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, ProxyHandler, HTTPRedirectHandler, build_opener
 
-from .core import ProviderFailure, Reply, Usage, canonical, digest
+from .core import (
+    MAX_SCRIPTS_PER_TURN,
+    ProviderFailure,
+    Reply,
+    Usage,
+    canonical,
+    digest,
+)
 from weave.agent_tool import RULES
 
 
@@ -140,9 +147,15 @@ class ResponsesAdapter:
             if self.pending["calls"]:
                 if request["mode"] == "weave":
                     # One output per call_id (the API requires it). Several
-                    # scripts in one turn are an invalid invocation shape and
-                    # all receive the same generic repair feedback.
-                    outputs = [canonical(feedback)] * len(self.pending["calls"])
+                    # scripts in one turn each get their own observations; an
+                    # invalid shape gives every call the same repair feedback.
+                    n = len(self.pending["calls"])
+                    parts = feedback.get("scripts")
+                    outputs = (
+                        [canonical(p) for p in parts]
+                        if isinstance(parts, list) and len(parts) == n
+                        else [canonical(feedback)] * n
+                    )
                 else:
                     remaining = list(feedback.get("observations", []))
                     outputs = []
@@ -336,11 +349,17 @@ class ResponsesAdapter:
                         ):
                             raise ValueError()
                         sources.append(args["source"])
-                    # The action grammar is one script per turn. Several
-                    # well-formed scripts in one turn get the protocol's generic
-                    # execution-repair feedback (rule 6), like an invalid native
-                    # call shape, instead of ending the trial as malformed.
-                    decision = {"script": sources[0] if len(sources) == 1 else None}
+                    # Several well-formed scripts in one turn (parallel tool
+                    # calls) run in call order, like an ordinary agent loop;
+                    # more than core.MAX_SCRIPTS_PER_TURN is an invalid shape
+                    # that gets the generic repair feedback (rule 6).
+                    decision = {
+                        "script": sources[0]
+                        if len(sources) == 1
+                        else sources
+                        if len(sources) <= MAX_SCRIPTS_PER_TURN
+                        else None
+                    }
                 else:
                     decision = {
                         "calls": [

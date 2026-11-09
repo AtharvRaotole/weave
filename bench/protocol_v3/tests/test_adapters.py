@@ -521,26 +521,41 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(row["status"], "resource_limit")
         self.assertEqual(len(requests), 1)
 
-    def test_several_scripts_in_one_turn_get_repair_feedback_not_termination(self):
+    def test_several_scripts_in_one_turn_run_in_order_with_own_outputs(self):
         two = response(
             [
-                call("run_weave", {"source": 'print("a")\n'}, "s1"),
-                call("run_weave", {"source": 'print("b")\n'}, "s2"),
+                call("run_weave", {"source": 'x=fs_read(path="item.txt")\nprint(x)\n'}, "s1"),
+                call("run_weave", {"source": "print(git_head())\n"}, "s2"),
             ]
         )
-        with http_fixture([two, script(), answer()]) as (endpoint, requests):
+        for path in ("weave_tool", "weave_mcp"):
+            with http_fixture([two, script(), answer()]) as (endpoint, requests):
+                row, _ = trial(endpoint, mode="weave", path=path)
+            self.assertTrue(row["passed"], row["status"])
+            self.assertEqual(row["execution_errors"], 0)
+            self.assertTrue(row["first_pass"])
+            self.assertEqual(row["model_turns"], 3)
+            outputs = {
+                x["call_id"]: json.loads(x["output"])
+                for x in requests[1]["body"]["input"]
+                if x.get("type") == "function_call_output"
+            }
+            self.assertEqual(set(outputs), {"s1", "s2"})
+            self.assertEqual([o["name"] for o in outputs["s1"]["observations"]], ["fs_read"])
+            self.assertEqual([o["name"] for o in outputs["s2"]["observations"]], ["git_head"])
+
+    def test_too_many_scripts_in_one_turn_get_repair_feedback(self):
+        many = response(
+            [call("run_weave", {"source": 'print("x")\n'}, f"s{i}") for i in range(9)]
+        )
+        with http_fixture([many, script(), answer()]) as (endpoint, requests):
             row, _ = trial(endpoint, mode="weave")
         self.assertTrue(row["passed"], row["status"])
         self.assertEqual(row["execution_errors"], 1)
-        self.assertFalse(row["first_pass"])
-        self.assertEqual(row["model_turns"], 3)
         outputs = [
-            x
-            for x in requests[1]["body"]["input"]
-            if x.get("type") == "function_call_output"
+            x for x in requests[1]["body"]["input"] if x.get("type") == "function_call_output"
         ]
-        self.assertEqual({o["call_id"] for o in outputs}, {"s1", "s2"})
-        self.assertEqual(len({o["output"] for o in outputs}), 1)
+        self.assertEqual(len(outputs), 9)
         self.assertIn("execution failed", outputs[0]["output"])
 
     def test_unsent_generation_fields_and_request_timeout_bounds(self):

@@ -1,0 +1,59 @@
+{
+  "protocol": "weave-benchmark-protocol-v3",
+  "kind": "live_explicit_opt_in",
+  "run_id": "20261109T205255Z-gpt-5.4-mini-2026-03-17",
+  "started_utc": "2026-11-09T20:52:55Z",
+  "source_commit": "e09b33a199f455950043bd417b75398a5af59740",
+  "source_dirty": false,
+  "config": {
+    "provider": "openai-responses",
+    "model_revision": "gpt-5.4-mini-2026-03-17",
+    "api_version": "responses-v1",
+    "source_commit": "e09b33a199f455950043bd417b75398a5af59740",
+    "server_versions": {
+      "fixture_server": "sha256:1545f3ff4da37720b638d6ffd3adf91d20d718de6956723191f15bc13c8223af",
+      "weave_mcp": "sha256:c603a9f342e425ebdbce62c16902ada61f60276b258eae294f6c160b97c1b59e",
+      "weave_native": "sha256:0d03271b9d01da646d4eecad6ac17195f1bb3521175c8c0807916037f74e44eb",
+      "weave_tool": "sha256:b8edf69162b926fb650de5cbbdb86a3420628c9af8d556d4c665df3a5b009c3e"
+    },
+    "generation": {
+      "temperature": null,
+      "max_output_tokens": 4096,
+      "reasoning": "low"
+    },
+    "resolved_model_revision": "gpt-5.4-mini-2026-03-17",
+    "native_parallel": 4,
+    "max_turns": 10,
+    "max_answers": 3,
+    "provider_retries": 2,
+    "timeout_s": 240,
+    "seed": 73,
+    "cache_policy": "disabled"
+  },
+  "task_manifest": {
+    "task_set": "live-v1",
+    "tasks": [
+      "sum3",
+      "fallback",
+      "chain",
+      "index_max",
+      "receipt",
+      "journal",
+      "integration",
+      "conditional_memory",
+      "deny_noop",
+      "git_head"
+    ],
+    "manifest_hash": "023e36b78ab10e7d40b91b4397b8537ab7c2270ca7544f23e05e074889f33486",
+    "statistically_independent": false,
+    "secret_or_unseen": false
+  },
+  "task_subset": null,
+  "repeats": 3,
+  "planned_trials": 60,
+  "max_requests": 600,
+  "request_timeout_s": 120,
+  "fixture": "local_mcp.RemoteFixture(path='weave_mcp') for BOTH modes",
+  "endpoint": "https://api.openai.com/v1/responses",
+  "python": "3.13.5"
+}
