@@ -33,7 +33,32 @@ pub struct UpstreamConfig {
     /// called once and its (truncated) output is shown in the tool listing,
     /// so a script writer knows the result format before parsing it.
     pub examples: BTreeMap<String, Json>,
+    /// Where the upstream's stderr goes. Default: discarded, because servers
+    /// often log arguments, paths and credentials there.
+    pub stderr: StderrMode,
+    /// Extra environment variables for the upstream process.
+    pub env: BTreeMap<String, String>,
+    /// Pass weave-mcp's whole environment through. Default false: only a small
+    /// allowlist (PATH, HOME, locale, temp dirs, Windows system vars) plus `env`.
+    pub inherit_env: bool,
+    /// Let upstream error text (isError content, JSON-RPC error messages and
+    /// failed example samples) reach scripts and listings. Default false.
+    pub debug: bool,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StderrMode {
+    Discard,
+    Inherit,
+    File(std::path::PathBuf),
+}
+
+/// Environment variables passed to upstreams when `inherit_env` is false.
+pub const ENV_ALLOWLIST: &[&str] = &[
+    "PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TMPDIR", "TEMP", "TMP",
+    "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT", "USERPROFILE", "APPDATA", "LOCALAPPDATA",
+    "PROGRAMDATA", "PROGRAMFILES", "PROGRAMFILES(X86)", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR",
+];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ResultShape {
@@ -142,18 +167,61 @@ impl UpstreamConfig {
             Some(Json::Object(map)) => map.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
             Some(_) => return Err(format!("upstream `{name}` examples must be an object")),
         };
-        Ok(Self { name, command, args, prefix, effects, results, examples })
+        let stderr = match value.get("stderr") {
+            None => StderrMode::Discard,
+            Some(Json::String(mode)) if mode == "discard" => StderrMode::Discard,
+            Some(Json::String(mode)) if mode == "inherit" => StderrMode::Inherit,
+            Some(Json::Object(map)) if map.len() == 1 && map.get("file").is_some_and(Json::is_string) => {
+                StderrMode::File(map["file"].as_str().unwrap_or_default().into())
+            }
+            Some(_) => return Err(format!("upstream `{name}` stderr must be \"discard\", \"inherit\" or {{\"file\": path}}")),
+        };
+        let env = match value.get("env") {
+            None => BTreeMap::new(),
+            Some(Json::Object(map)) => map
+                .iter()
+                .map(|(k, v)| v.as_str().map(|v| (k.clone(), v.to_string())).ok_or_else(|| format!("upstream `{name}` env values must be strings")))
+                .collect::<Result<_, _>>()?,
+            Some(_) => return Err(format!("upstream `{name}` env must be an object")),
+        };
+        let flag = |key: &str| -> Result<bool, String> {
+            match value.get(key) {
+                None => Ok(false),
+                Some(Json::Bool(b)) => Ok(*b),
+                Some(_) => Err(format!("upstream `{name}` {key} must be true or false")),
+            }
+        };
+        let inherit_env = flag("inherit_env")?;
+        let debug = flag("debug")?;
+        Ok(Self { name, command, args, prefix, effects, results, examples, stderr, env, inherit_env, debug })
     }
 }
 
 impl Upstream {
     /// Spawn the server, run the MCP handshake, and list its tools.
     pub fn connect(config: UpstreamConfig) -> Result<Arc<Self>, String> {
-        let mut child = Command::new(&config.command)
-            .args(&config.args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+        let stderr = match &config.stderr {
+            StderrMode::Discard => Stdio::null(),
+            StderrMode::Inherit => Stdio::inherit(),
+            StderrMode::File(path) => std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .map(Stdio::from)
+                .map_err(|err| format!("upstream `{}`: cannot open stderr file: {err}", config.name))?,
+        };
+        let mut command = Command::new(&config.command);
+        command.args(&config.args).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(stderr);
+        if !config.inherit_env {
+            command.env_clear();
+            for key in ENV_ALLOWLIST {
+                if let Some(value) = std::env::var_os(key) {
+                    command.env(key, value);
+                }
+            }
+        }
+        command.envs(&config.env);
+        let mut child = command
             .spawn()
             .map_err(|err| format!("upstream `{}`: cannot start `{}`: {err}", config.name, config.command))?;
         let stdin = child.stdin.take().ok_or("no stdin")?;
@@ -253,7 +321,10 @@ impl Upstream {
                 Err(_) => return Err("upstream disconnected; effect completion uncertain".into()),
             }
         };
-        if reply.get("error").is_some() {
+        if let Some(error) = reply.get("error") {
+            if self.config.debug {
+                return Err(format!("upstream `{}` returned a JSON-RPC error: {error}", self.config.name));
+            }
             return Err(format!("upstream `{}` returned a JSON-RPC error (payload omitted)", self.config.name));
         }
         Ok(reply.get("result").cloned().unwrap_or(Json::Null))
@@ -292,7 +363,8 @@ impl Upstream {
             }
             let output = match self.call(&tool.upstream_name, arguments.clone()) {
                 Ok(text) => text,
-                Err(text) => format!("ToolError: {text}"),
+                Err(text) if self.config.debug => format!("ToolError: {text}"),
+                Err(_) => "ToolError (sample failed; content omitted)".to_string(),
             };
             samples.push((index, (arguments.clone(), truncate(&output, 300))));
         }
@@ -312,6 +384,12 @@ impl Upstream {
                 let arguments = arguments_for(&spec_tool, &args, &kwargs)?;
                 let result = upstream.request_interruptible("tools/call", json!({"name": spec_tool.upstream_name, "arguments": arguments}), || token.is_cancelled())?;
                 if result.get("isError").and_then(Json::as_bool) == Some(true) {
+                    if upstream.config.debug {
+                        let text = result.get("content").and_then(Json::as_array).map(|parts| {
+                            parts.iter().filter_map(|p| p.get("text").and_then(Json::as_str)).collect::<Vec<_>>().join("\n")
+                        }).unwrap_or_default();
+                        return Err(format!("upstream tool returned isError: {text}"));
+                    }
                     return Err("upstream tool returned isError (response content omitted; inspect upstream directly)".into());
                 }
                 if spec_tool.shape.is_none() {

@@ -44,6 +44,7 @@ jobs:
           python examples/run_weave_tool.py
           python tests/python/test_agent_tool.py
           timeout 300 python tests/python/test_isolation.py
+          timeout 120 python tests/python/test_privacy.py
           python -m pip install openai-agents
           python tests/python/test_agent_tool.py
       - name: offline audit acceptance matrix

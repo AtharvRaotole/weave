@@ -15,7 +15,7 @@ def get_user(user_id):
     """Load a user record."""
     time.sleep(0.2)
     if user_id == "missing":
-        raise LookupError("no such user")
+        raise weave.ToolError("no such user")
     return {"id": user_id, "name": user_id.upper()}
 
 

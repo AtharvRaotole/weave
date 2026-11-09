@@ -169,9 +169,10 @@ impl PyEngine {
             self.isolated_tools.retain(|n| n != &name);
             self.in_process_tools.retain(|n| n != &name);
             self.in_process_tools.push(name.clone());
+            let debug = self.debug;
             self.inner.register_cooperative(&name, spec, move |args, kwargs, token| {
-                match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, Some(token))) {
-                    Some(result) => result.map_err(|err| err.to_string()),
+                match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, Some(token), debug)) {
+                    Some(result) => result,
                     None => Err("Python interpreter is unavailable".to_string()),
                 }
             });
@@ -179,9 +180,10 @@ impl PyEngine {
             self.isolated_tools.retain(|n| n != &name);
             self.in_process_tools.retain(|n| n != &name);
             self.in_process_tools.push(name.clone());
+            let debug = self.debug;
             self.inner.register(&name, spec, move |args, kwargs| {
-                match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, None)) {
-                    Some(result) => result.map_err(|err| err.to_string()),
+                match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, None, debug)) {
+                    Some(result) => result,
                     None => Err("Python interpreter is unavailable".to_string()),
                 }
             });
@@ -732,31 +734,55 @@ fn call_python(
     args: &[Value],
     kwargs: &BTreeMap<String, Value>,
     token: Option<CancelToken>,
-) -> PyResult<Value> {
-    let mut py_args = Vec::with_capacity(args.len());
-    for arg in args {
-        py_args.push(value_to_py(py, arg)?);
-    }
-    let tuple = PyTuple::new(py, py_args)?;
-    let dict = PyDict::new(py);
-    let mut has_kw = false;
-    for (key, value) in kwargs {
-        if key == "cancel" && token.is_some() {
-            return Err(PyValueError::new_err("cancel is injected by the host, not a script argument"));
+    debug: bool,
+) -> Result<Value, String> {
+    let prepared = (|| -> PyResult<(Bound<'_, PyTuple>, Bound<'_, PyDict>, bool)> {
+        let mut py_args = Vec::with_capacity(args.len());
+        for arg in args {
+            py_args.push(value_to_py(py, arg)?);
         }
-        dict.set_item(key, value_to_py(py, value)?)?;
-        has_kw = true;
+        let tuple = PyTuple::new(py, py_args)?;
+        let dict = PyDict::new(py);
+        let mut has_kw = false;
+        for (key, value) in kwargs {
+            if key == "cancel" && token.is_some() {
+                return Err(PyValueError::new_err("cancel is injected by the host, not a script argument"));
+            }
+            dict.set_item(key, value_to_py(py, value)?)?;
+            has_kw = true;
+        }
+        if let Some(token) = token {
+            dict.set_item("cancel", Py::new(py, PyCancelToken { inner: token })?)?;
+            has_kw = true;
+        }
+        Ok((tuple, dict, has_kw))
+    })()
+    .map_err(|err| err.to_string())?;
+    let (tuple, dict, has_kw) = prepared;
+    // Errors raised by host code may carry secrets; only Weave's own argument
+    // and conversion errors above and below are reported verbatim.
+    let result = if has_kw { func.call(py, &tuple, Some(&dict)) } else { func.call1(py, &tuple) };
+    let result = result.map_err(|err| public_error(py, &err, debug))?;
+    py_to_value(&result.into_bound(py)).map_err(|err| err.to_string())
+}
+
+/// Host exception text for scripts: redacted unless `weave.ToolError` or debug.
+fn public_error(py: Python<'_>, err: &PyErr, debug: bool) -> String {
+    let described = py
+        .import("weave.errors")
+        .and_then(|module| {
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("debug", debug)?;
+            module.getattr("describe_exception")?.call((err.value(py),), Some(&kwargs))
+        })
+        .and_then(|text| text.extract::<String>());
+    match described {
+        Ok(text) => text,
+        Err(_) => {
+            let name = err.get_type(py).name().map(|n| n.to_string()).unwrap_or_else(|_| "Exception".into());
+            format!("{name} (details redacted)")
+        }
     }
-    if let Some(token) = token {
-        dict.set_item("cancel", Py::new(py, PyCancelToken { inner: token })?)?;
-        has_kw = true;
-    }
-    let result = if has_kw {
-        func.call(py, &tuple, Some(&dict))?
-    } else {
-        func.call1(py, &tuple)?
-    };
-    py_to_value(&result.into_bound(py))
 }
 
 #[pyclass(name = "CancelToken")]

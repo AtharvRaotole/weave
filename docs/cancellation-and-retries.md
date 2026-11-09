@@ -1,4 +1,4 @@
-# Cancellation, retries and privacy (experimental source)
+# Cancellation, retries and privacy
 
 ## Transport cancellation
 
@@ -41,17 +41,8 @@ execution. Sync attempts may overlap after timeout; the host must safely handle
 that too. Existing explicit timeout/cancellation uncertainty must not be treated
 as proof an operation never ran. Without real idempotency support, do not opt in.
 
-## Privacy gaps remain
+## Privacy
 
-- Default MCP results omit bindings and trace. `debug:true` deliberately exposes
-  source, tool manifest, argument/result values and bindings. Traces remain
-  sensitive host artifacts, not redacted shareable telemetry.
-- Replay mismatch diagnostics omit actual/recorded argument values. Script MCP
-  `isError` and JSON-RPC error envelopes no longer get copied wholesale into
-  errors; inspect the upstream directly when details are needed. Direct tool
-  result envelopes are intentionally preserved, including content/error values.
-- Host/Python exception messages, prints, literal-related parser/runtime errors,
-  configured names/paths, user-requested debug output and inherited upstream
-  stderr can still include secrets. There is no comprehensive redactor or
-  secret classification. Avoid sensitive exception messages; restrict logs and
-  trace access. There is no production privacy certification.
+Host exception text, upstream stderr, upstream environment and upstream error
+payloads are withheld by default and opt-in per host. See [privacy.md](privacy.md)
+for every channel, the opt-ins and the remaining trust assumptions.
