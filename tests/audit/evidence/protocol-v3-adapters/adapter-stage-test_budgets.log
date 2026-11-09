@@ -1,0 +1,1 @@
+source UTF-8/session, aggregate stdout, trace envelope/event boundaries and fatal-breach assertions passed

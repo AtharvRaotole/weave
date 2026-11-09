@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased finite protocol-v3 adapter stage
+- Connect shipped WeaveTool/MCP execution and native Responses wire format to
+  synthetic loopback HTTP and real disposable filesystem/git/memory MCP fixtures.
+- Pin actual artifacts, enforce equal backend concurrency/call controls, and retain
+  append-only durable trial/attempt/HTTP accounting with explicit missing usage.
+- Keep remote spending disabled by default with dual explicit opt-in; no live runs,
+  unseen evaluation, releases or model-performance claims.
+
 ## Unreleased benchmark protocol remediation
 - Add deterministic offline controlled-comparison tests for endpoints, full-context
   parity, native parallel reads/equal backend caps, real state/write validation,

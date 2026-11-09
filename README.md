@@ -294,6 +294,9 @@ See [runtime reference](docs/runtime.html) for API details and
 
 **Benchmark remediation:** [controlled v3 protocol](docs/benchmark-protocol-v3.md)
 now has deterministic offline mechanics tests, not new model-performance evidence.
+[The finite adapter stage](docs/benchmark-adapter-stage.md) now exercises shipped
+WeaveTool/MCP paths and Responses wire messages with synthetic loopback HTTP,
+real disposable file/git/memory writes and append-only trial accounting.
 Corrected live runs remain pending. Public candidate held-out fixtures are not
 claimed unseen or statistically independent; no new speedup headline is derived.
 
