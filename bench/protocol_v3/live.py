@@ -30,7 +30,7 @@ import time
 import uuid
 
 from .accounting import TrialLedger
-from .core import Config, digest, run
+from .core import Config, run
 from .live_tasks import LIVE_V1, live_manifest
 from .local_mcp import ROOT, RemoteFixture, execute_shipped, file_hash
 from .responses import ResponsesAdapter

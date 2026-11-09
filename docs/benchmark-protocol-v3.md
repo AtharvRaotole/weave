@@ -1,8 +1,10 @@
-# Controlled benchmark protocol v3 — offline mechanics only
+# Controlled benchmark protocol v3
 
-**Corrected live runs are still pending. There are no new model-performance,
-cost, success-rate or speedup results here.** The unchanged v0.1.0 downloads
-still contain the audited defects; 1.0.0 is the first release with the fixes.
+**Live results now exist:** see [benchmarks](benchmarks.md#live-results-protocol-v3-2026-11-09)
+for the 2026-11-09 OpenAI runs (three models, 60 trials each, two recorded
+runs). They show no speedup and none is claimed. This page defines the
+protocol; the sections below on remaining gates still apply to any broader
+claim (other providers, held-out tasks, compact-output mode).
 
 This implements a controlled comparison core, not a claim that the shipped MCP /
 public agent-SDK integration has been evaluated fairly end-to-end. It replaces
@@ -159,21 +161,46 @@ in the provider request. Scripted cassette answers prove no model capability.
   declared; compare native-serial, native-parallel and other code-execution options.
   Include tasks where native wins and report all failures, first-pass/eventual
   outcomes, p50/p95 and tokens/costs without survivor filtering.
-- Only after separate explicit spending authorization run fresh live evaluations.
-  No future live speedup or cross-provider generalization claim is supported now.
+- Fresh live evaluations were run on 2026-11-09 with explicit spending
+  authorization (OpenAI only). No speedup or cross-provider generalization
+  claim is supported by them.
+
+## Live runner
+
+`python -m bench.protocol_v3.live --allow-live --model <snapshot>[:effort]`
+is the only live entrypoint. It requires the runner flag **and** sets the
+adapter's `live_opt_in` itself, reads `OPENAI_API_KEY` from the environment
+(never written anywhere), refuses a dirty checkout, caps HTTP requests, runs
+the frozen [`live_tasks.py`](../bench/protocol_v3/live_tasks.py) set over
+`RemoteFixture(path="weave_mcp")` for **both** modes, and writes `run.json`,
+the append-only `trials.jsonl` ledger, `rows.jsonl` and `summary.json`
+(Wilson intervals for success, seeded bootstrap intervals for means,
+nearest-rank p95). `python -m bench.protocol_v3.report` prints the markdown
+tables used in the docs.
+
+Adapter details added for live use: a pinned generation field set to `None`
+is declared and not sent (reasoning models reject `temperature`; others reject
+`reasoning`), and the per-request HTTP timeout is configurable (default 10 s;
+the runner uses 120 s). Several well-formed `run_weave` calls in one provider
+turn run in call order and each `call_id` receives its own observations (at
+most 8; more is an invalid shape that gets the generic repair feedback). This
+matches how an agent loop executes parallel tool calls, and native mode
+likewise accepts several calls per turn.
 
 ## Current acceptance evidence
 
-33 deterministic protocol tests plus 21 synthetic-HTTP/local-MCP adapter tests
-(54 combined) cover real filesystem/native-versus-
+34 deterministic protocol tests plus 24 synthetic-HTTP/local-MCP adapter tests
+(58 combined) cover real filesystem/native-versus-
 Engine checks, shared concurrency barriers (not a wall-clock speed assertion),
 negative cases, failure tails, oracle/schema hashing, resource-limit failure,
-and write completion before timeout. The adapter stage adds real git/memory
+several scripts per turn, unsent generation fields, and write completion before
+timeout. The adapter stage adds real git/memory
 writes, shipped execution paths, artifact pins and durable interruption recovery.
 `tests/audit/test_benchmark.py` runs these
 inside the existing audit matrix. `bench/results/offline-v3-mechanics.json` is
 six scripted development rows, explicitly offline and synthetic-clock; it is not
-a new model success measurement. Full local Rust/clippy, SDK and eight audit
+a model success measurement. Live rows are under
+`bench/results/protocol-v3-live/`. Full local Rust/clippy, SDK and eight audit
 acceptance gates are retained under `tests/audit/evidence/benchmark-protocol/`.
 
 Adapter-stage logs are retained separately under

@@ -1,7 +1,7 @@
 """OpenAI Responses wire adapter. Tests use labelled loopback HTTP only.
 
 No SDK retries, implicit environment credentials, redirects, or proxy inheritance.
-Remote requests require adapter AND runner opt-in; this stage never enables them.
+Remote requests require adapter AND runner opt-in; only bench/protocol_v3/live.py sets both.
 """
 
 import json

@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased]
+
+### Benchmarks
+- First live protocol-v3 comparison (2026-11-09): `gpt-5.5-2026-04-23`,
+  `gpt-5.4-mini-2026-03-17` and `gpt-4.1-2025-04-14`, ten frozen
+  file/git/memory tasks over the real `weave-mcp` binary, 60 trials per model.
+  Success is on par with native tool calling; no speedup is claimed. Results,
+  ledgers and charts: `docs/benchmarks.md`, `bench/results/protocol-v3-live/`,
+  `assets/benchmark-v3.png`.
+- `bench/protocol_v3/live.py` (opt-in live runner), `live_tasks.py` (frozen
+  task set), `report.py` (tables) and `bench/make_v3_charts.py` (figures).
+- Responses adapter: several `run_weave` calls in one turn run in order with
+  their own outputs; unsent generation fields; configurable request timeout.
+
+### Documentation and examples
+- `docs/getting-started.md`: where Weave runs, install paths that work today,
+  and recipes for scripts, model tools, MCP clients, cancellation and the CLI.
+- `examples/quickstart.py` and `examples/cancel_run.py`, run in CI.
+- README: benchmark section replaced with the live protocol-v3 results; the
+  older unequal-endpoint numbers moved to the history section of
+  `docs/benchmarks.md`.
+
 ## [1.0.0] - 2026-11-09
 
 First release built with the independent-audit fixes and production hardening.

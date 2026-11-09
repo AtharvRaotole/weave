@@ -13,20 +13,23 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import logging
+
 import matplotlib
 
 matplotlib.use("Agg")
+logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 import matplotlib.pyplot as plt  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "bench/results/protocol-v3-live"
 # Display label -> committed run directory. Order is the plotting order.
 RUNS = json.loads((RESULTS / "chart-runs.json").read_text())
-MODES = (("weave", "Weave (one script per turn)", "#2457d6"), ("native", "Native tool calling (parallel)", "#a3a9b4"))
+MODES = (("weave", "Weave (run_weave script tool)", "#2457d6"), ("native", "Native tool calling (parallel calls)", "#a3a9b4"))
 
 plt.rcParams.update(
     {
-        "font.family": ["Inter", "Helvetica Neue", "Helvetica", "Arial", "DejaVu Sans"],
+        "font.family": ["Inter", "Roboto", "Helvetica Neue", "Helvetica", "Arial", "DejaVu Sans"],
         "font.size": 10,
         "axes.spines.top": False,
         "axes.spines.right": False,
@@ -77,7 +80,7 @@ def panel(ax, data, title, key, ci_key, fmt, scale=1.0, ylim=None, ylabel=""):
 
 
 def overview(data):
-    fig, axes = plt.subplots(2, 2, figsize=(11, 7.4), dpi=200)
+    fig, axes = plt.subplots(2, 2, figsize=(11, 7.8), dpi=200)
     panel(axes[0][0], data, "Task success (higher is better)", "pass_rate", "pass_rate_wilson95", lambda v: f"{v:.0f}%", 100, (0, 112), "% of trials passed")
     panel(axes[0][1], data, "Model turns per task (lower is better)", "mean_model_turns", "mean_model_turns_boot95", lambda v: f"{v:.2f}", ylabel="mean provider turns")
     panel(axes[1][0], data, "Wall-clock per task, incl. retries (lower is better)", "mean_wall_s", "mean_wall_s_boot95", lambda v: f"{v:.1f}s", ylabel="mean seconds")
@@ -85,17 +88,19 @@ def overview(data):
     first = next(iter(data.values()))
     n = first["summary"]["weave"]["trials"]
     tasks = len(first["task_manifest"]["tasks"])
-    fig.suptitle("Weave vs native tool calling — live, protocol v3", x=0.055, y=0.985, ha="left", fontsize=15, fontweight="bold")
+    fig.suptitle("Weave vs native tool calling: live, protocol v3", x=0.055, y=0.985, ha="left", fontsize=15, fontweight="bold")
     fig.text(
         0.055,
-        0.935,
-        f"{tasks} frozen file/git/memory tasks × {first['repeats']} repeats = {n} trials per mode per model · same tools, context and backend (weave-mcp) in both modes · "
-        "graded on the model's final answer + actual on-disk state",
+        0.94,
+        f"{tasks} frozen file/git/memory tasks × {first['repeats']} repeats = {n} trials per mode per model. Same tools, context and weave-mcp backend in both modes;\n"
+        "a trial passes only if the model's final answer AND the actual files, git history, memory and ordered write log are correct.",
         fontsize=9,
         color="#4b5563",
+        linespacing=1.5,
+        va="top",
     )
     handles, names = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles, names, loc="upper right", bbox_to_anchor=(0.985, 0.995), frameon=False, ncol=1, fontsize=9.5)
+    fig.legend(handles, names, loc="upper left", bbox_to_anchor=(0.05, 0.875), frameon=False, ncol=2, fontsize=9.5, handlelength=1.2)
     dates = sorted({d["started_utc"][:10] for d in data.values()})
     fig.text(
         0.055,
@@ -106,8 +111,9 @@ def overview(data):
         "Methodology: docs/benchmark-protocol-v3.md · raw data: bench/results/protocol-v3-live/",
         fontsize=7.8,
         color="#6b7280",
+        linespacing=1.5,
     )
-    fig.tight_layout(rect=(0.03, 0.05, 1, 0.92))
+    fig.tight_layout(rect=(0.03, 0.055, 1, 0.835))
     return fig
 
 
@@ -136,8 +142,9 @@ def per_task(data):
         ax.set_xlim(0, 11.5)
     handles, names = axes[0].get_legend_handles_labels()
     fig.suptitle("Per-task model turns, protocol v3 live", x=0.02, ha="left", fontsize=13, fontweight="bold")
+    fig.text(0.02, 0.01, "Each bar: 3 trials of one task in one mode (labels: passed/trials). Failed trials are included in the mean. Same runs as assets/benchmark-v3.png.", fontsize=7.8, color="#6b7280")
     fig.legend(handles, names, loc="upper right", frameon=False, ncol=2, fontsize=8.5)
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    fig.tight_layout(rect=(0, 0.04, 1, 0.93))
     return fig
 
 

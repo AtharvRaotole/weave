@@ -1,4 +1,4 @@
-"""Versioned controlled comparison; deliberately no live/network implementation.
+"""Versioned controlled comparison core. Network access lives only in the opt-in adapters and live runner.
 
 Both modes use the same public tool contract and complete at a final provider
 answer validated against private answer AND actual state/write-log oracles.

@@ -458,7 +458,7 @@ def run_native_gemini(model: str, task: RealTask, client: McpClient, tools: list
 
 
 def main() -> int:
-    print("Historical v2 live driver retired: controlled v3 mechanics are offline-only; corrected live runs remain pending.")
+    print("Historical v2 live driver retired; use python -m bench.protocol_v3.live --allow-live (protocol v3).")
     return 2
 
 
