@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased MCP schema forwarding and reference-server compatibility
+- `weave-mcp` forwards upstream `outputSchema`, `title` and `annotations`
+  (with `readOnlyHint` set from the effect Weave enforces); the `weave_run`
+  listing shows the declared return type. `serverInfo.version` is the crate version.
+- CI job `reference-mcp` runs `weave-mcp` against the official filesystem,
+  memory (npm, lockfile) and git (PyPI, hash-pinned) reference servers: real
+  file writes, a real commit and a real memory graph through one `weave_run`,
+  checked on disk; forwarded output schemas and `structuredContent` verified.
+- The benchmark fixture now checks discovered output schemas against its pins.
+- Structured results are not validated against `outputSchema` by Weave.
+
 ## Unreleased privacy hardening
 - **Behavior change:** Python host exceptions (in-process, cooperative and
   worker tools) reach scripts as the exception type only. Raise
