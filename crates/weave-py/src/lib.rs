@@ -326,10 +326,30 @@ impl PySession {
         self.inner.cancel();
     }
 
+    /// A handle that cancels this session from any thread (for example an
+    /// asyncio task cancelled while the session runs in a worker thread).
+    fn cancel_handle(&self) -> PySessionCancel {
+        PySessionCancel { inner: self.inner.cancel_source() }
+    }
+
     fn finish(&mut self, py: Python<'_>) -> PyResult<PyRun> {
         let inner = &mut self.inner;
         let result = py.detach(|| inner.finish());
         result.map(PyRun::from_result).map_err(weave_err)
+    }
+}
+
+/// Thread-safe cancel for one session. Isolated tool workers are killed;
+/// in-process tools are soft-cancelled (the session stops waiting).
+#[pyclass(name = "SessionCancel")]
+struct PySessionCancel {
+    inner: weave_core::CancelSource,
+}
+
+#[pymethods]
+impl PySessionCancel {
+    fn cancel(&self) {
+        self.inner.cancel();
     }
 }
 
@@ -877,6 +897,7 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCancelToken>()?;
     m.add_class::<PyEngine>()?;
     m.add_class::<PySession>()?;
+    m.add_class::<PySessionCancel>()?;
     m.add_class::<PyRun>()?;
     m.add_class::<PySpecCache>()?;
     m.add_function(wrap_pyfunction!(declare, m)?)?;

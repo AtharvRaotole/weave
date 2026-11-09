@@ -31,7 +31,8 @@ that choice is visible in `engine.isolation()["in_process_tools"]`.
 |---|---|
 | tool `timeout_ms` passes | worker killed; call fails `timed out after Nms`; pool replaces the worker |
 | run `max_wall_time_ms` passes | every in-flight isolated call killed |
-| `Session.cancel()`, dropped session, `Engine` dropped/closed | worker killed |
+| `Session.cancel()`, `Session.cancel_handle().cancel()` from any thread, dropped session, `Engine` dropped/closed | worker killed |
+| asyncio task awaiting `WeaveTool.run_async` / the Agents SDK tool is cancelled | session cancelled, worker killed |
 | POSIX: tool started subprocesses | `SIGKILL` goes to the worker's whole process group (`setsid`) |
 | `cpu_seconds` exceeded (POSIX) | kernel signals the worker (`SIGXCPU`, then `SIGKILL`); call fails, worker replaced |
 | `memory_bytes` exceeded (Linux, `RLIMIT_AS`) | allocation raises `MemoryError` inside the worker |

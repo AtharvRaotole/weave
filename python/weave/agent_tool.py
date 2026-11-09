@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import threading
 from typing import Any, Callable, Iterable
 
 from weave._native import Engine
@@ -110,7 +111,7 @@ class WeaveTool:
         return {"type": "function", "name": self.name, "description": self.description, "parameters": self.parameters, "strict": True}
 
     # ---- running ----------------------------------------------------------
-    def run(self, source: str) -> str:
+    def run(self, source: str, _cancel: dict | None = None) -> str:
         """Check and run a script. Returns text for the model: printed output
         on success, or `error: ...` lines it can repair from."""
         if not isinstance(source, str):
@@ -121,7 +122,17 @@ class WeaveTool:
         if problems:
             return "error: the script did not pass the static check\n" + "\n".join(problems)
         try:
-            out = self.engine.run(source).stdout
+            if _cancel is not None and hasattr(self.engine, "session"):
+                session = self.engine.session()
+                handle = session.cancel_handle()
+                with _cancel["lock"]:
+                    _cancel["handle"] = handle
+                    if _cancel["cancelled"]:
+                        handle.cancel()
+                session.push(source)
+                out = session.finish().stdout
+            else:
+                out = self.engine.run(source).stdout
         except Exception as exc:  # noqa: BLE001 - every Weave failure goes back to the model
             return f"error: {exc}"
         if len(out) > self.max_output_chars:
@@ -142,21 +153,40 @@ class WeaveTool:
         output = self._run_arguments(get(call, "arguments") or "{}")
         return {"type": "function_call_output", "call_id": get(call, "call_id"), "output": output}
 
-    def _run_arguments(self, arguments: str) -> str:
+    def _run_arguments(self, arguments: str, _cancel: dict | None = None) -> str:
         try:
             source = json.loads(arguments)["source"]
         except (json.JSONDecodeError, KeyError, TypeError):
             return 'error: call run_weave with JSON arguments {"source": "<script>"}'
-        return self.run(source)
+        return self.run(source, _cancel)
+
+    async def _cancellable(self, arguments: str) -> str:
+        state = {"lock": threading.Lock(), "handle": None, "cancelled": False}
+        try:
+            return await asyncio.to_thread(self._run_arguments, arguments, state)
+        except asyncio.CancelledError:
+            # Cancel the session: isolated workers are killed, in-process tools
+            # stop being waited on (they may still finish in their thread).
+            with state["lock"]:
+                state["cancelled"] = True
+                if state["handle"] is not None:
+                    state["handle"].cancel()
+            raise
+
+    async def run_async(self, source: str) -> str:
+        """`run` for asyncio hosts. Cancelling the awaiting task cancels the
+        script session, which kills isolated worker tools (`worker_pool=N`)."""
+        return await self._cancellable(json.dumps({"source": source}))
 
     def agents_tool(self):
         """A FunctionTool for the OpenAI Agents SDK (`pip install openai-agents`)."""
         from agents import FunctionTool  # imported lazily; the SDK is optional
 
         async def invoke(_ctx, arguments: str) -> str:
-            # Do not block the SDK event loop. Cancellation abandons the await;
-            # sync host work is soft-cancelled and may continue in this thread.
-            return await asyncio.to_thread(self._run_arguments, arguments)
+            # Do not block the SDK event loop. Cancelling this coroutine cancels
+            # the script session: isolated workers are killed, in-process host
+            # work is soft-cancelled and may finish in its thread.
+            return await self._cancellable(arguments)
 
         return FunctionTool(
             name=self.name,
