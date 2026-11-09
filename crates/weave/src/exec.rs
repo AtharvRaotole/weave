@@ -49,6 +49,45 @@ fn fail(err: WeaveError) -> ValFut {
     share(async move { Err(err) })
 }
 
+/// Every value scheduled so far whose failure must stop later writes.
+///
+/// A flat list made each tool call and loop iteration copy the whole history,
+/// so a loop cost grew quadratically with its iteration count. Full groups are
+/// folded into one future per level, like a binary counter, so cloning and
+/// awaiting stay `O(GROUP * log n)` while failures still surface in order.
+#[derive(Clone, Default)]
+struct PriorSet {
+    /// `levels[k]` holds futures standing for `GROUP^k` values each; higher
+    /// levels are older.
+    levels: Vec<Vec<ValFut>>,
+}
+
+impl PriorSet {
+    const GROUP: usize = 16;
+
+    fn push(&mut self, fut: ValFut) {
+        let mut carry = fut;
+        let mut level = 0;
+        loop {
+            if self.levels.len() == level {
+                self.levels.push(Vec::new());
+            }
+            self.levels[level].push(carry);
+            if self.levels[level].len() < Self::GROUP {
+                return;
+            }
+            let group = std::mem::take(&mut self.levels[level]);
+            carry = share(async move { await_roots(group).await.map(|()| Value::Null) });
+            level += 1;
+        }
+    }
+
+    /// Oldest first, so the first failure reported is the earliest one.
+    fn futures(&self) -> Vec<ValFut> {
+        self.levels.iter().rev().flatten().cloned().collect()
+    }
+}
+
 fn join_ok(a: ValFut, b: ValFut) -> ValFut {
     share(async move {
         a.await?;
@@ -75,6 +114,19 @@ enum RunMode {
 struct Replay {
     events: Vec<TraceEvent>,
     used: Mutex<Vec<bool>>,
+    /// Event indexes per (invocation path, tool), so matching a call does not
+    /// rescan the whole trace.
+    by_identity: HashMap<(Vec<usize>, String), Vec<usize>>,
+}
+
+impl Replay {
+    fn new(events: Vec<TraceEvent>) -> Self {
+        let mut by_identity: HashMap<(Vec<usize>, String), Vec<usize>> = HashMap::new();
+        for (index, event) in events.iter().enumerate() {
+            by_identity.entry((event.invocation.clone(), event.tool.clone())).or_default().push(index);
+        }
+        Self { used: Mutex::new(vec![false; events.len()]), events, by_identity }
+    }
 }
 
 struct Launch {
@@ -92,7 +144,7 @@ struct Launch {
     last_mutation: ValFut,
     last_observable: ValFut,
     print_barrier: ValFut,
-    prior: Vec<ValFut>,
+    prior: PriorSet,
     path: Vec<usize>,
     env: HashMap<String, ValFut>,
     roots: Vec<ValFut>,
@@ -139,7 +191,7 @@ struct BarrierSnap {
     last_mutation: ValFut,
     last_observable: ValFut,
     print_barrier: ValFut,
-    prior: Vec<ValFut>,
+    prior: PriorSet,
     path: Vec<usize>,
 }
 
@@ -306,10 +358,7 @@ impl Engine {
         if !diags.is_empty() {
             return Err(WeaveError::new(diags));
         }
-        let mut session = self.open(RunMode::Replay(Arc::new(Replay {
-            events: trace.events.clone(),
-            used: Mutex::new(vec![false; trace.events.len()]),
-        })), None);
+        let mut session = self.open(RunMode::Replay(Arc::new(Replay::new(trace.events.clone()))), None);
         session.push(source)?;
         let result = session.finish()?;
         if result.trace.events.len() != trace.events.len() {
@@ -365,7 +414,7 @@ impl Engine {
             last_mutation: ready(Value::Null),
             last_observable: ready(Value::Null),
             print_barrier: ready(Value::Null),
-            prior: Vec::new(),
+            prior: PriorSet::default(),
             path: Vec::new(),
             env: HashMap::new(),
             roots: Vec::new(),
@@ -876,7 +925,7 @@ async fn run_caught_block(
     branch_mut: ValFut,
     branch_obs: ValFut,
     branch_print: ValFut,
-    branch_prior: Vec<ValFut>,
+    branch_prior: PriorSet,
     branch_path: Vec<usize>,
 ) -> Result<Arc<HashMap<String, Value>>, (WeaveError, HashMap<String, ValFut>)> {
     let barriers = BarrierSnap {
@@ -1103,7 +1152,7 @@ async fn run_parallel_for(
     branch_mut: ValFut,
     branch_obs: ValFut,
     branch_print: ValFut,
-    branch_prior: Vec<ValFut>,
+    branch_prior: PriorSet,
     branch_path: Vec<usize>,
     arc: &Arc<Mutex<Launch>>,
 ) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
@@ -1170,7 +1219,7 @@ async fn run_sequential_for(
     branch_mut: ValFut,
     branch_obs: ValFut,
     branch_print: ValFut,
-    branch_prior: Vec<ValFut>,
+    branch_prior: PriorSet,
     branch_path: Vec<usize>,
     arc: &Arc<Mutex<Launch>>,
 ) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
@@ -1803,12 +1852,12 @@ fn schedule_tool(
                     mutation.await?;
                 }
                 Effect::Reversible => {
-                    await_roots(prior).await?;
+                    await_roots(prior.futures()).await?;
                     observable.await?;
                 }
                 Effect::Irreversible => {
                     wait_complete(complete_rx, &mut cancel_rx).await?;
-                    await_roots(prior).await?;
+                    await_roots(prior.futures()).await?;
                     observable.await?;
                 }
             }
@@ -1932,15 +1981,16 @@ fn replay_tool(
 ) -> (Result<Value, WeaveError>, Option<u64>) {
     let mut used = recorded.used.lock().expect("replay state");
     // Stable source callsite + nested iteration path; completion order is not identity.
-    let found = recorded
-        .events
-        .iter()
-        .enumerate()
-        .filter(|(index, event)| {
-            !used[*index] && event.invocation == invocation && event.tool == tool_name && event.args == args && &event.kwargs == kwargs
+    let candidates = recorded.by_identity.get(&(invocation.to_vec(), tool_name.to_string()));
+    let found = candidates
+        .into_iter()
+        .flatten()
+        .copied()
+        .filter(|&index| {
+            let event = &recorded.events[index];
+            !used[index] && event.args == args && &event.kwargs == kwargs
         })
-        .min_by_key(|(index, event)| (event.done, *index))
-        .map(|(index, _)| index);
+        .min_by_key(|&index| (recorded.events[index].done, index));
     let Some(index) = found else {
         let message = match used.iter().position(|taken| !taken) {
             Some(next) => format!("replay diverged: expected tool `{}`, got `{}` or differing call identity/arguments (values omitted)", recorded.events[next].tool, tool_name),
