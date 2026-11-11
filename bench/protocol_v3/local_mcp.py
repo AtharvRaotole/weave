@@ -308,6 +308,9 @@ class RemoteFixture:
 
                 function.__name__ = name
                 function.__doc__ = self.tools[name]["description"]
+                # As weave-mcp's own weave_run listing does, show the result
+                # shape (an MCP structuredContent envelope) to script writers.
+                function.__weave_returns__ = self.tools[name]["outputSchema"]
                 function.__signature__ = inspect.Signature(
                     [
                         inspect.Parameter(p, inspect.Parameter.KEYWORD_ONLY)

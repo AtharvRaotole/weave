@@ -9,7 +9,7 @@ use futures::future::Shared;
 use tokio::runtime::Handle;
 use tokio::sync::{mpsc::UnboundedReceiver, watch};
 
-use crate::analysis::{assigned_names, block_effects, has_carried_dep, is_builtin};
+use crate::analysis::{assigned_names, block_effects, has_carried_dep, is_builtin, prefetchable_calls};
 use crate::ast::{
     BinOp, BoolOp, CmpOp, Conversion, Expr, ExprKind, FSeg, Handler, Keyword, Stmt, StmtKind, Target,
     UnaryOp,
@@ -152,6 +152,9 @@ struct Launch {
     speculation: Option<SpecCache>,
     limits: Limits,
     steps: Arc<std::sync::atomic::AtomicU64>,
+    /// Read calls started ahead of a sequential loop, keyed by the
+    /// invocation path the loop body will schedule them under.
+    prefetched: HashMap<Vec<usize>, ValFut>,
 }
 
 /// Count `n` steps against the run's budget.
@@ -422,6 +425,7 @@ impl Engine {
             speculation,
             limits: self.limits,
             steps: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            prefetched: HashMap::new(),
         };
         let arc = Arc::new(Mutex::new(launch));
         runtime.spawn(driver(rx, arc, result_tx));
@@ -1223,15 +1227,105 @@ async fn run_sequential_for(
     branch_path: Vec<usize>,
     arc: &Arc<Mutex<Launch>>,
 ) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
-    let mut local_mut = branch_mut;
-    let mut local_obs = branch_obs;
-    let mut local_print = branch_print;
-    let mut local_prior = branch_prior;
+    let local_mut = branch_mut;
+    let local_obs = branch_obs;
+    let local_print = branch_print;
+    let local_prior = branch_prior;
     let mut carried: HashMap<String, Value> = HashMap::new();
-    {
-        let g = arc.lock().expect("launch lock");
+    let prefetched = {
+        let mut g = arc.lock().expect("launch lock");
         charge(&g, items.len(), line, col)?;
+        prefetch_loop_reads(&mut g, arc, line, col, target, body, items, &snap, &branch_path, &local_mut, &local_obs)
+    };
+    spawn_pending(arc);
+    let result = sequential_iterations(
+        line, col, target, body, items, &snap, written, local_mut, local_obs, local_print, local_prior, &branch_path, arc, &mut carried,
+    )
+    .await;
+    // Unused prefetches (an iteration failed, or an earlier statement in a
+    // `try` body raised) still finish before the loop is done, so a write
+    // after the loop never races with them.
+    if !prefetched.is_empty() {
+        let leftovers: Vec<ValFut> = {
+            let mut g = arc.lock().expect("launch lock");
+            prefetched.iter().filter_map(|key| g.prefetched.remove(key)).collect()
+        };
+        for fut in leftovers {
+            let _ = fut.await;
+        }
     }
+    result?;
+    fill_from_snapshot(written, &snap, &mut carried).await?;
+    let _ = (line, col);
+    Ok(Arc::new(carried))
+}
+
+/// Start every prefetchable read of a sequential loop body for all
+/// iterations at once. Returns the invocation keys that were installed.
+#[allow(clippy::too_many_arguments)]
+fn prefetch_loop_reads(
+    g: &mut Launch,
+    arc: &Arc<Mutex<Launch>>,
+    line: usize,
+    col: usize,
+    target: &Target,
+    body: &[Stmt],
+    items: &[Value],
+    snap: &HashMap<String, ValFut>,
+    branch_path: &[usize],
+    local_mut: &ValFut,
+    local_obs: &ValFut,
+) -> Vec<Vec<usize>> {
+    if !g.limits.loop_prefetch || items.len() < 2 {
+        return Vec::new();
+    }
+    let calls = prefetchable_calls(body, &g.tools);
+    if calls.is_empty() {
+        return Vec::new();
+    }
+    let saved = BarrierSnap::capture(g);
+    let mut keys = Vec::new();
+    for (iteration, item) in items.iter().enumerate() {
+        g.last_mutation = local_mut.clone();
+        g.last_observable = local_obs.clone();
+        g.path = branch_path.to_vec();
+        g.path.extend([line, col, iteration]);
+        let mut child = snap.clone();
+        bind_ready(target, item.clone(), &mut child);
+        for call in &calls {
+            let ExprKind::Call { func, args, keywords } = &call.kind else { continue };
+            let mut key = g.path.clone();
+            key.extend([call.line, call.col]);
+            if g.prefetched.contains_key(&key) {
+                continue;
+            }
+            let fut = schedule_call(call.line, call.col, func, args, keywords, g, arc, &child);
+            g.prefetched.insert(key.clone(), fut.clone());
+            g.pending_spawn.push(fut);
+            keys.push(key);
+        }
+    }
+    saved.install(g);
+    keys
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn sequential_iterations(
+    line: usize,
+    col: usize,
+    target: &Target,
+    body: &[Stmt],
+    items: &[Value],
+    snap: &HashMap<String, ValFut>,
+    written: &HashSet<String>,
+    mut local_mut: ValFut,
+    mut local_obs: ValFut,
+    mut local_print: ValFut,
+    mut local_prior: PriorSet,
+    branch_path: &[usize],
+    arc: &Arc<Mutex<Launch>>,
+    carried: &mut HashMap<String, Value>,
+) -> Result<(), WeaveError> {
     for (iteration, item) in items.iter().enumerate() {
         let (roots, assigned) = {
             let mut g = arc.lock().expect("launch lock");
@@ -1240,10 +1334,10 @@ async fn run_sequential_for(
             g.last_observable = local_obs.clone();
             g.print_barrier = local_print.clone();
             g.prior = local_prior.clone();
-            g.path = branch_path.clone();
+            g.path = branch_path.to_vec();
             g.path.extend([line, col, iteration]);
             let mut child = snap.clone();
-            for (name, value) in &carried {
+            for (name, value) in carried.iter() {
                 child.insert(name.clone(), ready(value.clone()));
             }
             bind_ready(target, item.clone(), &mut child);
@@ -1263,9 +1357,7 @@ async fn run_sequential_for(
             carried.insert(k.clone(), v.clone());
         }
     }
-    fill_from_snapshot(written, &snap, &mut carried).await?;
-    let _ = (line, col);
-    Ok(Arc::new(carried))
+    Ok(())
 }
 
 async fn fill_from_snapshot(
@@ -1829,6 +1921,14 @@ fn schedule_tool(
     let tool_name = name.to_string();
     let mut invocation = g.path.clone();
     invocation.extend([line, col]);
+    if let Some(fut) = g.prefetched.remove(&invocation) {
+        // Started before the loop with identical arguments (see
+        // `prefetchable_calls`); only pure and read calls are prefetched.
+        if effect == Effect::Read {
+            g.last_observable = join_ok(g.last_observable.clone(), fut.clone());
+        }
+        return fut;
+    }
     let seq = g.seq.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     let mutation = g.last_mutation.clone();
     let prior = g.prior.clone();
@@ -2561,7 +2661,7 @@ fn to_int(value: &Value) -> Result<Value, String> {
             .parse::<i64>()
             .map(Value::Int)
             .map_err(|_| format!("invalid int literal {s:?}")),
-        other => Err(format!("int() cannot convert {}", value::type_name(other))),
+        other => Err(format!("int() cannot convert {}", value::describe(other))),
     }
 }
 
@@ -2784,7 +2884,7 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
         }
         (other, method) => Err(format!(
             "{} has no method `{method}`",
-            value::type_name(other)
+            value::describe(other)
         )),
     }
 }
@@ -2910,8 +3010,9 @@ fn tool_failure(
     args: &[Value],
     kwargs: &BTreeMap<String, Value>,
 ) -> WeaveError {
+    let bad_call = message.contains("bad call:");
     let mut diagnostic = crate::error::Diagnostic::tool(line, col, message);
-    let single_char = args
+    let single_char = !bad_call && args
         .iter()
         .chain(kwargs.values())
         .any(|v| matches!(v, Value::Str(s) if s.chars().count() == 1));

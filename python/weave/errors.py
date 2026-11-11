@@ -26,3 +26,28 @@ def describe_exception(exc: BaseException, *, debug: bool = False) -> str:
     if isinstance(exc, ToolError):
         return str(exc)
     return f"{type(exc).__name__} ({REDACTED_HINT})"
+
+
+def call_mismatch(func, args, kwargs) -> str | None:
+    """Why a script's call does not fit the tool's signature, or None.
+
+    Only the script's own call shape is described (parameter names, never
+    host data), so this is safe to show the model even when the tool's
+    exception text is redacted."""
+    import inspect
+
+    try:
+        signature = inspect.signature(func)
+    except (TypeError, ValueError):
+        return None
+    try:
+        signature.bind(*args, **kwargs)
+    except TypeError as exc:
+        params = []
+        for p in signature.parameters.values():
+            if p.name == "cancel" or p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
+                continue
+            params.append(f"{p.name}=..." if p.kind is p.KEYWORD_ONLY else p.name)
+        name = getattr(func, "__name__", "tool")
+        return f"bad call: {exc}; call it as {name}({', '.join(params)})"
+    return None

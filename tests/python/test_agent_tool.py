@@ -94,6 +94,37 @@ def test_agents_sdk_tool_when_installed():
     assert out == "Q\n"
 
 
+def test_listing_shows_return_types_and_bad_calls_are_explained():
+    import time
+    from weave import WeaveTool, declare
+
+    @declare(effect="read")
+    def fs_read(*, path):
+        "Read a file."
+        return {"value": "blue"}
+
+    fs_read.__weave_returns__ = {"type": "object", "properties": {"value": {"type": "string"}}, "required": ["value"]}
+
+    @declare(effect="read")
+    def score(name: str) -> int:
+        "Score a name."
+        time.sleep(0.1)
+        return len(name)
+
+    tool = WeaveTool([fs_read, score])
+    assert 'fs_read(path) -> {"value": str}, effect read.' in tool.description
+    assert "score(name: str) -> int, effect read." in tool.description
+    out = tool.run('t = fs_read(path="a")\nprint("got " + t)')
+    assert "cannot add str and dict with keys 'value'" in out, out
+    out = tool.run('t = fs_read("a")')
+    assert "bad call" in out and "fs_read(path=...)" in out and "single character" not in out, out
+    # An accumulator loop still overlaps its reads (loop prefetch).
+    started = time.monotonic()
+    out = tool.run("total = 0\nfor n in ['ab', 'cde', 'f', 'ghij', 'k', 'lm']:\n    total += score(n)\nprint(total)")
+    assert out == "13\n", out
+    assert time.monotonic() - started < 0.45
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

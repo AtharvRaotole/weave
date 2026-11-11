@@ -30,9 +30,59 @@ RULES = (
     "f-strings, string/list/dict methods, and builtins (str, int, len, range, sum, min, max, "
     "sorted, enumerate, zip, any, all, list, parse_json). Independent calls on separate lines run "
     "in parallel. `for x in text` loops over characters; use text.splitlines() for lines. "
+    "A loop's tool calls run in parallel when their arguments use only the loop variable and values "
+    "from before the loop, even if the loop accumulates results, so loop over items freely. "
+    "A function's return type follows `->`. "
     "A failing tool raises ToolError. print() the values you need; the tool returns "
     "what the script printed, or the error with a hint so you can fix the script."
 )
+
+
+def _annotation(annotation: Any) -> str | None:
+    if annotation is inspect.Parameter.empty or annotation is inspect.Signature.empty:
+        return None
+    if isinstance(annotation, str):
+        return annotation
+    if annotation is type(None):
+        return "None"
+    if isinstance(annotation, type) and not getattr(annotation, "__args__", None):
+        return annotation.__name__
+    return str(annotation).replace("typing.", "")
+
+
+def schema_type(schema: Any, depth: int = 0) -> str:
+    """Render a JSON schema as a short Python-like type, e.g. `{"value": str}`."""
+    if not isinstance(schema, dict) or depth > 4:
+        return "any"
+    if "enum" in schema and isinstance(schema["enum"], list):
+        return " | ".join(json.dumps(v) for v in schema["enum"][:8])
+    kind = schema.get("type")
+    if isinstance(kind, list):
+        return " | ".join(schema_type({**schema, "type": k}, depth) for k in kind)
+    if kind == "object" or "properties" in schema:
+        props = schema.get("properties") or {}
+        if not props:
+            return "dict"
+        required = set(schema.get("required") or ())
+        fields = ", ".join(
+            f'"{k}": {schema_type(v, depth + 1)}' + ("" if k in required else "?") for k, v in props.items()
+        )
+        return "{" + fields + "}"
+    if kind == "array":
+        return f"list[{schema_type(schema.get('items'), depth + 1)}]"
+    return {"string": "str", "integer": "int", "number": "float", "boolean": "bool", "null": "None"}.get(kind, "any")
+
+
+def _returns(func: Callable) -> str | None:
+    declared = getattr(func, "__weave_returns__", None)
+    if isinstance(declared, dict):
+        return schema_type(declared)
+    if isinstance(declared, str):
+        return declared
+    try:
+        return _annotation(inspect.signature(func).return_annotation)
+    except (TypeError, ValueError):
+        return None
 
 
 def _signature(func: Callable) -> str:
@@ -40,14 +90,34 @@ def _signature(func: Callable) -> str:
         params = inspect.signature(func).parameters.values()
     except (TypeError, ValueError):
         return "..."
-    return ", ".join(p.name if p.default is inspect.Parameter.empty else f"{p.name}={p.default!r}" for p in params)
+    out = []
+    for p in params:
+        if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) or p.name == "cancel":
+            continue
+        text = p.name
+        hint = _annotation(p.annotation)
+        if hint:
+            text += f": {hint}"
+        if p.default is not inspect.Parameter.empty:
+            text += f"={p.default!r}"
+        out.append(text)
+    return ", ".join(out)
 
 
 def tool_line(func: Callable) -> str:
+    """One listing line: `name(params) -> returns, effect E. First doc line.`
+
+    The return type comes from `func.__weave_returns__` (a JSON schema or a
+    string) or the return annotation. A script cannot see a result's shape
+    the way a native tool call shows the model each JSON result, so listing
+    it avoids a wasted round trip (for example treating a `{"value": str}`
+    envelope as a plain string)."""
     meta = getattr(func, "__weave__", None) or {}
     effect = meta.get("effect") or "irreversible"
     doc = (inspect.getdoc(func) or "").split("\n", 1)[0]
-    return f"{func.__name__}({_signature(func)}), effect {effect}. {doc}".rstrip()
+    returns = _returns(func)
+    arrow = f" -> {returns}" if returns else ""
+    return f"{func.__name__}({_signature(func)}){arrow}, effect {effect}. {doc}".rstrip()
 
 
 class WeaveTool:

@@ -191,7 +191,11 @@ fn reads_before_assign(stmts: &[Stmt], writes: &HashSet<String>, assigned: &mut 
     for stmt in stmts {
         match &stmt.kind {
             StmtKind::Assign { targets, value } => {
-                if expr_reads_carried(value, writes, assigned) {
+                // `d[k] = v` reads `d` (it rebuilds the container), so a
+                // container filled across iterations is loop-carried.
+                if expr_reads_carried(value, writes, assigned)
+                    || targets.iter().any(|t| target_reads_carried(t, writes, assigned))
+                {
                     return true;
                 }
                 for target in targets {
@@ -328,5 +332,167 @@ fn mark_assigned(target: &Target, assigned: &mut HashSet<String>) {
                 mark_assigned(target, assigned);
             }
         }
+    }
+}
+
+/// Read and pure tool calls in a loop body that can be issued for every
+/// iteration before the (sequential) loop starts.
+///
+/// A loop whose iterations depend on each other (an accumulator such as
+/// `total += read(f)` or `rows.append(get(id))`) must run in order, but the
+/// tool calls inside it often do not depend on that order: their arguments
+/// use only the loop variable and values fixed before the loop. Those calls
+/// can all start at once and each iteration then waits on its own result.
+///
+/// A call qualifies only when
+/// - the body has no reversible or irreversible call (no write can change
+///   what a read returns),
+/// - the tool's effect is pure or read,
+/// - it is evaluated unconditionally in every iteration: it sits in a
+///   top-level statement of the body (or of a `try` body), not under `if`,
+///   a nested `for`, an `except` handler, a conditional expression, or the
+///   right side of `and`/`or`,
+/// - its arguments contain no tool call and read no name the body assigns
+///   (so they are identical whether computed before the loop or in order).
+///
+/// Loops with `break`/`continue` are desugared into guarded `if` bodies, so
+/// none of their calls qualify and early exit never issues extra calls. The
+/// only extra calls possible are reads after a statement that raises inside
+/// the same `try` body or an iteration that fails the script.
+pub fn prefetchable_calls<'a>(body: &'a [Stmt], tools: &ToolRegistry) -> Vec<&'a Expr> {
+    if block_effects(body, tools).max > Effect::Read {
+        return Vec::new();
+    }
+    let written = assigned_names(body);
+    let mut out = Vec::new();
+    collect_prefetch_stmts(body, tools, &written, &mut out);
+    out
+}
+
+fn collect_prefetch_stmts<'a>(stmts: &'a [Stmt], tools: &ToolRegistry, written: &HashSet<String>, out: &mut Vec<&'a Expr>) {
+    for stmt in stmts {
+        match &stmt.kind {
+            StmtKind::Assign { value, .. } | StmtKind::AugAssign { value, .. } | StmtKind::Expr(value) => {
+                collect_prefetch_expr(value, tools, written, out)
+            }
+            StmtKind::Try { body, .. } => collect_prefetch_stmts(body, tools, written, out),
+            StmtKind::If { .. } | StmtKind::For { .. } | StmtKind::Pass => {}
+        }
+    }
+}
+
+fn is_prefetch_tool(func: &Expr, tools: &ToolRegistry) -> bool {
+    match &func.kind {
+        ExprKind::Name(name) if name != "print" && !is_builtin(name) => {
+            tools.get(name).is_some_and(|tool| tool.spec.effect <= Effect::Read)
+        }
+        _ => false,
+    }
+}
+
+fn collect_prefetch_expr<'a>(expr: &'a Expr, tools: &ToolRegistry, written: &HashSet<String>, out: &mut Vec<&'a Expr>) {
+    match &expr.kind {
+        ExprKind::Call { func, args, keywords } => {
+            if is_prefetch_tool(func, tools) {
+                if args.iter().all(|a| loop_invariant(a, written))
+                    && keywords.iter().all(|k| k.name.is_some() && loop_invariant(&k.value, written))
+                {
+                    out.push(expr);
+                }
+                return;
+            }
+            collect_prefetch_expr(func, tools, written, out);
+            for arg in args {
+                collect_prefetch_expr(arg, tools, written, out);
+            }
+            for kw in keywords {
+                collect_prefetch_expr(&kw.value, tools, written, out);
+            }
+        }
+        ExprKind::Attribute { value, .. } | ExprKind::Unary { operand: value, .. } => {
+            collect_prefetch_expr(value, tools, written, out)
+        }
+        ExprKind::List(xs) | ExprKind::Tuple(xs) => {
+            for x in xs {
+                collect_prefetch_expr(x, tools, written, out);
+            }
+        }
+        // Only the first operand of `and`/`or` always runs.
+        ExprKind::BoolOp { values, .. } => {
+            if let Some(first) = values.first() {
+                collect_prefetch_expr(first, tools, written, out);
+            }
+        }
+        ExprKind::Dict(items) => {
+            for (k, v) in items {
+                collect_prefetch_expr(k, tools, written, out);
+                collect_prefetch_expr(v, tools, written, out);
+            }
+        }
+        ExprKind::BinOp { left, right, .. } => {
+            collect_prefetch_expr(left, tools, written, out);
+            collect_prefetch_expr(right, tools, written, out);
+        }
+        // Chained comparisons short-circuit after the first pair.
+        ExprKind::Compare { left, comparators, .. } => {
+            collect_prefetch_expr(left, tools, written, out);
+            if let Some(first) = comparators.first() {
+                collect_prefetch_expr(first, tools, written, out);
+            }
+        }
+        ExprKind::Subscript { value, index } => {
+            collect_prefetch_expr(value, tools, written, out);
+            collect_prefetch_expr(index, tools, written, out);
+        }
+        ExprKind::FString(segs) => {
+            for seg in segs {
+                if let crate::ast::FSeg::Interp { expr, .. } = seg {
+                    collect_prefetch_expr(expr, tools, written, out);
+                }
+            }
+        }
+        // Only the test of a conditional expression always runs.
+        ExprKind::IfExp { test, .. } => collect_prefetch_expr(test, tools, written, out),
+        ExprKind::Slice { .. }
+        | ExprKind::Name(_)
+        | ExprKind::None
+        | ExprKind::Bool(_)
+        | ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Str(_) => {}
+    }
+}
+
+/// True when `expr` makes no tool call and reads no name in `written`.
+fn loop_invariant(expr: &Expr, written: &HashSet<String>) -> bool {
+    let all = |xs: &[Expr]| xs.iter().all(|x| loop_invariant(x, written));
+    match &expr.kind {
+        ExprKind::Name(name) => !written.contains(name),
+        ExprKind::Call { func, args, keywords } => {
+            let callable = match &func.kind {
+                ExprKind::Name(name) => is_builtin(name) && name != "print",
+                ExprKind::Attribute { value, .. } => loop_invariant(value, written),
+                _ => false,
+            };
+            callable && all(args) && keywords.iter().all(|k| k.name.is_some() && loop_invariant(&k.value, written))
+        }
+        ExprKind::Attribute { value, .. } | ExprKind::Unary { operand: value, .. } => loop_invariant(value, written),
+        ExprKind::List(xs) | ExprKind::Tuple(xs) | ExprKind::BoolOp { values: xs, .. } => all(xs),
+        ExprKind::Dict(items) => items.iter().all(|(k, v)| loop_invariant(k, written) && loop_invariant(v, written)),
+        ExprKind::BinOp { left, right, .. } => loop_invariant(left, written) && loop_invariant(right, written),
+        ExprKind::Compare { left, comparators, .. } => loop_invariant(left, written) && all(comparators),
+        ExprKind::Subscript { value, index } => loop_invariant(value, written) && loop_invariant(index, written),
+        ExprKind::Slice { lower, upper, step } => [lower, upper, step]
+            .into_iter()
+            .flatten()
+            .all(|e| loop_invariant(e, written)),
+        ExprKind::FString(segs) => segs.iter().all(|seg| match seg {
+            crate::ast::FSeg::Lit(_) => true,
+            crate::ast::FSeg::Interp { expr, .. } => loop_invariant(expr, written),
+        }),
+        ExprKind::IfExp { test, body, orelse } => {
+            loop_invariant(test, written) && loop_invariant(body, written) && loop_invariant(orelse, written)
+        }
+        ExprKind::None | ExprKind::Bool(_) | ExprKind::Int(_) | ExprKind::Float(_) | ExprKind::Str(_) => true,
     }
 }
