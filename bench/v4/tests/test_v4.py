@@ -1,6 +1,6 @@
 """Offline tests for the v4 harness: suites, oracle agents, statistics and the live opt-in guard.
 
-Run: PYTHONPATH=python python bench/v4/tests/test_v4.py   (needs the weave extension built)
+Run: python bench/v4/tests/test_v4.py with weave installed (or PYTHONPATH=python after building the extension)
 """
 
 import json
@@ -11,8 +11,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "python"))
+sys.path.insert(0, str(ROOT))  # `weave` itself must be installed or on PYTHONPATH
 
 from bench.v4 import stats  # noqa: E402
 from bench.v4.agent import trial  # noqa: E402
