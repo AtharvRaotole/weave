@@ -36,10 +36,13 @@ pub fn check_block(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<S
                 let mut else_defined = defined.clone();
                 diags.extend(check_block(body, tools, &mut then_defined));
                 diags.extend(check_block(orelse, tools, &mut else_defined));
-                *defined = then_defined
-                    .intersection(&else_defined)
-                    .cloned()
-                    .collect();
+                // `if True:` (how loops with break/continue are desugared)
+                // always takes its body.
+                *defined = if matches!(test.kind, ExprKind::Bool(true)) {
+                    then_defined
+                } else {
+                    then_defined.intersection(&else_defined).cloned().collect()
+                };
             }
             StmtKind::For { target, iter, body } => {
                 diags.extend(check_expr(iter, tools, defined));
@@ -47,7 +50,12 @@ pub fn check_block(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<S
                 diags.extend(check_target(target, tools, &inner, false));
                 bind_target(target, &mut inner);
                 diags.extend(check_block(body, tools, &mut inner));
-                // Names assigned only inside the loop are unbound when the iterable is empty.
+                // As in Python, a name assigned in the loop (the target, or
+                // `r = ...` in the body) may be used after it; it is unbound
+                // only if no iteration assigned it, which is a runtime error.
+                // Scripts commonly read the last item after `break`.
+                defined.extend(inner);
+                defined.extend(crate::analysis::assigned_names(body));
             }
             StmtKind::Try { body, handler } => {
                 let mut try_defined = defined.clone();

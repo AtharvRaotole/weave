@@ -47,10 +47,11 @@ pub struct Limits {
     /// scheduler. At the limit the run is cancelled (in-flight async and
     /// isolated tools are stopped) and fails. Default 30 s.
     pub max_wall_time: std::time::Duration,
-    /// Start the read calls of an in-order loop (one with a loop-carried
-    /// accumulator) for every iteration up front. See
-    /// `analysis::prefetchable_calls`. Default true.
-    pub loop_prefetch: bool,
+    /// Pipeline loops whose iterations share a carried name (an
+    /// accumulator, a running best, a `break` flag) when the body only reads:
+    /// all iterations are launched at once and only the work that depends on
+    /// the carried names waits for the previous iteration. Default true.
+    pub pipeline_loops: bool,
 }
 
 impl Default for Limits {
@@ -62,7 +63,7 @@ impl Default for Limits {
             max_trace_bytes: 4 * 1024 * 1024,
             max_value_size: 16 * 1024 * 1024,
             max_wall_time: std::time::Duration::from_secs(30),
-            loop_prefetch: true,
+            pipeline_loops: true,
         }
     }
 }
@@ -78,8 +79,8 @@ impl Limits {
         self
     }
 
-    pub fn with_loop_prefetch(mut self, enabled: bool) -> Self {
-        self.loop_prefetch = enabled;
+    pub fn with_pipeline_loops(mut self, enabled: bool) -> Self {
+        self.pipeline_loops = enabled;
         self
     }
 

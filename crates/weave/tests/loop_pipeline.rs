@@ -1,5 +1,5 @@
-//! Loop read prefetch: in-order loops (accumulators) start their
-//! unconditional, loop-invariant read calls for every iteration up front.
+//! Loop pipelining: loops with a carried name (accumulators, running best,
+//! break flags) and a read-only body launch every iteration at once.
 
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -52,10 +52,10 @@ fn accumulator_loops_overlap_their_reads() {
 }
 
 #[test]
-fn prefetch_can_be_disabled() {
+fn pipelining_can_be_disabled() {
     let calls = Arc::new(Mutex::new(Vec::new()));
     let mut engine = engine(60, calls);
-    engine.set_limits(Limits::default().with_loop_prefetch(false));
+    engine.set_limits(Limits::default().with_pipeline_loops(false));
     let (out, elapsed) = run(&engine, "total = 0\nfor i in range(6):\n    total += get(i)\nprint(total)\n");
     assert_eq!(out, "150\n");
     assert!(elapsed >= Duration::from_millis(350), "sequential run took {elapsed:?}");
@@ -124,4 +124,35 @@ fn filled_dict_in_parallel_shaped_loop_keeps_every_key() {
     let engine = engine(1, calls);
     let (out, _) = run(&engine, "d = {}\nfor i in range(4):\n    d[i] = get(i)\nprint(d)\n");
     assert_eq!(out, "{0: 0, 1: 10, 2: 20, 3: 30}\n");
+}
+
+#[test]
+fn dependent_calls_inside_an_iteration_still_overlap_across_iterations() {
+    // get(get(i)) per item: two dependent calls per iteration, an
+    // accumulator across iterations. Pipelined: ~2 call latencies total.
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let engine = engine(80, calls.clone());
+    let (out, elapsed) = run(&engine, "total = 0\nfor i in range(6):\n    a = get(i)\n    total += get(a // 10 + 1)\nprint(total)\n");
+    assert_eq!(out, "210\n");
+    assert!(elapsed < Duration::from_millis(400), "took {elapsed:?}");
+    assert_eq!(calls.lock().unwrap().len(), 12);
+}
+
+#[test]
+fn prints_keep_iteration_order() {
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let engine = engine(5, calls);
+    let (out, _) = run(&engine, "seen = []\nfor i in [3, 1, 2]:\n    v = get(i)\n    seen.append(v)\n    print(i, v, len(seen))\n");
+    assert_eq!(out, "3 30 1\n1 10 2\n2 20 3\n");
+}
+
+#[test]
+fn names_from_a_loop_are_usable_after_it_like_python() {
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let engine = engine(1, calls);
+    let (out, _) = run(&engine, "for i in range(10):\n    r = get(i)\n    if r >= 30:\n        break\nprint(i, r)\n");
+    assert_eq!(out, "3 30\n");
+    // An empty loop leaves the name unbound: a runtime error, as in Python.
+    let err = engine.run("for i in []:\n    r = get(i)\nprint(r)\n").unwrap_err().to_string();
+    assert!(err.contains("`r`"), "{err}");
 }
