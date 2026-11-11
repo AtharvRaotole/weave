@@ -73,12 +73,13 @@ class ChatClient:
         self.timeout_s, self.retries, self.request_cap = timeout_s, retries, request_cap
         self.sent = 0
         self.min_interval_s = min_interval_s
+        self.parallel_tool_calls = True  # the Weave arm applies WeaveTool.request_options (round 4)
 
     def payload(self, messages, tools):
         body = {"model": self.model, "messages": [{k: v for k, v in m.items() if k != "_raw"} for m in messages]}
         if tools:
             body["tools"] = tools
-            body["parallel_tool_calls"] = True
+            body["parallel_tool_calls"] = getattr(self, "parallel_tool_calls", True)
             if self.provider == "gemini":
                 body.pop("parallel_tool_calls")  # accepted implicitly; the flag is rejected
         if self.provider == "openai" and self.reasoning_effort:
@@ -107,7 +108,7 @@ class ChatClient:
             elif m["role"] == "tool":
                 items.append({"type": "function_call_output", "call_id": m["tool_call_id"], "output": m["content"]})
         body = {"model": self.model, "input": items, "store": False, "max_output_tokens": self.max_tokens,
-                "parallel_tool_calls": True}
+                "parallel_tool_calls": getattr(self, "parallel_tool_calls", True)}
         if instructions:
             body["instructions"] = instructions
         if tools:

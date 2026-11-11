@@ -139,6 +139,9 @@ def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline
     else:
         wt = weave_tool(world, pipeline_loops=pipeline_loops, footprints=footprints, tools=spec, fps=fps)
         tools = [wt.chat_tool()]
+        # The product's recommended request settings (WeaveTool.request_options): one script per turn.
+        if hasattr(client, "parallel_tool_calls"):
+            client.parallel_tool_calls = wt.request_options.get("parallel_tool_calls", True)
     usage = {"input": 0, "output": 0, "cached": 0, "reasoning": 0}
     unknown_usage = 0
     turns = scripts = script_errors = tool_messages = 0
@@ -232,6 +235,7 @@ def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline
         "llm_s": llm_s, "exec_s": exec_s, "wall_s": wall, "peak_backend_concurrency": world.peak,
         "scripts_log": script_log,
         "billed_on_error": billed_on_error, "partial_output": partial_output,
+        "parallel_tool_calls": getattr(client, "parallel_tool_calls", None),
     }
 
 
