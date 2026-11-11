@@ -344,6 +344,9 @@ impl Lowerer<'_, '_> {
     }
 
     fn sugar_call(&mut self, at: &Expr, c: &ast::ExprCall) -> Option<WExpr> {
+        if let Expr::Attribute(a) = c.func.as_ref() {
+            return self.sugar_module_call(at, c, a);
+        }
         let Expr::Name(f) = c.func.as_ref() else {
             return None;
         };
@@ -371,6 +374,35 @@ impl Lowerer<'_, '_> {
                 Some(self.keyed(line, col, fname, items, kws))
             }
             "map" | "filter" => Some(self.map_filter(at, fname, args, kws)),
+            "isinstance" => Some(self.isinstance(at, args, kws)),
+            "dict" if args.len() <= 1 && !args.iter().any(|a| matches!(a, Expr::Starred(_))) => {
+                let mut out = match args.first() {
+                    Some(a) => {
+                        let v = self.expr(a);
+                        call(line, col, "__weave_dict_from", vec![v])
+                    }
+                    None => ex(line, col, ExprKind::Dict(Vec::new())),
+                };
+                if !kws.is_empty() {
+                    let mut pairs = Vec::new();
+                    for kw in kws {
+                        let Some(n) = &kw.arg else {
+                            self.err_hint(kw.start(), "`dict(**d)` is not supported", "copy with `dict(d)` or `{**d}` is not available; use `d.copy()`");
+                            return Some(none(line, col));
+                        };
+                        pairs.push((ex(line, col, ExprKind::Str(n.id.as_str().to_string())), self.expr(&kw.value)));
+                    }
+                    out = call(line, col, "__weave_merge", vec![out, ex(line, col, ExprKind::Dict(pairs))]);
+                }
+                Some(out)
+            }
+            "tuple" if args.len() <= 1 && kws.is_empty() => {
+                let inner = match args.first() {
+                    None => ex(line, col, ExprKind::List(Vec::new())),
+                    Some(a) => self.expr(a),
+                };
+                Some(call(line, col, "list", vec![inner]))
+            }
             "any" | "all" if args.len() == 1 && kws.is_empty() => match &args[0] {
                 Expr::Generator(g) if g.generators.len() == 1 && !g.generators[0].is_async => {
                     Some(self.short_circuit(line, col, fname == "any", &g.elt, &g.generators[0]))
@@ -386,6 +418,65 @@ impl Lowerer<'_, '_> {
             }
             _ => None,
         }
+    }
+
+    /// `json.dumps(v)` and `json.loads(s)`: the scripts cannot import, but
+    /// models write the module prefix anyway.
+    fn sugar_module_call(&mut self, at: &Expr, c: &ast::ExprCall, a: &ast::ExprAttribute) -> Option<WExpr> {
+        let Expr::Name(m) = a.value.as_ref() else { return None };
+        if m.id.as_str() != "json" || self.shadowed("json") {
+            return None;
+        }
+        let (line, col) = self.loc(at.start());
+        let args = &c.arguments.args;
+        let target = match a.attr.id.as_str() {
+            "dumps" => "__weave_json_dumps",
+            "loads" => "parse_json",
+            other => {
+                self.err_hint(at.start(), format!("`json.{other}` is not supported"), "use `json.dumps(value)` or `json.loads(text)`");
+                return Some(none(line, col));
+            }
+        };
+        if args.len() != 1 || matches!(args[0], Expr::Starred(_)) || !c.arguments.keywords.is_empty() {
+            self.err_hint(
+                at.start(),
+                format!("`json.{}()` takes exactly one argument here", a.attr.id.as_str()),
+                "drop `indent=`/other keywords; the output uses Python's default separators",
+            );
+            return Some(none(line, col));
+        }
+        let v = self.expr(&args[0]);
+        Some(call(line, col, target, vec![v]))
+    }
+
+    /// `isinstance(x, T)` or `isinstance(x, (T1, T2))` over builtin types.
+    fn isinstance(&mut self, at: &Expr, args: &[Expr], kws: &[ast::Keyword]) -> WExpr {
+        let (line, col) = self.loc(at.start());
+        const TYPES: &[&str] = &["int", "float", "str", "bool", "list", "dict", "tuple", "set", "NoneType"];
+        let hint = "use builtin types, e.g. `isinstance(x, dict)` or `isinstance(x, (int, float))`";
+        if args.len() != 2 || !kws.is_empty() {
+            self.err_hint(at.start(), "`isinstance()` takes a value and a type", hint);
+            return none(line, col);
+        }
+        let mut names = Vec::new();
+        let elts: Vec<&Expr> = match &args[1] {
+            Expr::Tuple(t) => t.elts.iter().collect(),
+            other => vec![other],
+        };
+        for e in elts {
+            match e {
+                Expr::Name(n) if TYPES.contains(&n.id.as_str()) && !self.shadowed(n.id.as_str()) => {
+                    names.push(ex(line, col, ExprKind::Str(n.id.as_str().to_string())));
+                }
+                Expr::NoneLiteral(_) => names.push(ex(line, col, ExprKind::Str("NoneType".into()))),
+                other => {
+                    self.err_hint(other.start(), "`isinstance()` supports only builtin types", hint);
+                    return none(line, col);
+                }
+            }
+        }
+        let v = self.expr(&args[0]);
+        call(line, col, "__weave_isinstance", vec![v, ex(line, col, ExprKind::List(names))])
     }
 
     /// `sorted`/`min`/`max`/`list.sort` with `key=`, `reverse=` or `default=`.
@@ -672,6 +763,30 @@ impl Lowerer<'_, '_> {
             }
             "reverse" if args.is_empty() && kws.is_empty() => {
                 Some(rebind(call(line, col, "reversed", vec![name_expr(line, col, &rname)])))
+            }
+            "update" if args.len() <= 1 && !matches!(args.first(), Some(Expr::Starred(_))) => {
+                let mut extra = match args.first() {
+                    Some(a) => self.expr(a),
+                    None => ex(line, col, ExprKind::Dict(Vec::new())),
+                };
+                if !kws.is_empty() {
+                    let mut pairs = Vec::new();
+                    for kw in kws {
+                        let Some(n) = &kw.arg else {
+                            self.err_hint(kw.start(), "`update(**d)` is not supported", "pass the dict: `d.update(other)`");
+                            return Some(StmtKind::Pass);
+                        };
+                        pairs.push((ex(line, col, ExprKind::Str(n.id.as_str().to_string())), self.expr(&kw.value)));
+                    }
+                    let kwd = ex(line, col, ExprKind::Dict(pairs));
+                    extra = if args.is_empty() { kwd } else { call(line, col, "__weave_merge", vec![extra, kwd]) };
+                }
+                Some(rebind(call(line, col, "__weave_merge", vec![name_expr(line, col, &rname), extra])))
+            }
+            "pop" if args.len() <= 2 && kws.is_empty() && !args.iter().any(|a| matches!(a, Expr::Starred(_))) => {
+                let mut a: Vec<WExpr> = vec![name_expr(line, col, &rname)];
+                a.extend(args.iter().map(|x| self.expr(x)));
+                Some(rebind(call(line, col, "__weave_without", a)))
             }
             "add" if args.len() == 1 && kws.is_empty() => {
                 let v = self.expr(&args[0]);

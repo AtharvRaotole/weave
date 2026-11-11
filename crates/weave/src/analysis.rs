@@ -127,6 +127,14 @@ pub fn is_builtin(name: &str) -> bool {
             | "__weave_by_key"
             | "__weave_unique"
             | "__weave_dict"
+            | "round"
+            | "__weave_isinstance"
+            | "__weave_format"
+            | "__weave_json_dumps"
+            | "__weave_merge"
+            | "__weave_without"
+            | "__weave_raise"
+            | "__weave_dict_from"
     )
 }
 

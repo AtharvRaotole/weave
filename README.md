@@ -32,10 +32,11 @@ model, tools and services** ([paper](docs/paper/weave.md), [tables](docs/paper/r
   **0.51×** the tokens; GPT-5.4 mini **30/30 vs 25/30**, Δ −3.8 s [−6.0, −1.7], **0.54×** the tokens.
 - **Held-out simulated APIs** (round 1, 200 ms per call): **39–52% of the tokens** and **1.6–2.0 fewer model
   turns** on GPT-5.5, GPT-5.4 mini and GPT-4.1, with equal or higher success.
-- **On an external benchmark it did not help.** On [tau-bench](https://github.com/sierra-research/tau-bench)
-  retail (7 pre-registered test tasks; its tasks, simulated customer and grader unchanged), GPT-4.1 passed 4/7 vs
-  3/7 but was **3.0 s slower** per task (CI [0.3, 5.8]) with 1.19× the tokens, and GPT-5.4 mini passed **2/7 vs
-  4/7**. Those tasks wait on the customer at every step, so there is little to batch.
+- **On an external conversational benchmark it is mixed.** On [tau-bench](https://github.com/sierra-research/tau-bench)
+  retail (its tasks, simulated customer and grader unchanged; 10 fresh pre-registered test tasks per model, round 6),
+  Weave matched native's success (14/20 vs 13/20) with **2.5 fewer agent model calls per task** (CI [−4.5, −0.5];
+  GPT-4.1 −4.4 [−7.5, −1.5]). Tokens and time did not improve significantly, and **GPT-5.4 mini was 4.8 s slower per
+  task** (CI [+0.5, +9.5]). Round 5, before the conversational changes, showed no gain and GPT-4.1 3.0 s slower.
 - **Equal settings:** with `parallel_tool_calls` on in both arms, the real-services gain held (GPT-4.1 −1.8 s
   [−3.0, −0.5], 0.59× tokens; GPT-5.4 mini −4.6 s, 0.45×). Every loss, including earlier rounds' and a
   GPT-4.1 runaway at `max_output_tokens`, is in the paper.
@@ -210,6 +211,12 @@ tools = [tool.chat_tool()]
 # For a returned tool call: messages.append(tool.handle(call))
 ```
 
+For an assistant that talks with a person between scripts (support, chat), use
+`weave.WeaveTool(tools, conversational=True, persist_variables=True)`. The model is told to fetch everything the next
+reply needs in one script and to change nothing before the person confirms, and each script can use the variables
+earlier scripts set. To show the model what a tool returns, set `fn.__weave_returns__`, for example to
+`weave.agent_tool.shape_of_samples([...a few real results...])`. See [getting started](docs/getting-started.md#a-support-or-chat-assistant).
+
 `tool.request_options` is `{"parallel_tool_calls": False}`: Weave already runs a script's
 independent calls together, and scripts do not share variables, so one script per turn is
 better. Without it GPT-4.1 sometimes sent two scripts and then ran to `max_output_tokens`
@@ -301,7 +308,8 @@ The host is responsible for compensating `reversible` operations. Resource
 footprints guide speculative cache invalidation; they do not parallelize writes.
 
 The language supports assignment, `if`/`elif`/`else`, `for`, `break`, `continue`,
-`try`/`except ToolError`, lists, dictionaries, f-strings, and selected builtins and
+`try`/`except` (`Exception`, `ToolError`, `KeyError`, ...), `raise`/`assert`, lists, dictionaries (iterate them
+directly), f-strings with format specs, `str.format`, `%` formatting, `isinstance`, `round`, `json.dumps`, selected builtins and
 methods, comprehensions and generator expressions, `key=` lambdas, `map`/`filter`, sets
 (as duplicate-free lists), and top-level `def` helpers, which are inlined at each call. Imports, classes,
 `while`, recursion, and `await` are rejected with a fix hint. This is a Python-like subset with its own value semantics.
@@ -409,6 +417,30 @@ printed the tags instead of creating them. `WeaveTool.request_options` now asks 
   [tables](docs/paper/results-tables.md).
 - Gemini (quota) and GLM (timeout) failed their smoke requests again and were not run.
 
+**Round 6 (pre-registered in [Addendum 6](docs/paper/preregistration.md)): Python for conversations, tau-bench on
+fresh tasks.**
+
+![tau-bench retail, round 6](assets/benchmark-v9-tau.png)
+
+- **Language:** dict iteration, exception classes, `raise`/`assert`, `isinstance`, format specs, `str.format`, `%`
+  formatting, `json.dumps`, `dict.update`/`pop`. A new CPython differential suite (663 programs) also found and fixed
+  `//`/`%` with negative operands and the float repr of very large and very small numbers.
+- **Agent tool:** `conversational=True`, `persist_variables=True`, and return shapes sampled from real results. They
+  were tuned on tau-bench's train split only.
+- **tau-bench retail, `retail_test10r6`** (10 fresh seeded test tasks, 1 repeat, `parallel_tool_calls: true` in both
+  arms):
+
+| model | pass W / N | agent calls W / N | Δ agent calls [95% CI] | Δ wall per task [95% CI] | tokens W/N [95% CI] |
+|---|---|---|---|---|---|
+| `gpt-4.1-2025-04-14` (temp 0) | 6/10 / 7/10 | 10.6 / 15.0 | **−4.4 [−7.5, −1.5]** | −0.6 s [−6.3, +5.1] | 0.78 [0.60, 1.02] |
+| `gpt-5.4-mini-2026-03-17` (low) | 8/10 / 6/10 | 12.8 / 13.3 | −0.5 [−2.2, +1.3] | **+4.8 s [+0.5, +9.5]** (Weave slower) | 1.11 [0.95, 1.32] |
+| pooled | 14/20 / 13/20 | 11.7 / 14.2 | **−2.5 [−4.5, −0.5]** | +2.1 s [−1.7, +6.1] | 0.93 [0.78, 1.11] |
+
+  Weave script errors fell from 3.4 to 0.2 per GPT-4.1 trial. GPT-5.4 mini's slower wall time is a loss. About 2.5 s
+  per task of it was our adapter's return-shape sampler, which deep-copied the database on every call. It is now
+  cached (0.03 s), but the evidence has not been rerun. Airline was not run, to stay within budget. Round 6 used
+  3.90M tokens, under its 5.0M cap.
+
 **Round 5 (pre-registered in [Addendum 5](docs/paper/preregistration.md)): an external benchmark, and equal
 settings.**
 
@@ -428,8 +460,8 @@ settings.**
   No gain, and GPT-4.1 was slower. With n = 7 the pass differences are noise, but one goes against Weave. The tasks
   wait for the customer at every step, and the policy requires a "yes" before every write, so there is little to batch.
   Of the 26 Weave script errors, 10 came from scripts written before the model had seen the data: the user record
-  lists order ids, and the script indexed them as orders. Most of the rest were Python Weave does not support:
-  iterating a dict, `except Exception`, and a bare `except` that does not catch runtime errors.
+  lists order ids, and the script indexed them as orders. Most of the rest were Python Weave did not support then:
+  iterating a dict and `except Exception` (round 6 added both).
 - **`parallel_tool_calls` ablation** (`confirm5`, fresh seeds, all four combinations). With parallel calls **on in both
   arms**, Weave still won: GPT-4.1 10/10 vs 6/10, −1.8 s [−3.0, −0.5], 0.59× the tokens; GPT-5.4 mini 10/10 vs 8/10,
   −4.6 s [−8.0, −2.3], 0.45×. Native with them off hits the 16-turn cap (2/10, 3/10), so the "both off" comparison is

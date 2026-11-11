@@ -153,6 +153,51 @@ def test_a_final_bare_expression_is_printed():
     assert echo_last_expression("for i in [1]:\n    i\n") == "for i in [1]:\n    i\n"
 
 
+def test_shape_of_samples_keeps_per_record_keys_generic():
+    from weave.agent_tool import shape_of, shape_of_samples
+
+    products = [
+        {"name": "Backpack", "variants": {"111": {"options": {"color": "green", "compartment": "camera"}, "price": 9}}},
+        {"name": "Lamp", "variants": {"222": {"options": {"color": "red", "bulb": "LED"}, "price": 2.5}}},
+    ]
+    shape = shape_of_samples(products)
+    assert shape == '{"name": str, "variants": dict[str, {"options": dict[str, str], "price": float}]}', shape
+    assert shape_of({"id": "W1", "items": [{"p": 1}], "note": None}) == '{"id": str, "items": list[{"p": int}], "note": None}'
+    pay = shape_of({"gift_card_1": {"source": "gift_card", "balance": 5}, "credit_card_2": {"source": "credit_card", "last_four": "1"}})
+    assert pay == 'dict[str, {"source": str, "balance": int?, "last_four": str?}]', pay
+
+
+def test_persist_variables_carries_values_between_scripts():
+    calls = []
+
+    @weave.declare(effect="read")
+    def fetch(k: str) -> dict:
+        calls.append(k)
+        return {"k": k, "n": [1, 2.5, None, True], "s": "it's \"q\"\n"}
+
+    tool = weave.WeaveTool([fetch], persist_variables=True)
+    assert "Variables persist between scripts" in tool.description
+    assert tool.run('o = fetch("a")\ncount = 2\nprint(count)') == "2\n"
+    assert tool.run('print(o["n"], o["s"] == fetch("a")["s"], count + 1)') == "[1, 2.5, None, True] True 3\n"
+    assert calls == ["a", "a"]
+    # Error positions refer to the model's script, not the hidden prelude.
+    out = tool.run('x = o["k"]\nprint(o["missing"])')
+    assert out.startswith("error: L2:"), out
+    # Without the option nothing carries over.
+    plain = weave.WeaveTool([fetch])
+    plain.run('o = fetch("b")')
+    assert "used before assignment" in plain.run("print(o)")
+
+
+def test_conversational_rules_are_opt_in():
+    @weave.declare(effect="read")
+    def look(k: str) -> str:
+        return k
+
+    assert "A person is waiting" not in weave.WeaveTool([look]).description
+    assert "A person is waiting" in weave.WeaveTool([look], conversational=True).description
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

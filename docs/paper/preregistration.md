@@ -321,3 +321,59 @@ capped at 750k tokens, and trials not started because of the cap are reported as
 | bench/v4 | gpt-4.1-2025-04-14 (t = 0) | confirm5 | weave, weave_ptc, native, native_noptc |
 | bench/v4 | gpt-5.4-mini-2026-03-17 (effort low) | confirm5 | weave, weave_ptc, native, native_noptc |
 | bench/v4 | gemini-3.5-flash, z-ai/glm-5.3-flash | confirm5 | weave, native; one attempt each, only if a smoke request answers |
+
+## Addendum 6: round 6 (written and committed before any run on `retail_test10r6`)
+
+Round 6 changes the Weave arm and reruns tau-bench retail on fresh test tasks. OpenAI models only.
+
+**What changed since round 5 (all tuned only on the tau-bench train split and our dev suites).**
+
+- Language: dict iteration, `except Exception` and builtin exception classes, `raise`/`assert`, `isinstance`,
+  `round`, format specs, `str.format`, `%` formatting, `json.dumps`, `d.update`/`d.pop`; fixes to `//`, `%` and float
+  printing found by a new CPython differential suite (`tests/audit/test_python_idioms.py`).
+- Agent tool (`python/weave/agent_tool.py`): `WeaveTool(conversational=True)` adds rules for hosts where a person
+  replies between turns (fetch everything the next reply needs in one script; no state change before the person
+  confirms it); `persist_variables=True` keeps earlier scripts' variables, like a notebook; `shape_of_samples` renders
+  return shapes from sample results.
+- tau-bench Weave arm (`bench/taubench/weave_agent.py`): uses both options, and lists each read tool's return shape,
+  merged from calls on a deep copy of the environment's database (`Tool.invoke`, never `env.step`, so no action is
+  recorded and the graded state cannot change).
+- Runner: the arms of one task run back to back, so a budget stop leaves complete pairs.
+
+**Settings.** As in Addendum 5 except: **both arms send `parallel_tool_calls: true`** (OpenAI's default, which is what
+tau-bench's own runs use; tau-bench's `ToolCallingAgent` executes only the first call of a step). GPT-4.1 temperature 0;
+GPT-5.4 mini `reasoning_effort: low`, no temperature. User simulator `gpt-4.1-2025-04-14`. `max_num_steps` 30.
+
+| subset | manifest hash | tasks |
+|---|---|---|
+| **retail_test10r6** | `5d4fdabdbbd74701` | retail test indices 39, 42, 49, 53, 60, 79, 85, 89, 96, 112 = `sorted(random.Random("weave-round6-tau-retail-test").sample([i for i in range(115) if i not in retail_test7], 10))` |
+
+Ten tasks, one repeat, per model and arm (40 trials). We aimed for at least 20 tasks per model; the round's 5.0M-token
+cap does not allow it. Round-5 test trials averaged about 100k tokens (agent plus user simulator), the round-6 dev runs
+spent 1.01M tokens, and ten tasks per model is what fits under the remaining 3.79M with room for long trials.
+
+Dev (train split, not evidence; `bench/results/v9/*-dev*`): GPT-4.1 Weave passed 6 of 8 trials (both failures are
+task 322, where the user's "card ending in 4108" is the id `credit_card_6044108`); native passed 2 of 2; GPT-5.4 mini
+Weave passed 3 of 3. Agent calls on the two tasks both arms ran: 6 vs 8 and 15 vs 15. Most scripts still made one or
+two tool calls, so we again expect a small effect.
+
+Hypotheses on `retail_test10r6` (two-sided 95% CIs, paired by task; with n = 10 per model they are wide and we will say
+so):
+
+- **U1 (no harm).** Weave's pass count is at least native's minus 1, per model.
+- **U2 (agent calls).** Mean agent model calls per task, Weave minus native, with a paired bootstrap CI; per model and
+  pooled over both models (20 pairs).
+- **U3 (tokens).** Total tokens (agent plus user simulator), geometric-mean ratio Weave/native with CI; per model and
+  pooled.
+- **U4 (wall time).** Wall seconds per task, Weave minus native, with CI; per model and pooled.
+- **U5 (script errors, descriptive).** Script errors per Weave trial against round 5's `retail_test7` rate.
+
+Runs (once each; provider errors count as failures). The in-flight-aware guard caps each run: GPT-4.1 at 2.0M
+tokens, GPT-5.4 mini at 1.75M, reserving 150k per trial in flight, 4 workers. With the 1.01M dev spend the round
+stays under 4.8M. Trials not started because of a cap are reported as not run, and unmatched pairs are dropped from
+paired statistics and listed.
+
+| harness | model | subset | arms |
+|---|---|---|---|
+| tau-bench | gpt-4.1-2025-04-14 (t = 0) | retail_test10r6 | weave, native |
+| tau-bench | gpt-5.4-mini-2026-03-17 (effort low) | retail_test10r6 | weave, native |

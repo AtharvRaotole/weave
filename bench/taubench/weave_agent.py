@@ -32,10 +32,11 @@ def _param_type(schema: Dict[str, Any]) -> str:
     return schema_type(schema)
 
 
-def make_functions(env: Env, state: Dict[str, Any]):
+def make_functions(env: Env, state: Dict[str, Any], shapes: Optional[Dict[str, str]] = None):
     """One Python function per tau-bench tool; each call is an `env.step(Action(name, kwargs))`."""
     import weave
 
+    shapes = shapes or {}
     lock = threading.Lock()
     functions = []
     for info in env.tools_info:
@@ -71,7 +72,7 @@ def make_functions(env: Env, state: Dict[str, Any]):
         fn.__signature__ = inspect.Signature([
             inspect.Parameter(p, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=_param_type(s),
                               **({} if p in required else {"default": None})) for p, s in props.items()])
-        fn.__weave_returns__ = "dict | list | str (JSON results are parsed)"
+        fn.__weave_returns__ = shapes.get(name, "dict | list | str")
         effect = "pure" if name in PURE else "read" if name in READ else "irreversible"
         functions.append(weave.declare(effect=effect)(fn))
     return functions
@@ -88,7 +89,8 @@ class WeaveAgent(Agent):
         reset = env.reset(task_index=task_index)
         info = reset.info.model_dump()
         state = {"done": False, "reward": 0.0, "info": None, "tool_calls": 0, "scripts": 0, "script_errors": 0}
-        tool = weave.WeaveTool(make_functions(env, state), max_wall_time_ms=60_000)
+        tool = weave.WeaveTool(make_functions(env, state, cached_return_shapes(env)), max_wall_time_ms=60_000,
+                               conversational=True, persist_variables=True)
         tools = [tool.chat_tool()]
         messages: List[Dict[str, Any]] = [{"role": "system", "content": self.wiki},
                                           {"role": "user", "content": reset.observation}]
@@ -124,3 +126,67 @@ class WeaveAgent(Agent):
                 break
         info["weave"] = {k: state[k] for k in ("tool_calls", "scripts", "script_errors")}
         return SolveResult(reward=reward, info=info, messages=messages, total_cost=0.0)
+
+
+_SHAPES: Dict[Any, Dict[str, str]] = {}
+_SHAPES_LOCK = threading.Lock()
+
+
+def cached_return_shapes(env: Env) -> Dict[str, str]:
+    """`sample_return_shapes` once per environment type and tool set. Round 6's evidence run computed it in every
+    trial (about 2.2 s of host time per trial, inside the Weave arm's wall time); this is the fix."""
+    key = (type(env).__name__, tuple(i["function"]["name"] for i in env.tools_info))
+    with _SHAPES_LOCK:
+        if key not in _SHAPES:
+            _SHAPES[key] = sample_return_shapes(env)
+        return _SHAPES[key]
+
+
+def sample_return_shapes(env: Env, samples: int = 12) -> Dict[str, str]:
+    """`name -> shape` for each read tool, from calls on a copy of the environment's database.
+
+    tau-bench tools have no output schemas; a native agent sees each JSON result, a script must know the shape
+    before it runs. The sample calls go to `Tool.invoke` on a deep copy, never through `env.step`, so they are
+    not actions and cannot change the graded state. Arguments come from the first `samples` records of each
+    table, and the shapes of all results are merged, so per-record keys (product options) stay generic."""
+    import copy
+
+    from weave.agent_tool import shape_of_samples
+
+    data = copy.deepcopy(env.data)
+    firsts = {table: list(rows)[:samples] for table, rows in data.items() if isinstance(rows, dict) and rows}
+    shapes = {}
+    for info in env.tools_info:
+        f = info["function"]
+        name = f["name"]
+        if name not in READ:
+            continue
+        params = list(f["parameters"].get("properties", {}))
+        results = []
+        for i in range(samples):
+            pool = {}
+            if "users" in firsts and i < len(firsts["users"]):
+                uid = firsts["users"][i]
+                user = data["users"][uid]
+                pool.update(user_id=uid, email=user.get("email"), first_name=(user.get("name") or {}).get("first_name"),
+                            last_name=(user.get("name") or {}).get("last_name"), zip=(user.get("address") or {}).get("zip"))
+            for table, key in (("orders", "order_id"), ("products", "product_id"), ("reservations", "reservation_id")):
+                if table in firsts and i < len(firsts[table]):
+                    pool[key] = firsts[table][i]
+            if any(pool.get(p) is None for p in params):
+                continue
+            try:  # read tools do not mutate, and `data` is already a private copy
+                out = env.tools_map[name].invoke(data=data, **{p: pool[p] for p in params})
+            except Exception:  # noqa: BLE001 - no sample, no shape
+                continue
+            if not isinstance(out, str) or out.startswith("Error"):
+                continue
+            try:
+                results.append(json.loads(out))
+            except ValueError:
+                results.append(out)
+            if not params:
+                break
+        if results:
+            shapes[name] = shape_of_samples(results)
+    return shapes

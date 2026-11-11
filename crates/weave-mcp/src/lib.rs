@@ -94,7 +94,7 @@ impl ServerConfig {
 
 fn reserved_tool_name(name: &str) -> bool {
     name.starts_with("weave_") || name.starts_with("__weave_") || matches!(name, "print" | "len" | "range" | "sum" | "min" | "max" |
-        "sorted" | "reversed" | "enumerate" | "zip" | "any" | "all" | "list" | "str" | "int" | "parse_json")
+        "sorted" | "reversed" | "enumerate" | "zip" | "any" | "all" | "list" | "str" | "int" | "parse_json" | "round")
 }
 
 /// Per-request cancellation. Remote effects may already have happened.
