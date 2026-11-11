@@ -214,6 +214,12 @@ impl PyEngine {
         self.inner.set_limits(limits);
     }
 
+    /// "pure", "read", "reversible" or "irreversible": the strongest effect
+    /// of any call in the script (unknown names count as irreversible).
+    fn script_effect(&self, source: &str) -> PyResult<String> {
+        self.inner.script_effect(source).map(|e| e.as_str().to_string()).map_err(weave_err)
+    }
+
     fn check(&self, source: &str) -> Vec<String> {
         self.inner.check(source).into_iter().map(|d| d.to_string()).collect()
     }

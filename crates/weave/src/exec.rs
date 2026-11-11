@@ -327,6 +327,18 @@ impl Engine {
         self.run_with(source, None)
     }
 
+    /// The strongest effect any call in `source` can have (pure < read <
+    /// reversible < irreversible). A host running several scripts from one
+    /// model turn can run the read-only ones concurrently. Unknown names
+    /// count as irreversible; a script that does not parse is an error.
+    pub fn script_effect(&self, source: &str) -> Result<Effect, WeaveError> {
+        let parsed = parse_detailed(source, 0)?;
+        if let Some(first) = parsed.errors.into_iter().next() {
+            return Err(WeaveError::one(first));
+        }
+        Ok(block_effects(&parsed.stmts, &self.tools).max)
+    }
+
     /// Run `source`, serving pure and read calls from `speculation` when the
     /// arguments match a prediction. See [`Engine::speculate`].
     pub fn run_with(&self, source: &str, speculation: Option<&SpecCache>) -> Result<RunResult, WeaveError> {

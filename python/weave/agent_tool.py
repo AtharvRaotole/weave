@@ -25,6 +25,10 @@ from typing import Any, Callable, Iterable
 from weave._native import Engine
 
 RULES = (
+    "Do the whole task in as few scripts as possible: one script can call many functions, loop over results, "
+    "branch on them and aggregate, and each call of this tool costs a model round trip. "
+    "Print only the values you need (the final answer, or what you must see to decide the next step), "
+    "not whole intermediate results. "
     "Write a Weave script: a Python subset. No imports, def, class, while, with, lambda, "
     "or comprehensions. Use assignment, calls, if/else, for (with break/continue), try/except ToolError, lists, dicts, "
     "f-strings, string/list/dict methods, and builtins (str, int, len, range, sum, min, max, "
@@ -208,6 +212,57 @@ class WeaveTool:
         if len(out) > self.max_output_chars:
             out = out[: self.max_output_chars] + f"\n[truncated to {self.max_output_chars} characters]"
         return out if out.strip() else "(the script printed nothing; print the values you need)"
+
+    def run_many(self, sources: list) -> list:
+        """Run the scripts of one model turn (parallel tool calls) and return
+        their outputs in order. Consecutive scripts that only read run
+        concurrently; a script that may write waits for the scripts before
+        it and blocks the ones after it, like native parallel tool calls."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        def effect(source):
+            try:
+                return self.engine.script_effect(source if isinstance(source, str) else "")
+            except Exception:  # noqa: BLE001 - a script that does not parse just reports its error
+                return "pure"
+
+        outputs: list = [None] * len(sources)
+        with ThreadPoolExecutor(max_workers=max(1, min(8, len(sources)))) as pool:
+            group: list = []
+            for i, source in enumerate(sources):
+                if effect(source) in ("pure", "read"):
+                    group.append((i, pool.submit(self.run, source)))
+                    continue
+                for j, future in group:
+                    outputs[j] = future.result()
+                group = []
+                outputs[i] = self.run(source)
+            for j, future in group:
+                outputs[j] = future.result()
+        return outputs
+
+    def handle_many(self, calls: list) -> list:
+        """`handle` for every tool call of one model turn, using `run_many`."""
+        get = lambda obj, key: obj.get(key) if isinstance(obj, dict) else getattr(obj, key, None)  # noqa: E731
+        sources, shapes = [], []
+        for call in calls:
+            function = get(call, "function")
+            chat = function is not None
+            args = (get(function, "arguments") if chat else get(call, "arguments")) or "{}"
+            try:
+                source = json.loads(args)["source"]
+            except (json.JSONDecodeError, KeyError, TypeError):
+                source = None
+            sources.append(source)
+            shapes.append((chat, get(call, "id") if chat else get(call, "call_id")))
+        valid = [i for i, src in enumerate(sources) if isinstance(src, str)]
+        ran = dict(zip(valid, self.run_many([sources[i] for i in valid])))
+        out = []
+        for i, (chat, call_id) in enumerate(shapes):
+            text = ran.get(i, 'error: call run_weave with JSON arguments {"source": "<script>"}')
+            out.append({"role": "tool", "tool_call_id": call_id, "content": text} if chat
+                       else {"type": "function_call_output", "call_id": call_id, "output": text})
+        return out
 
     def handle(self, call: Any) -> dict:
         """Run one tool call and return the message to append.

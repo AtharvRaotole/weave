@@ -49,7 +49,7 @@ class ChatClient:
         self.sent = 0
 
     def payload(self, messages, tools):
-        body = {"model": self.model, "messages": messages}
+        body = {"model": self.model, "messages": [{k: v for k, v in m.items() if k != "_raw"} for m in messages]}
         if tools:
             body["tools"] = tools
             body["parallel_tool_calls"] = True
@@ -65,16 +65,48 @@ class ChatClient:
             body["temperature"] = self.temperature
         return body
 
+    def responses_payload(self, messages, tools):
+        """OpenAI: the Responses API (Chat Completions rejects tools with reasoning on GPT-5.x).
+
+        Earlier output items (including encrypted reasoning) are replayed verbatim from the
+        assistant message's ``_raw`` field, so no provider-side state is used (store=false)."""
+        items, instructions = [], None
+        for m in messages:
+            if m["role"] == "system":
+                instructions = m["content"]
+            elif m["role"] == "user":
+                items.append({"role": "user", "content": m["content"]})
+            elif m["role"] == "assistant":
+                items.extend(m.get("_raw") or [{"role": "assistant", "content": m.get("content") or ""}])
+            elif m["role"] == "tool":
+                items.append({"type": "function_call_output", "call_id": m["tool_call_id"], "output": m["content"]})
+        body = {"model": self.model, "input": items, "store": False, "max_output_tokens": self.max_tokens,
+                "parallel_tool_calls": True}
+        if instructions:
+            body["instructions"] = instructions
+        if tools:
+            body["tools"] = [{"type": "function", "name": t["function"]["name"],
+                              "description": t["function"]["description"],
+                              "parameters": t["function"]["parameters"], "strict": False} for t in tools]
+        if self.reasoning_effort:
+            body["reasoning"] = {"effort": self.reasoning_effort}
+            body["include"] = ["reasoning.encrypted_content"]
+        if self.temperature is not None:
+            body["temperature"] = self.temperature
+        return body
+
     def complete(self, messages, tools):
         """Returns (message, usage, attempts). Raises ProviderError after retries."""
-        body = json.dumps(self.payload(messages, tools)).encode()
+        responses = self.provider == "openai"
+        body = json.dumps(self.responses_payload(messages, tools) if responses
+                          else self.payload(messages, tools)).encode()
         attempts = []
         for attempt in range(self.retries + 1):
             if self.sent >= self.request_cap:
                 raise ProviderError("request_cap")
             self.sent += 1
             t0 = time.monotonic()
-            req = urllib.request.Request(self.base + "/chat/completions", data=body, method="POST",
+            req = urllib.request.Request(self.base + ("/responses" if responses else "/chat/completions"), data=body, method="POST",
                                          headers={"Authorization": "Bearer " + self._key,
                                                   "Content-Type": "application/json"})
             rec = {"attempt": attempt, "status": None, "elapsed_s": None, "wait_s": 0.0}
@@ -85,6 +117,12 @@ class ChatClient:
                     rec["status"] = resp.status
                 rec["elapsed_s"] = time.monotonic() - t0
                 out = json.loads(raw)
+                if responses:
+                    rec["model"] = out.get("model")
+                    rec["finish_reason"] = out.get("status")
+                    if out.get("status") != "completed":
+                        raise ProviderError("incomplete", str(out.get("incomplete_details")))
+                    return _from_responses(out), normalize_responses_usage(out.get("usage")), attempts
                 choice = (out.get("choices") or [{}])[0]
                 msg = choice.get("message") or {}
                 rec["finish_reason"] = choice.get("finish_reason")
@@ -127,3 +165,23 @@ def normalize_usage(raw):
     cd = raw.get("completion_tokens_details") or {}
     return {"input": int(raw.get("prompt_tokens") or 0), "output": int(raw.get("completion_tokens") or 0),
             "cached": int(pd.get("cached_tokens") or 0), "reasoning": int(cd.get("reasoning_tokens") or 0)}
+
+
+def _from_responses(out):
+    output = out.get("output") or []
+    text = "".join(p.get("text", "") for o in output if o.get("type") == "message"
+                   for p in o.get("content", []) if p.get("type") == "output_text")
+    calls = [{"id": o["call_id"], "type": "function", "function": {"name": o["name"], "arguments": o["arguments"]}}
+             for o in output if o.get("type") == "function_call"]
+    msg = {"content": text or None, "_raw": output}
+    if calls:
+        msg["tool_calls"] = calls
+    return msg
+
+
+def normalize_responses_usage(raw):
+    if not isinstance(raw, dict):
+        return None
+    return {"input": int(raw.get("input_tokens") or 0), "output": int(raw.get("output_tokens") or 0),
+            "cached": int((raw.get("input_tokens_details") or {}).get("cached_tokens") or 0),
+            "reasoning": int((raw.get("output_tokens_details") or {}).get("reasoning_tokens") or 0)}

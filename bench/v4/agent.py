@@ -128,7 +128,7 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
     turns = scripts = script_errors = tool_messages = 0
     llm_s = exec_s = retry_wait = 0.0
     attempts_n = 0
-    status, answer = "turn_limit", None
+    status, answer, error_detail = "turn_limit", None, None
     script_log = []
     started = time.monotonic()
     try:
@@ -148,6 +148,8 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
             assistant = {"role": "assistant", "content": msg.get("content")}
             if calls:
                 assistant["tool_calls"] = calls
+            if msg.get("_raw") is not None:
+                assistant["_raw"] = msg["_raw"]  # Responses API items, replayed verbatim
             messages.append(assistant)
             if not calls:
                 answer = msg.get("content") or ""
@@ -157,6 +159,9 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
             if mode == "native":
                 outputs = run_native_calls(world, calls)
             else:
+                # Product path: WeaveTool.handle_many runs read-only scripts of one turn concurrently.
+                known = [c for c in calls if c.get("function", {}).get("name") == wt.name]
+                handled = iter(m["content"] for m in wt.handle_many(known))
                 outputs = []
                 for call in calls:
                     fn = call.get("function", {})
@@ -165,7 +170,7 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
                         script_errors += 1
                         continue
                     scripts += 1
-                    out = wt._run_arguments(fn.get("arguments") or "{}")
+                    out = next(handled)
                     if out.startswith("error:"):
                         script_errors += 1
                     script_log.append({"turn": turns, "source": _source(fn.get("arguments")), "output": out[:2000]})
@@ -176,6 +181,7 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
                 messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": out})
     except Exception as exc:  # provider failure keeps the row (and its cost) in every denominator
         status = "provider_error:" + getattr(exc, "kind", type(exc).__name__)
+        error_detail = str(exc)[:300]
     wall = time.monotonic() - started
     answer_ok = answer is not None and normalize(answer) == normalize(task.answer)
     expected = sorted(task.writes)
@@ -186,7 +192,7 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
         "task": task.id, "family": task.family, "split": task.split, "size": task.size, "mode": mode,
         "repeat": repeat, "latency_ms": latency_ms, "pipeline_loops": pipeline_loops,
         "provider": client.provider, "model": client.model,
-        "status": status, "passed": passed, "answer_ok": answer_ok, "state_ok": state_ok,
+        "status": status, "error_detail": error_detail, "passed": passed, "answer_ok": answer_ok, "state_ok": state_ok,
         "answer": (answer or "")[:300], "expected_answer_hash": task.fingerprint(),
         "unexpected_writes": len([w for w in actual if w not in expected]),
         "missing_writes": len([w for w in expected if w not in actual]),
