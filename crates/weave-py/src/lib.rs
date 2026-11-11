@@ -593,7 +593,7 @@ fn footprint_from(py: Python<'_>, func: &Py<PyAny>, names: Vec<String>) -> Footp
         .map(|name| {
             let mut out = name;
             for (index, param) in params.iter().enumerate() {
-                out = out.replace(&format!("{{{param}}}"), &format!("{{{index}}}"));
+                out = out.replace(&format!("{{{param}}}"), &format!("{{{index}|{param}}}"));
             }
             out
         })

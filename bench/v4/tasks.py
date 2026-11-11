@@ -42,6 +42,7 @@ class Task:
     ordered: bool = False  # writes must also appear in this order
     min_tool_calls: int = 0  # calls a correct solution needs
     min_dependent_rounds: int = 0  # length of the longest dependency chain of calls
+    backend: str = "sim"  # "sim": world.World; "real": real.RealWorld (real services)
 
     def fingerprint(self):
         blob = json.dumps({"i": self.instruction, "d": self.data, "a": self.answer, "w": list(self.writes)},
@@ -225,7 +226,13 @@ SCALING = tuple([make("fanout_sum", n, 7, "scaling") for n in (5, 10, 20, 35, 50
 # docs/paper/preregistration.md after the held-out runs; evaluates fixes made from held-out traces.
 CONFIRM = tuple(make(t.family, t.size, t.seed + 100, "confirm") for t in HELD_OUT)
 
-SUITES = {"dev": DEV, "held_out": HELD_OUT, "scaling": SCALING, "confirm": CONFIRM}
+# CONFIRM2: round-2 confirmation (footprint ordering, final-expression echo), pre-registered before any run.
+# The held-out recipe with seeds shifted by 200, plus extra write-loop tasks (triage, notify_gold).
+CONFIRM2 = tuple([make(t.family, t.size, t.seed + 200, "confirm2") for t in HELD_OUT]
+                 + [make(f, n, s, "confirm2") for f, n, s in [("triage", 10, 303), ("triage", 24, 304),
+                                                                ("notify_gold", 16, 303)]])
+
+SUITES = {"dev": DEV, "held_out": HELD_OUT, "scaling": SCALING, "confirm": CONFIRM, "confirm2": CONFIRM2}
 
 
 def manifest(suite):
@@ -233,3 +240,8 @@ def manifest(suite):
     return {"suite": suite, "tasks": [{"id": t.id, "family": t.family, "size": t.size, "fingerprint": t.fingerprint()}
                                       for t in tasks],
             "hash": hashlib.sha256("".join(t.fingerprint() for t in tasks).encode()).hexdigest()[:16]}
+
+
+from .real import REAL_SUITES  # noqa: E402  (real.py imports Task from here)
+
+SUITES.update(REAL_SUITES)

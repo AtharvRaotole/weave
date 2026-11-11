@@ -1,5 +1,21 @@
 # Benchmarks
 
+## Round 2: footprints, echo, real services (2026-11-10)
+
+Pre-registered in Addendum 2 of [the pre-registration](paper/preregistration.md) (commit `a887e3a`), before any run
+on `confirm2` or `real`. The full tables are in [results-tables.md](paper/results-tables.md), and the discussion is
+in Section 5.10 of the [paper](paper/weave.md). Rows are in `bench/results/v5/`.
+
+![Footprints](../assets/benchmark-v5-footprints.png)
+
+![Real services](../assets/benchmark-v5-real.png)
+
+- `bench/v4/real.py` is the real-services backend. Each trial gets a fresh SQLite database, a git repository with real
+  commits, JSON files on disk, an `http.server` on 127.0.0.1, and live calls to `pypi.org`. There is no injected
+  latency, and grading reads the real end state.
+- The `weave_nofp` arm runs the same engine without footprint declarations.
+- `--min-interval-s` paces requests for free tiers. Pacing time is recorded in `retry_wait_s`.
+
 ## Benchmark v4: pre-registered, held-out (2026-11-10)
 
 The paper is [docs/paper/weave.md](paper/weave.md) ([PDF](paper/weave.pdf)). The pre-registration is
@@ -17,7 +33,8 @@ in `bench/results/v4/`.
 
 - `world.py` is a deterministic simulated backend: 9 reads and 2 writes, seeded latency of mean × U(0.5, 1.5), at most
   8 calls in flight.
-- `tasks.py` defines 7 task families and the frozen dev, held_out, scaling and confirm suites with manifest hashes.
+- `tasks.py` defines 7 task families and the frozen dev, held_out, scaling, confirm and confirm2 suites with
+  manifest hashes. `real.py` adds 4 real-services families (`real_dev`, `real`).
 - `agent.py` holds both arms, with the same system prompt, contracts and settings. Native reads in one turn run
   concurrently.
 - `providers.py` covers OpenAI through the Responses API and Gemini, NVIDIA and Z.ai through Chat Completions. It

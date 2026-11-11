@@ -60,6 +60,24 @@ TOOLS = {
                      "Send a message to a customer. Irreversible: never repeat a call."),
 }
 
+# What each tool reads or writes, as a host would declare it to Weave
+# (`weave.declare(reads=..., writes=...)`). Native tool calling has no use for
+# it. A write's footprint covers every read whose result it can change:
+# `update_ticket` changes that ticket and the status listing.
+FOOTPRINTS = {
+    "list_skus": {"reads": ["skus"]},
+    "get_stock": {"reads": ["stock:{sku}"]},
+    "get_price": {"reads": ["price:{sku}"]},
+    "list_orders": {"reads": ["orders:{customer_id}"]},
+    "get_order": {"reads": ["order:{order_id}"]},
+    "get_customer": {"reads": ["customer:{customer_id}"]},
+    "list_tickets": {"reads": ["tickets"]},
+    "get_ticket": {"reads": ["ticket:{ticket_id}"]},
+    "get_record": {"reads": ["record:{record_id}"]},
+    "update_ticket": {"writes": ["ticket:{ticket_id}", "tickets"]},
+    "send_message": {"writes": ["messages:{customer_id}"]},
+}
+
 
 class ToolFailure(Exception):
     """A backend error both modes see with the same message."""

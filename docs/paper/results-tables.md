@@ -19,6 +19,24 @@ Differences are Weave minus native: mean over tasks of per-task means, 95% clust
 |---|---|---|---|---|---|---|---|---|---|---|
 | GPT-4.1 (temp 0) | 200 ms | 28/30 [0.79, 0.98] | 21/30 [0.52, 0.83] | 0.039 | 2.70 / 4.13 | -1.43 [-2.47, -0.53] | 4.39 / 6.68 | -2.28 [-3.83, -0.79] | 3239 / 5590 | 0.55 [0.44, 0.72] |
 
+## Confirm2 suite (round 2: fresh seeds, footprints and echo; weave vs native)
+
+| model | latency | pass weave | pass native | McNemar p | turns W / N | Δ turns [95% CI] | wall s W / N | Δ wall s [95% CI] | tokens W / N | token ratio [95% CI] |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GPT-5.5 (low) | 200 ms | 13/13 [0.77, 1.00] | 13/13 [0.77, 1.00] | 1.000 | 2.00 / 4.08 | -2.08 [-2.77, -1.54] | 4.69 / 8.63 | -3.93 [-5.06, -2.81] | 1982 / 5845 | 0.36 [0.30, 0.43] |
+| GPT-5.4 mini (low) | 200 ms | 39/39 [0.91, 1.00] | 37/39 [0.83, 0.99] | 0.500 | 2.08 / 4.05 | -1.97 [-2.69, -1.36] | 3.91 / 6.51 | -2.60 [-3.16, -2.05] | 2190 / 5891 | 0.38 [0.32, 0.46] |
+| GPT-4.1 (temp 0) | 200 ms | 37/39 [0.83, 0.99] | 30/39 [0.62, 0.87] | 0.065 | 2.36 / 4.21 | -1.85 [-2.54, -1.31] | 3.80 / 5.99 | -2.19 [-3.11, -1.33] | 2607 / 5792 | 0.46 [0.40, 0.54] |
+
+## Real services (`real` suite: SQLite, git, filesystem, local HTTP server, PyPI; no injected latency)
+
+Wall time is net of provider waits (zero for OpenAI; pacing and retries for free tiers).
+
+| model | latency | pass weave | pass native | McNemar p | turns W / N | Δ turns [95% CI] | wall s W / N | Δ wall s [95% CI] | tokens W / N | token ratio [95% CI] |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GPT-5.5 (low) | real | 8/8 [0.68, 1.00] | 8/8 [0.68, 1.00] | 1.000 | 2.00 / 3.50 | -1.50 [-2.25, -0.75] | 3.56 / 8.45 | -4.89 [-6.43, -3.33] | 2023 / 5030 | 0.44 [0.32, 0.61] |
+| GPT-5.4 mini (low) | real | 22/24 [0.74, 0.98] | 21/24 [0.69, 0.96] | 1.000 | 2.50 / 3.50 | -1.00 [-1.71, -0.33] | 4.02 / 5.18 | -1.16 [-2.35, -0.04] | 3375 / 5127 | 0.63 [0.44, 0.87] |
+| GPT-4.1 (temp 0) | real | 21/23 [0.73, 0.98] | 12/24 [0.31, 0.69] | 0.004 | 2.78 / 3.50 | -0.71 [-1.46, 0.08] | 4.46 / 4.48 | +0.06 [-1.66, 2.03] | 3670 / 4632 | 0.77 [0.51, 1.30] |
+
 ## Held-out by family at 200 ms (mean per trial)
 
 | model | family | pass W / N | turns W / N | wall s W / N | script/tool exec s W / N | tokens W / N |
@@ -44,6 +62,49 @@ Differences are Weave minus native: mean over tasks of per-task means, 95% clust
 | GPT-4.1 (temp 0) | partial_failure | 3/3 / 3/3 | 2.00 / 3.00 | 2.29 / 4.97 | 0.73 / 0.73 | 1887 / 2994 |
 | GPT-4.1 (temp 0) | top_customer | 4/6 / 5/6 | 2.83 / 3.17 | 5.34 / 4.48 | 0.56 / 0.65 | 4299 / 7264 |
 | GPT-4.1 (temp 0) | triage | 3/3 / 3/3 | 2.00 / 4.00 | 6.28 / 8.16 | 4.77 / 2.45 | 1833 / 5418 |
+
+## Confirm2 by family at 200 ms (mean per trial)
+
+| model | family | pass W / N | turns W / N | wall s W / N | script/tool exec s W / N | tokens W / N |
+|---|---|---|---|---|---|---|
+| GPT-5.5 (low) | chain | 1/1 / 1/1 | 2.00 / 7.00 | 4.29 / 9.67 | 1.07 / 1.07 | 1915 / 5691 |
+| GPT-5.5 (low) | fanout_sum | 2/2 / 2/2 | 2.00 / 3.00 | 3.68 / 6.30 | 0.79 / 0.78 | 1832 / 3143 |
+| GPT-5.5 (low) | notify_gold | 3/3 / 3/3 | 2.00 / 5.00 | 5.60 / 10.63 | 1.35 / 1.33 | 2148 / 8184 |
+| GPT-5.5 (low) | order_value | 1/1 / 1/1 | 2.00 / 4.00 | 4.37 / 8.20 | 0.94 / 0.94 | 1863 / 4892 |
+| GPT-5.5 (low) | partial_failure | 1/1 / 1/1 | 2.00 / 3.00 | 3.65 / 5.90 | 0.78 / 0.78 | 1915 / 3178 |
+| GPT-5.5 (low) | top_customer | 2/2 / 2/2 | 2.00 / 3.00 | 4.27 / 5.54 | 0.56 / 0.56 | 2106 / 6505 |
+| GPT-5.5 (low) | triage | 3/3 / 3/3 | 2.00 / 4.00 | 5.34 / 10.93 | 2.33 / 2.51 | 1917 / 6124 |
+| GPT-5.4 mini (low) | chain | 3/3 / 3/3 | 2.00 / 7.00 | 3.22 / 7.08 | 1.11 / 1.11 | 1960 / 5733 |
+| GPT-5.4 mini (low) | fanout_sum | 6/6 / 6/6 | 2.00 / 3.00 | 2.73 / 4.64 | 0.75 / 0.76 | 1838 / 3214 |
+| GPT-5.4 mini (low) | notify_gold | 9/9 / 9/9 | 2.00 / 5.00 | 4.73 / 7.65 | 1.93 / 1.44 | 2194 / 8366 |
+| GPT-5.4 mini (low) | order_value | 3/3 / 3/3 | 2.67 / 4.00 | 4.48 / 6.36 | 0.82 / 0.83 | 3513 / 5059 |
+| GPT-5.4 mini (low) | partial_failure | 3/3 / 3/3 | 2.00 / 3.00 | 2.79 / 4.64 | 0.72 / 0.73 | 1969 / 3257 |
+| GPT-5.4 mini (low) | top_customer | 6/6 / 4/6 | 2.17 / 2.83 | 3.34 / 4.76 | 0.66 / 0.61 | 2477 / 6248 |
+| GPT-5.4 mini (low) | triage | 9/9 / 9/9 | 2.00 / 4.00 | 4.67 / 8.26 | 2.54 / 2.70 | 1938 / 6172 |
+| GPT-4.1 (temp 0) | chain | 3/3 / 3/3 | 2.00 / 7.00 | 2.77 / 5.66 | 1.05 / 1.05 | 1890 / 5331 |
+| GPT-4.1 (temp 0) | fanout_sum | 6/6 / 3/6 | 2.00 / 3.00 | 2.28 / 4.06 | 0.65 / 0.65 | 1801 / 2933 |
+| GPT-4.1 (temp 0) | notify_gold | 9/9 / 9/9 | 3.00 / 5.44 | 4.80 / 8.22 | 1.45 / 1.47 | 3410 / 8642 |
+| GPT-4.1 (temp 0) | order_value | 3/3 / 0/3 | 2.33 / 4.00 | 3.86 / 4.60 | 1.53 / 0.82 | 2421 / 4451 |
+| GPT-4.1 (temp 0) | partial_failure | 3/3 / 3/3 | 2.00 / 3.00 | 2.35 / 4.01 | 0.73 / 0.73 | 1883 / 2988 |
+| GPT-4.1 (temp 0) | top_customer | 4/6 / 3/6 | 2.50 / 3.17 | 4.50 / 4.31 | 0.68 / 0.61 | 3967 / 6895 |
+| GPT-4.1 (temp 0) | triage | 9/9 / 9/9 | 2.11 / 4.00 | 4.15 / 7.41 | 2.39 / 2.53 | 1976 / 5650 |
+
+## Real services by family (mean per trial)
+
+| model | family | pass W / N | turns W / N | wall s W / N | script/tool exec s W / N | tokens W / N |
+|---|---|---|---|---|---|---|
+| GPT-5.5 (low) | git_review | 2/2 / 2/2 | 2.00 / 3.00 | 3.72 / 7.30 | 0.02 / 0.02 | 2160 / 4204 |
+| GPT-5.5 (low) | pypi_major | 2/2 / 2/2 | 2.00 / 2.00 | 4.26 / 6.18 | 0.95 / 0.97 | 1990 / 2330 |
+| GPT-5.5 (low) | sqlite_triage | 2/2 / 2/2 | 2.00 / 4.00 | 2.89 / 9.59 | 0.03 / 0.01 | 1869 / 6130 |
+| GPT-5.5 (low) | warehouse_shortfall | 2/2 / 2/2 | 2.00 / 5.00 | 3.38 / 10.73 | 0.02 / 0.02 | 2074 / 7460 |
+| GPT-5.4 mini (low) | git_review | 5/6 / 3/6 | 2.67 / 3.00 | 4.77 / 4.07 | 0.02 / 0.02 | 4387 / 4184 |
+| GPT-5.4 mini (low) | pypi_major | 6/6 / 6/6 | 2.00 / 2.00 | 3.64 / 3.86 | 0.90 / 0.93 | 2165 / 2349 |
+| GPT-5.4 mini (low) | sqlite_triage | 6/6 / 6/6 | 2.00 / 4.00 | 2.32 / 5.59 | 0.03 / 0.02 | 1959 / 6219 |
+| GPT-5.4 mini (low) | warehouse_shortfall | 5/6 / 6/6 | 3.33 / 5.00 | 5.34 / 7.18 | 0.22 / 0.02 | 4990 / 7757 |
+| GPT-4.1 (temp 0) | git_review | 5/6 / 3/6 | 3.00 / 3.00 | 3.98 / 4.08 | 0.02 / 0.02 | 4579 / 3890 |
+| GPT-4.1 (temp 0) | pypi_major | 4/5 / 0/6 | 2.60 / 2.00 | 7.50 / 3.14 | 1.01 / 0.96 | 3248 / 2142 |
+| GPT-4.1 (temp 0) | sqlite_triage | 6/6 / 6/6 | 2.00 / 4.00 | 1.77 / 4.90 | 0.02 / 0.01 | 1850 / 5680 |
+| GPT-4.1 (temp 0) | warehouse_shortfall | 6/6 / 3/6 | 3.50 / 5.00 | 5.11 / 5.80 | 0.21 / 0.02 | 4933 / 6818 |
 
 ## Scaling suite (mean per trial)
 
@@ -85,6 +146,24 @@ Least-squares slopes over the scaling suite (per-trial means):
 | top_customer | 2/2 / 2/2 | 0.61 / 1.95 | 3.44 / 5.22 |
 | triage | 1/1 / 1/1 | 5.20 / 5.24 | 7.69 / 7.97 |
 
+## Footprint-aware ordering on `confirm2` (write-loop families: triage, notify_gold; 200 ms)
+
+Ratios are geometric means of paired (task, repeat) `exec_s` with 95% cluster-bootstrap CIs.
+
+| model | exec s W / native / W-no-footprints | W / native [95% CI] | W / W-no-footprints [95% CI] | pass W / native / no-fp (whole suite) |
+|---|---|---|---|---|
+| GPT-5.5 (low) | 1.84 / 1.92 / 3.40 | 0.97 [0.93, 1.01] | 0.65 [0.48, 0.89] | 13/13 / 13/13 / 13/13 |
+| GPT-5.4 mini (low) | 2.23 / 2.07 / 3.69 | 1.07 [0.94, 1.24] | 0.66 [0.49, 0.91] | 39/39 / 37/39 / 39/39 |
+| GPT-4.1 (temp 0) | 1.92 / 2.00 / 3.36 | 0.96 [0.92, 0.99] | 0.66 [0.48, 0.89] | 37/39 / 30/39 / 38/39 |
+
+## Final-expression echo on `confirm2` (E1)
+
+| model | Weave scripts | ending in a bare expression | of those, got 'printed nothing' |
+|---|---|---|---|
+| GPT-5.5 (low) | 26 | 0 | 0 |
+| GPT-5.4 mini (low) | 99 | 0 | 0 |
+| GPT-4.1 (temp 0) | 185 | 71 | 0 |
+
 ## Runs
 
 | label | suite | run directory | source commit | trials | total tokens |
@@ -96,3 +175,11 @@ Least-squares slopes over the scaling suite (per-trial means):
 | GPT-5.4 mini (low) | ablation | `20261111T020037Z-held_out-openai-gpt-5.4-mini-2026-03-17-ablation` | `29f7057` | 20 | 47,152 |
 | Gemini 3.5 Flash (free tier) | partial | `20261111T015202Z-held_out-gemini-gemini-3.5-flash` | `8dae373` | 20 | 27,404 |
 | GPT-4.1 (temp 0) | confirm | `20261111T021010Z-confirm-openai-gpt-4.1-2025-04-14` | `4213743` | 60 | 264,865 |
+| GPT-5.5 (low) | confirm2 | `20261111T024824Z-confirm2-openai-gpt-5.5-2026-04-23` | `a887e3a` | 39 | 127,501 |
+| GPT-5.4 mini (low) | confirm2 | `20261111T024824Z-confirm2-openai-gpt-5.4-mini-2026-03-17` | `a887e3a` | 117 | 405,429 |
+| GPT-4.1 (temp 0) | confirm2 | `20261111T024824Z-confirm2-openai-gpt-4.1-2025-04-14` | `a887e3a` | 117 | 426,211 |
+| GPT-5.5 (low) | real | `20261111T025050Z-real-openai-gpt-5.5-2026-04-23` | `8be21fe` | 16 | 56,429 |
+| GPT-5.4 mini (low) | real | `20261111T025050Z-real-openai-gpt-5.4-mini-2026-03-17` | `8be21fe` | 48 | 204,059 |
+| GPT-4.1 (temp 0) | real | `20261111T025050Z-real-openai-gpt-4.1-2025-04-14` | `8be21fe` | 47 | 195,588 |
+| GPT-5.4 mini (low), dev | dev_round2 | `20261111T024257Z-dev-openai-gpt-5.4-mini-2026-03-17-dev-footprints` | `f6de1d4` | 30 | 73,822 |
+| GPT-5.4 mini (low), real_dev | dev_round2 | `20261111T024648Z-real_dev-openai-gpt-5.4-mini-2026-03-17` | `34e7842` | 12 | 40,940 |

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -26,6 +27,24 @@ PROVIDERS = {
 }
 
 
+_PACE_LOCK = threading.Lock()
+_PACE_NEXT = [0.0]
+
+
+def _pace(interval_s):
+    """Space requests from every client in this process at least `interval_s` apart (free-tier quotas).
+    Returns the seconds slept; the trial records it with provider waits, not model time."""
+    if interval_s <= 0:
+        return 0.0
+    with _PACE_LOCK:
+        now = time.monotonic()
+        start = max(now, _PACE_NEXT[0])
+        _PACE_NEXT[0] = start + interval_s
+    if start > now:
+        time.sleep(start - now)
+    return start - now
+
+
 class ProviderError(Exception):
     def __init__(self, kind, detail=""):
         super().__init__(f"{kind}: {detail}")
@@ -34,7 +53,7 @@ class ProviderError(Exception):
 
 class ChatClient:
     def __init__(self, provider, model, *, live=False, reasoning_effort=None, temperature=None,
-                 max_tokens=4096, timeout_s=180, retries=4, request_cap=10_000):
+                 max_tokens=4096, timeout_s=180, retries=4, request_cap=10_000, min_interval_s=0.0):
         if provider not in PROVIDERS:
             raise ValueError(f"unknown provider {provider}")
         if not live:
@@ -47,6 +66,7 @@ class ChatClient:
         self.reasoning_effort, self.temperature, self.max_tokens = reasoning_effort, temperature, max_tokens
         self.timeout_s, self.retries, self.request_cap = timeout_s, retries, request_cap
         self.sent = 0
+        self.min_interval_s = min_interval_s
 
     def payload(self, messages, tools):
         body = {"model": self.model, "messages": [{k: v for k, v in m.items() if k != "_raw"} for m in messages]}
@@ -105,11 +125,12 @@ class ChatClient:
             if self.sent >= self.request_cap:
                 raise ProviderError("request_cap")
             self.sent += 1
+            paced = _pace(self.min_interval_s)
             t0 = time.monotonic()
             req = urllib.request.Request(self.base + ("/responses" if responses else "/chat/completions"), data=body, method="POST",
                                          headers={"Authorization": "Bearer " + self._key,
                                                   "Content-Type": "application/json"})
-            rec = {"attempt": attempt, "status": None, "elapsed_s": None, "wait_s": 0.0}
+            rec = {"attempt": attempt, "status": None, "elapsed_s": None, "wait_s": paced, "paced_s": paced}
             attempts.append(rec)
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
@@ -135,7 +156,7 @@ class ChatClient:
                 rec["error"] = detail[:200]
                 if exc.code in (429, 500, 502, 503, 504) and attempt < self.retries:
                     wait = _retry_after(exc, attempt)
-                    rec["wait_s"] = wait
+                    rec["wait_s"] += wait
                     time.sleep(wait)
                     continue
                 raise ProviderError("rate_limit" if exc.code == 429 else f"http_{exc.code}", detail) from None
@@ -143,8 +164,8 @@ class ChatClient:
                 rec["elapsed_s"] = time.monotonic() - t0
                 rec["error"] = type(exc).__name__
                 if attempt < self.retries:
-                    rec["wait_s"] = 2.0 * (attempt + 1)
-                    time.sleep(rec["wait_s"])
+                    rec["wait_s"] += 2.0 * (attempt + 1)
+                    time.sleep(2.0 * (attempt + 1))
                     continue
                 raise ProviderError("transport", type(exc).__name__) from None
         raise ProviderError("exhausted")

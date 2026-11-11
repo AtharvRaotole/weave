@@ -31,6 +31,7 @@ from .agent import trial, SYSTEM, MAX_TURNS
 from .tasks import SUITES, manifest
 
 ROOT = Path(__file__).resolve().parents[2]
+DEV_SUITES = ("dev", "real_dev")  # tuning allowed; every other suite must be pre-registered
 
 
 def git(*args):
@@ -85,13 +86,15 @@ def main(argv=None):
     ap.add_argument("--max-tokens", type=int, default=4096)
     ap.add_argument("--suite", choices=sorted(SUITES), default="dev")
     ap.add_argument("--tasks", help="comma-separated task ids (subset)")
-    ap.add_argument("--modes", default="weave,native", help="weave,native[,weave_nopipe]")
+    ap.add_argument("--modes", default="weave,native", help="weave,native[,weave_nopipe,weave_nofp]")
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--latency-ms", default="200", help="comma-separated per-call latency means")
     ap.add_argument("--workers", type=int, default=4, help="trials in flight")
     ap.add_argument("--token-budget", type=int, default=3_000_000, help="stop scheduling after this many tokens")
     ap.add_argument("--request-timeout-s", type=float, default=180)
     ap.add_argument("--retries", type=int, default=4, help="HTTP retries per request (429/5xx/timeouts)")
+    ap.add_argument("--min-interval-s", type=float, default=0.0,
+                    help="space provider requests at least this far apart (free-tier quotas)")
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--out", type=Path, default=ROOT / "bench/results/v4")
     ap.add_argument("--allow-dirty", action="store_true", help="dev suite only")
@@ -104,9 +107,9 @@ def main(argv=None):
             raise SystemExit("refusing: live runs spend money; pass --allow-live AND set WEAVE_BENCH_LIVE=1")
         if not args.model:
             raise SystemExit("--model is required")
-        if dirty and (not args.allow_dirty or args.suite != "dev"):
+        if dirty and (not args.allow_dirty or args.suite not in DEV_SUITES):
             raise SystemExit("refusing: commit first so results pin a clean source commit")
-        if args.suite != "dev":
+        if args.suite not in DEV_SUITES:
             prereg = ROOT / "docs/paper/preregistration.md"
             if not prereg.exists() or manifest(args.suite)["hash"] not in prereg.read_text():
                 raise SystemExit(f"refusing: {args.suite} manifest hash is not in docs/paper/preregistration.md")
@@ -134,7 +137,7 @@ def main(argv=None):
         "temperature": args.temperature, "max_tokens": args.max_tokens, "suite": args.suite,
         "manifest": manifest(args.suite), "task_subset": [t.id for t in tasks] if args.tasks else None,
         "modes": modes, "repeats": args.repeats, "latency_ms": latencies, "concurrency_cap": 8,
-        "max_turns": MAX_TURNS, "system_prompt": SYSTEM, "planned_trials": len(plan), "workers": args.workers,
+        "max_turns": MAX_TURNS, "system_prompt": SYSTEM, "planned_trials": len(plan), "workers": args.workers, "min_interval_s": args.min_interval_s,
         "token_budget": args.token_budget, "seed": args.seed,
     }
     (out / "run.json").write_text(json.dumps(meta, indent=2) + "\n")
@@ -148,7 +151,8 @@ def main(argv=None):
         from .providers import ChatClient
         return ChatClient(args.provider, args.model, live=True, reasoning_effort=args.effort,
                           temperature=args.temperature, max_tokens=args.max_tokens,
-                          timeout_s=args.request_timeout_s, retries=args.retries)
+                          timeout_s=args.request_timeout_s, retries=args.retries,
+                          min_interval_s=args.min_interval_s)
 
     def go(i, task, mode, rep, lat):
         with lock:
@@ -156,7 +160,7 @@ def main(argv=None):
                 return None
         real_mode = "weave" if mode.startswith("weave") else "native"
         row = trial(task, real_mode, client_for(task, mode), latency_ms=lat, repeat=rep,
-                    pipeline_loops=(mode != "weave_nopipe"), seed=hash((task.id, rep, lat)) & 0xFFFF)
+                    pipeline_loops=(mode != "weave_nopipe"), footprints=(mode != "weave_nofp"), seed=hash((task.id, rep, lat)) & 0xFFFF)
         row["mode"] = mode
         row["schedule_index"] = i
         with lock:

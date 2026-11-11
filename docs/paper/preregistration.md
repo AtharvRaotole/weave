@@ -109,3 +109,57 @@ seen before (manifest hash `f0829e845bfd6e2b`).
   repeat of the `key=lambda` dead end.
 - **C2.** H1–H3 hold on `confirm` for GPT-4.1 (same tests as above).
 The same stopping and exclusion rules apply; this suite is run once.
+
+## Addendum 2: round 2 (written and committed before any run on `confirm2` or `real`)
+
+Since `confirm`, three things changed. (1) **Footprint-aware ordering** (`crates/weave/src/exec.rs`): a read waits
+only for earlier writes whose declared footprint overlaps its own, and loops whose bodies write are pipelined (a
+call behind a condition or a `break` is still never issued early). Tools without declarations keep the old order.
+The benchmark tools now declare footprints (`FOOTPRINTS` in `bench/v4/world.py` and `bench/v4/real.py`); the
+`weave_nofp` arm is the same engine with no declarations. (2) **Final-expression echo**
+(`python/weave/agent_tool.py`, made from `confirm` traces): a script whose last statement is a bare expression
+prints it. It has not been run live. (3) A **real-services backend** (`bench/v4/real.py`): SQLite, a git repository,
+the filesystem, a real HTTP server on 127.0.0.1, and the public PyPI JSON API. No injected latency.
+
+Dev measurements used for this round: `bench/results/v5/*-dev-*` and `*-real_dev-*` (GPT-5.4 mini). Nothing below
+was run before this addendum was committed.
+
+| suite | hash | tasks |
+|---|---|---|
+| **confirm2** | `436f52507b73d53f` | the held-out recipe with seeds + 200, plus triage n10 s303, triage n24 s304, notify_gold n16 s303 |
+| **real** | `69b9d2427132f664` | pypi_major n10 s101 and n16 s102, sqlite_triage n12 and n20, git_review n8 and n14, warehouse_shortfall n10 and n16 |
+
+Runs (each configuration once; same stopping and exclusion rules; round-2 live spend stops at 8M tokens):
+
+| provider | model | settings | suite | modes | repeats | latency (ms) |
+|---|---|---|---|---|---|---|
+| openai | gpt-4.1-2025-04-14 | temperature 0 | confirm2 | weave, native, weave_nofp | 3 | 200 |
+| openai | gpt-5.4-mini-2026-03-17 | effort low | confirm2 | weave, native, weave_nofp | 3 | 200 |
+| openai | gpt-5.5-2026-04-23 | effort low | confirm2 | weave, native, weave_nofp | 1 | 200 |
+| openai | gpt-4.1-2025-04-14 | temperature 0 | real | weave, native | 3 | real |
+| openai | gpt-5.4-mini-2026-03-17 | effort low | real | weave, native | 3 | real |
+| openai | gpt-5.5-2026-04-23 | effort low | real | weave, native | 1 | real |
+| gemini | gemini-3.5-flash | free tier, 1 worker, ≥ 12 s between requests | real, then confirm2 | weave, native | 1 | real / 200 |
+| nvidia | z-ai/glm-5.3-flash | temperature 0, only if a 35 s smoke request answers | real | weave, native | 1 | real |
+
+Gemini and GLM are best effort: if quota or the endpoint stops a run, we report the trials that finished and the
+reason, and do not pool them with OpenAI data. Pacing waits are recorded in `retry_wait_s`, and Gemini wall time
+is reported net of them.
+
+Hypotheses:
+
+- **F1 (footprints close the write-loop gap).** On the `triage` and `notify_gold` tasks of `confirm2`, per OpenAI
+  model, the geometric-mean ratio of Weave to native script/tool execution time (`exec_s`) is at most 1.2. Round 1
+  measured about 2× on held-out triage.
+- **F2 (the gap was the ordering).** On the same tasks, Weave `exec_s` is lower than `weave_nofp` `exec_s`:
+  paired (task, repeat) ratio below 1 with a 95% bootstrap CI below 1, for GPT-4.1 and GPT-5.4 mini.
+- **F3 (no correctness cost).** Weave pass rate on `confirm2` is not lower than `weave_nofp` by more than one
+  trial per model, and no Weave failure shows a read that saw a stale value because of reordering.
+- **E1 (echo).** On `confirm2`, no Weave script whose last statement is a bare expression gets the
+  "the script printed nothing" reply (the case the echo fixes). GPT-4.1 Weave pass rate is at least 90%.
+- **C3.** H1 (turns), H3 (tokens, ratio ≤ 1) and H4 (pass rate, non-inferiority) hold on `confirm2` for each OpenAI
+  model. H2 (wall time at 200 ms) is tested for GPT-4.1 and GPT-5.4 mini.
+- **R1 (real services).** On `real`, per OpenAI model: Weave pass rate is non-inferior (H4 margin), turns are lower
+  (CI below 0), and tokens are no higher (ratio ≤ 1). We report the wall-time difference with its CI but predict
+  a gain only on the multi-round families (`sqlite_triage`, `git_review`, `warehouse_shortfall`). On
+  `pypi_major` (one round of parallel calls for native) we expect no clear wall-time difference.

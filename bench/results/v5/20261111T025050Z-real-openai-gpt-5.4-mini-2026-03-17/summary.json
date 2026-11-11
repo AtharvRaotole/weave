@@ -1,0 +1,770 @@
+{
+  "protocol": "weave-benchmark-protocol-v4",
+  "kind": "live",
+  "started_utc": "2026-11-11T02:50:50Z",
+  "source_commit": "8be21fecab67f4006772695aad7f1d138dc90122",
+  "source_dirty": false,
+  "weave_version": "0.0.0",
+  "python": "3.13.5",
+  "provider": "openai",
+  "model": "gpt-5.4-mini-2026-03-17",
+  "effort": "low",
+  "temperature": null,
+  "max_tokens": 4096,
+  "suite": "real",
+  "manifest": {
+    "suite": "real",
+    "tasks": [
+      {
+        "id": "pypi_major-n10-s101",
+        "family": "pypi_major",
+        "size": 10,
+        "fingerprint": "c9af03514c8312e1"
+      },
+      {
+        "id": "pypi_major-n16-s102",
+        "family": "pypi_major",
+        "size": 16,
+        "fingerprint": "8879841a47474d88"
+      },
+      {
+        "id": "sqlite_triage-n12-s101",
+        "family": "sqlite_triage",
+        "size": 12,
+        "fingerprint": "14c5d54501a3761e"
+      },
+      {
+        "id": "sqlite_triage-n20-s102",
+        "family": "sqlite_triage",
+        "size": 20,
+        "fingerprint": "4231e40a9aa3ba32"
+      },
+      {
+        "id": "git_review-n8-s101",
+        "family": "git_review",
+        "size": 8,
+        "fingerprint": "0e09aa8d317fa33e"
+      },
+      {
+        "id": "git_review-n14-s102",
+        "family": "git_review",
+        "size": 14,
+        "fingerprint": "6a80a2dd5d715198"
+      },
+      {
+        "id": "warehouse_shortfall-n10-s101",
+        "family": "warehouse_shortfall",
+        "size": 10,
+        "fingerprint": "53b4b4abe455086e"
+      },
+      {
+        "id": "warehouse_shortfall-n16-s102",
+        "family": "warehouse_shortfall",
+        "size": 16,
+        "fingerprint": "b72ee01355934cc6"
+      }
+    ],
+    "hash": "69b9d2427132f664"
+  },
+  "task_subset": null,
+  "modes": [
+    "weave",
+    "native"
+  ],
+  "repeats": 3,
+  "latency_ms": [
+    0.0
+  ],
+  "concurrency_cap": 8,
+  "max_turns": 16,
+  "system_prompt": "You are an operations agent with access to tools. Use them to complete the user's task; tool results are authoritative. When the task is complete, reply with only the final answer in the requested format and no other text.",
+  "planned_trials": 48,
+  "workers": 4,
+  "min_interval_s": 0.0,
+  "token_budget": 3000000,
+  "seed": 2026,
+  "finished_utc": "2026-11-11T02:52:08Z",
+  "completed_trials": 48,
+  "skipped_for_budget": 0,
+  "tokens_spent": 204059,
+  "summary": {
+    "real@0.0ms": {
+      "native": {
+        "trials": 24,
+        "passed": 21,
+        "pass_rate": 0.875,
+        "pass_wilson95": [
+          0.6899571185214243,
+          0.9565574496068442
+        ],
+        "statuses": {
+          "answered": 24
+        },
+        "answer_wrong": 3,
+        "state_wrong": 3,
+        "unexpected_write_trials": 2,
+        "mean_turns": 3.5,
+        "mean_turns_ci95": [
+          3.0416666666666665,
+          3.9583333333333335
+        ],
+        "mean_wall_s": 5.1764331024167705,
+        "mean_wall_s_ci95": [
+          4.6197226761261545,
+          5.753134959832702
+        ],
+        "p50_wall_s": 4.982010108500617,
+        "p95_wall_s": 7.876815574996726,
+        "mean_tokens": 5127.125,
+        "mean_tokens_ci95": [
+          4256.958333333333,
+          5989.916666666667
+        ],
+        "mean_input_tokens": 4545.625,
+        "mean_output_tokens": 581.5,
+        "sum_tokens": {
+          "input": 109095,
+          "output": 13956,
+          "cached": 33920,
+          "reasoning": 2768
+        },
+        "unknown_usage_turns": 0,
+        "mean_backend_calls": 20.875,
+        "script_error_trials": 0,
+        "retry_wait_s": 0.0
+      },
+      "weave": {
+        "trials": 24,
+        "passed": 22,
+        "pass_rate": 0.9166666666666666,
+        "pass_wilson95": [
+          0.741507847985494,
+          0.9768416721570266
+        ],
+        "statuses": {
+          "answered": 24
+        },
+        "answer_wrong": 2,
+        "state_wrong": 1,
+        "unexpected_write_trials": 0,
+        "mean_turns": 2.5,
+        "mean_turns_ci95": [
+          2.2083333333333335,
+          2.8333333333333335
+        ],
+        "mean_wall_s": 4.0167792487500265,
+        "mean_wall_s_ci95": [
+          3.3588067831246917,
+          4.811121619583446
+        ],
+        "p50_wall_s": 3.701032410001062,
+        "p95_wall_s": 5.794558068999322,
+        "mean_tokens": 3375.3333333333335,
+        "mean_tokens_ci95": [
+          2578.0833333333335,
+          4382.791666666667
+        ],
+        "mean_input_tokens": 3019.9166666666665,
+        "mean_output_tokens": 355.4166666666667,
+        "sum_tokens": {
+          "input": 72478,
+          "output": 8530,
+          "cached": 14336,
+          "reasoning": 2514
+        },
+        "unknown_usage_turns": 0,
+        "mean_backend_calls": 21.833333333333332,
+        "script_error_trials": 0,
+        "retry_wait_s": 0.0
+      },
+      "paired": {
+        "wall_s": {
+          "pairs": 24,
+          "tasks": 8,
+          "mean_diff": -1.1596538536667442,
+          "mean_diff_ci95": [
+            -2.388018925249677,
+            -0.03254426570841435
+          ],
+          "ratio_gm": 0.7429829455076259,
+          "ratio_gm_ci95": [
+            0.5511897690956536,
+            0.9830148772022994
+          ],
+          "weave_better_tasks": 5,
+          "per_task": {
+            "git_review-n14-s102": {
+              "diff": 0.45818854966637446,
+              "ratio_gm": 1.0814457637886585,
+              "n": 3,
+              "weave": 4.913008807999479,
+              "native": 4.454820258333105
+            },
+            "git_review-n8-s101": {
+              "diff": 0.9339699203337659,
+              "ratio_gm": 1.2513714445392208,
+              "n": 3,
+              "weave": 4.627373956334243,
+              "native": 3.693404036000478
+            },
+            "pypi_major-n10-s101": {
+              "diff": 0.07849811866496263,
+              "ratio_gm": 1.0230625359304764,
+              "n": 3,
+              "weave": 3.5451438819994414,
+              "native": 3.4666457633344785
+            },
+            "pypi_major-n16-s102": {
+              "diff": -0.5175968283328984,
+              "ratio_gm": 0.8735149463964328,
+              "n": 3,
+              "weave": 3.7321833536674,
+              "native": 4.249780182000298
+            },
+            "sqlite_triage-n12-s101": {
+              "diff": -2.88323511366616,
+              "ratio_gm": 0.4541552303980604,
+              "n": 3,
+              "weave": 2.392282865000501,
+              "native": 5.27551797866666
+            },
+            "sqlite_triage-n20-s102": {
+              "diff": -3.6728686366683783,
+              "ratio_gm": 0.3777602493658497,
+              "n": 3,
+              "weave": 2.2381305236655558,
+              "native": 5.910999160333934
+            },
+            "warehouse_shortfall-n10-s101": {
+              "diff": -3.097184035665123,
+              "ratio_gm": 0.5122416449886328,
+              "n": 3,
+              "weave": 3.441062611334928,
+              "native": 6.538246647000051
+            },
+            "warehouse_shortfall-n16-s102": {
+              "diff": -0.5770028036664977,
+              "ratio_gm": 0.8737190286354859,
+              "n": 3,
+              "weave": 7.245047989998663,
+              "native": 7.82205079366516
+            }
+          }
+        },
+        "total_tokens": {
+          "pairs": 24,
+          "tasks": 8,
+          "mean_diff": -1751.7916666666667,
+          "mean_diff_ci95": [
+            -3198.125,
+            -387.1666666666667
+          ],
+          "ratio_gm": 0.6304447154425694,
+          "ratio_gm_ci95": [
+            0.44259577814743195,
+            0.880943915832378
+          ],
+          "weave_better_tasks": 5,
+          "per_task": {
+            "git_review-n14-s102": {
+              "diff": 135.66666666666666,
+              "ratio_gm": 0.9378358568200176,
+              "n": 3,
+              "weave": 4791.333333333333,
+              "native": 4655.666666666667
+            },
+            "git_review-n8-s101": {
+              "diff": 271.0,
+              "ratio_gm": 1.0597466256261923,
+              "n": 3,
+              "weave": 3982.6666666666665,
+              "native": 3711.6666666666665
+            },
+            "pypi_major-n10-s101": {
+              "diff": 60.666666666666664,
+              "ratio_gm": 1.0269437197044515,
+              "n": 3,
+              "weave": 2137.6666666666665,
+              "native": 2077.0
+            },
+            "pypi_major-n16-s102": {
+              "diff": -429.6666666666667,
+              "ratio_gm": 0.8324113300255896,
+              "n": 3,
+              "weave": 2191.6666666666665,
+              "native": 2621.3333333333335
+            },
+            "sqlite_triage-n12-s101": {
+              "diff": -3527.3333333333335,
+              "ratio_gm": 0.35979308595525505,
+              "n": 3,
+              "weave": 1983.0,
+              "native": 5510.333333333333
+            },
+            "sqlite_triage-n20-s102": {
+              "diff": -4992.0,
+              "ratio_gm": 0.2794009814912212,
+              "n": 3,
+              "weave": 1935.6666666666667,
+              "native": 6927.666666666667
+            },
+            "warehouse_shortfall-n10-s101": {
+              "diff": -4189.333333333333,
+              "ratio_gm": 0.3736112299852858,
+              "n": 3,
+              "weave": 2614.0,
+              "native": 6803.333333333333
+            },
+            "warehouse_shortfall-n16-s102": {
+              "diff": -1343.3333333333333,
+              "ratio_gm": 0.7820993145326833,
+              "n": 3,
+              "weave": 7366.666666666667,
+              "native": 8710.0
+            }
+          }
+        },
+        "turns": {
+          "pairs": 24,
+          "tasks": 8,
+          "mean_diff": -1.0,
+          "mean_diff_ci95": [
+            -1.7083333333333333,
+            -0.3333333333333333
+          ],
+          "ratio_gm": 0.7237474220239682,
+          "ratio_gm_ci95": [
+            0.5753043472499467,
+            0.8917795292374964
+          ],
+          "weave_better_tasks": 6,
+          "per_task": {
+            "git_review-n14-s102": {
+              "diff": -0.3333333333333333,
+              "ratio_gm": 0.8735804647362989,
+              "n": 3,
+              "weave": 2.6666666666666665,
+              "native": 3.0
+            },
+            "git_review-n8-s101": {
+              "diff": -0.3333333333333333,
+              "ratio_gm": 0.8735804647362989,
+              "n": 3,
+              "weave": 2.6666666666666665,
+              "native": 3.0
+            },
+            "pypi_major-n10-s101": {
+              "diff": 0.0,
+              "ratio_gm": 1.0,
+              "n": 3,
+              "weave": 2.0,
+              "native": 2.0
+            },
+            "pypi_major-n16-s102": {
+              "diff": 0.0,
+              "ratio_gm": 1.0,
+              "n": 3,
+              "weave": 2.0,
+              "native": 2.0
+            },
+            "sqlite_triage-n12-s101": {
+              "diff": -2.0,
+              "ratio_gm": 0.5,
+              "n": 3,
+              "weave": 2.0,
+              "native": 4.0
+            },
+            "sqlite_triage-n20-s102": {
+              "diff": -2.0,
+              "ratio_gm": 0.5,
+              "n": 3,
+              "weave": 2.0,
+              "native": 4.0
+            },
+            "warehouse_shortfall-n10-s101": {
+              "diff": -2.6666666666666665,
+              "ratio_gm": 0.45788569702133275,
+              "n": 3,
+              "weave": 2.3333333333333335,
+              "native": 5.0
+            },
+            "warehouse_shortfall-n16-s102": {
+              "diff": -0.6666666666666666,
+              "ratio_gm": 0.8617738760127536,
+              "n": 3,
+              "weave": 4.333333333333333,
+              "native": 5.0
+            }
+          }
+        },
+        "pass_mcnemar": {
+          "weave_only": 2,
+          "native_only": 1,
+          "p": 1.0
+        }
+      },
+      "by_family": {
+        "git_review": {
+          "native": {
+            "trials": 6,
+            "passed": 3,
+            "pass_rate": 0.5,
+            "pass_wilson95": [
+              0.18761280689940868,
+              0.8123871931005913
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 3,
+            "state_wrong": 3,
+            "unexpected_write_trials": 2,
+            "mean_turns": 3.0,
+            "mean_turns_ci95": [
+              3.0,
+              3.0
+            ],
+            "mean_wall_s": 4.074112147166791,
+            "mean_wall_s_ci95": [
+              3.6969417611677877,
+              4.542441274000642
+            ],
+            "p50_wall_s": 3.943913559998691,
+            "p95_wall_s": 5.163458271999843,
+            "mean_tokens": 4183.666666666667,
+            "mean_tokens_ci95": [
+              3839.0,
+              4524.833333333333
+            ],
+            "mean_input_tokens": 3716.5,
+            "mean_output_tokens": 467.1666666666667,
+            "sum_tokens": {
+              "input": 22299,
+              "output": 2803,
+              "cached": 6272,
+              "reasoning": 440
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 15.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 6,
+            "passed": 5,
+            "pass_rate": 0.8333333333333334,
+            "pass_wilson95": [
+              0.43649056343635395,
+              0.9699474141282697
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 1,
+            "state_wrong": 1,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.6666666666666665,
+            "mean_turns_ci95": [
+              2.3333333333333335,
+              3.0
+            ],
+            "mean_wall_s": 4.770191382166861,
+            "mean_wall_s_ci95": [
+              4.104645738499433,
+              5.366805191667178
+            ],
+            "p50_wall_s": 4.756055946001652,
+            "p95_wall_s": 5.794558068999322,
+            "mean_tokens": 4387.0,
+            "mean_tokens_ci95": [
+              3274.8333333333335,
+              5474.166666666667
+            ],
+            "mean_input_tokens": 3820.8333333333335,
+            "mean_output_tokens": 566.1666666666666,
+            "sum_tokens": {
+              "input": 22925,
+              "output": 3397,
+              "cached": 6144,
+              "reasoning": 888
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 15.333333333333334,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        },
+        "pypi_major": {
+          "native": {
+            "trials": 6,
+            "passed": 6,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.6096569663469354,
+              0.9999999999999999
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 3.8582129726673884,
+            "mean_wall_s_ci95": [
+              3.5101641163346358,
+              4.24552162950143
+            ],
+            "p50_wall_s": 3.8950247969987686,
+            "p95_wall_s": 4.682203078002203,
+            "mean_tokens": 2349.1666666666665,
+            "mean_tokens_ci95": [
+              2164.3333333333335,
+              2538.3333333333335
+            ],
+            "mean_input_tokens": 1988.0,
+            "mean_output_tokens": 361.1666666666667,
+            "sum_tokens": {
+              "input": 11928,
+              "output": 2167,
+              "cached": 0,
+              "reasoning": 682
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 13.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 6,
+            "passed": 6,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.6096569663469354,
+              0.9999999999999999
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 3.6386636178334206,
+            "mean_wall_s_ci95": [
+              3.3593982249985856,
+              3.9444169823345874
+            ],
+            "p50_wall_s": 3.600458389000778,
+            "p95_wall_s": 4.351722212002642,
+            "mean_tokens": 2164.6666666666665,
+            "mean_tokens_ci95": [
+              2033.6666666666667,
+              2314.3333333333335
+            ],
+            "mean_input_tokens": 1947.3333333333333,
+            "mean_output_tokens": 217.33333333333334,
+            "sum_tokens": {
+              "input": 11684,
+              "output": 1304,
+              "cached": 0,
+              "reasoning": 265
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 13.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        },
+        "sqlite_triage": {
+          "native": {
+            "trials": 6,
+            "passed": 6,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.6096569663469354,
+              0.9999999999999999
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 4.0,
+            "mean_turns_ci95": [
+              4.0,
+              4.0
+            ],
+            "mean_wall_s": 5.593258569500297,
+            "mean_wall_s_ci95": [
+              5.27551797866666,
+              5.905367173334525
+            ],
+            "p50_wall_s": 5.873077078500501,
+            "p95_wall_s": 5.931964683000842,
+            "mean_tokens": 6219.0,
+            "mean_tokens_ci95": [
+              5732.5,
+              6700.666666666667
+            ],
+            "mean_input_tokens": 5510.166666666667,
+            "mean_output_tokens": 708.8333333333334,
+            "sum_tokens": {
+              "input": 33061,
+              "output": 4253,
+              "cached": 10368,
+              "reasoning": 554
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 27.5,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 6,
+            "passed": 6,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.6096569663469354,
+              0.9999999999999999
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.3152066943330283,
+            "mean_wall_s_ci95": [
+              2.192953937332883,
+              2.4332481631669602
+            ],
+            "p50_wall_s": 2.320282294998833,
+            "p95_wall_s": 2.5511034070004825,
+            "mean_tokens": 1959.3333333333333,
+            "mean_tokens_ci95": [
+              1929.6666666666667,
+              1992.3333333333333
+            ],
+            "mean_input_tokens": 1823.1666666666667,
+            "mean_output_tokens": 136.16666666666666,
+            "sum_tokens": {
+              "input": 10939,
+              "output": 817,
+              "cached": 0,
+              "reasoning": 243
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 27.5,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        },
+        "warehouse_shortfall": {
+          "native": {
+            "trials": 6,
+            "passed": 6,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.6096569663469354,
+              0.9999999999999999
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 5.0,
+            "mean_turns_ci95": [
+              5.0,
+              5.0
+            ],
+            "mean_wall_s": 7.180148720332606,
+            "mean_wall_s_ci95": [
+              6.6437951923320115,
+              7.7864329703321955
+            ],
+            "p50_wall_s": 7.002873580500818,
+            "p95_wall_s": 8.35658773799878,
+            "mean_tokens": 7756.666666666667,
+            "mean_tokens_ci95": [
+              7050.333333333333,
+              8477.666666666666
+            ],
+            "mean_input_tokens": 6967.833333333333,
+            "mean_output_tokens": 788.8333333333334,
+            "sum_tokens": {
+              "input": 41807,
+              "output": 4733,
+              "cached": 17280,
+              "reasoning": 1092
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 28.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 6,
+            "passed": 5,
+            "pass_rate": 0.8333333333333334,
+            "pass_wilson95": [
+              0.43649056343635395,
+              0.9699474141282697
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 1,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 3.3333333333333335,
+            "mean_turns_ci95": [
+              2.5,
+              4.166666666666667
+            ],
+            "mean_wall_s": 5.343055300666795,
+            "mean_wall_s_ci95": [
+              3.6157905233352117,
+              7.674077207833155
+            ],
+            "p50_wall_s": 4.610552436499347,
+            "p95_wall_s": 10.965834373000689,
+            "mean_tokens": 4990.333333333333,
+            "mean_tokens_ci95": [
+              2861.1666666666665,
+              7868.833333333333
+            ],
+            "mean_input_tokens": 4488.333333333333,
+            "mean_output_tokens": 502.0,
+            "sum_tokens": {
+              "input": 26930,
+              "output": 3012,
+              "cached": 8192,
+              "reasoning": 1118
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 31.5,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        }
+      }
+    }
+  }
+}

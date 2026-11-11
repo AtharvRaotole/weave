@@ -19,8 +19,11 @@ Python bindings, and an MCP proxy.
 **Measured result (pre-registered, held-out, [paper](docs/paper/weave.md)):** against native
 *parallel* function calling on the same model, tools and endpoint, Weave used **39–52% of the
 tokens** and **1.6–2.0 fewer model turns** per task on GPT-5.5, GPT-5.4 mini and GPT-4.1, with equal
-or higher success (30/30 vs 30/30, 30/30 vs 30/30, 28/30 vs 23/30). It loses on one shape: loops
-that write run their backend calls about 2× slower than native. [Details below](#benchmarks).
+or higher success (30/30 vs 30/30, 30/30 vs 30/30, 28/30 vs 23/30). A second pre-registered round fixed the
+one loss: with footprint-aware ordering, loops that write now run their backend calls at native speed
+(0.96–1.07×, down from about 2×). Against real services (SQLite, git, files, HTTP, PyPI), Weave used
+44–77% of the tokens and passed as often or more, but saved turns only on the GPT-5 models.
+[Details below](#benchmarks).
 
 Weave lets an agent express tool calls, dependencies, branches, and loops in one
 script. The runtime runs independent reads concurrently and applies ordering
@@ -291,13 +294,40 @@ What it shows:
 - **The speedup comes from model round trips, not from concurrency.** At 0 ms backend latency the saving is almost
   the same as at 200 ms. Loop pipelining still matters: with it switched off, Weave's backend time on fan-out
   tasks rises 4–5×.
-- **Where Weave loses.** In a loop that writes (`triage`), each read waits for the previous write, so Weave's backend
-  time is about 2× native's. It still wins end-to-end only because it saves two model turns.
-- **Not covered.** Only OpenAI models were run in full. on Gemini's free tier only 4 of 20 trials finished before the rate limit, the NVIDIA-hosted
-  GLM endpoint timed out, and no Anthropic key was available. The tasks are synthetic and maintainer-authored. See
-  the paper's threats-to-validity section.
+- **Where Weave lost in round 1.** In a loop that writes (`triage`), each read waited for the previous write, so
+  Weave's backend time was about 2× native's. Round 2 fixed this (below).
+- **Not covered.** Only OpenAI models were run in full. On Gemini's free tier only 4 of 20 trials finished in round 1
+  and none in round 2 (daily quota of 20 requests). The NVIDIA-hosted GLM endpoint timed out at every attempt. No
+  Anthropic key was available. The tasks are synthetic and written by the maintainer. See the paper's
+  threats-to-validity section.
+
+**Round 2 (pre-registered in [Addendum 2](docs/paper/preregistration.md), fresh seeds).**
+
+![Write-loop backend time with and without footprints](assets/benchmark-v5-footprints.png)
+
+- **Footprint-aware ordering.** Tools can declare what they read and write, for example
+  `declare(effect="read", reads=["ticket:{ticket_id}"])`. A read then waits only for writes that overlap it, and loops
+  that write are pipelined. On the write-in-loop tasks of `confirm2`, Weave/native backend time is 0.97, 1.07 and 0.96
+  (GPT-5.5, GPT-5.4 mini, GPT-4.1). The same engine without the declarations is about 1.5× slower. Undeclared tools keep
+  the old, conservative order.
+- **confirm2** (13 tasks, 200 ms): Weave passed 13/13, 39/39 and 37/39, against native's 13/13, 37/39 and 30/39. Weave
+  used 0.36–0.46× native's tokens and 2.0–2.4 turns against about 4, and was 2.2–3.9 s faster per task. The REPL echo fix
+  held: 71 GPT-4.1 scripts ended in a bare expression, and every one got its value back.
+- **Real services** (`real`: SQLite, a git repository, JSON files, a local HTTP server, and the public PyPI API; no
+  injected latency; grading reads the real end state):
+
+| model | pass W / N | turns W / N | Δ wall per task [95% CI] | tokens W/N [95% CI] |
+|---|---|---|---|---|
+| `gpt-5.5-2026-04-23` (low, 1 repeat) | 8/8 / 8/8 | 2.00 / 3.50 | −4.9 s [−6.4, −3.3] | 0.44 [0.32, 0.61] |
+| `gpt-5.4-mini-2026-03-17` (low) | 22/24 / 21/24 | 2.50 / 3.50 | −1.2 s [−2.35, −0.04] | 0.63 [0.44, 0.87] |
+| `gpt-4.1-2025-04-14` (temp 0) | 21/23 / 12/24 | 2.78 / 3.50 | +0.1 s [−1.7, +2.0] | 0.77 [0.51, 1.30] |
+
+  GPT-4.1 got no wall-time gain there: it kept writing `def` and list comprehensions, which Weave rejects, and paid a
+  turn to rewrite them. Native GPT-4.1 failed every PyPI task by adding up version numbers in its head.
 
 Reproduce: `make bench-mock` (offline) or `WEAVE_BENCH_LIVE=1 make bench-live MODEL=...` (spends tokens).
+The real-services suite runs offline with oracle agents: `python -m bench.v4.run --mock --suite real --latency-ms 0`.
+It needs network access for PyPI.
 
 **Protocol v3 (strict mode, real MCP servers).** The earlier [protocol v3](docs/benchmark-protocol-v3.md) hides
 Weave's error hints and sends both arms the full tool results. It found no difference on 2026-11-09. Its traces led to

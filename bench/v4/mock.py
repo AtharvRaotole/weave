@@ -66,6 +66,33 @@ def native_plan(task):
         best = max(zip(cust, lists), key=lambda x: len(x[1]))[0]
         (c,) = yield [("get_customer", {"customer_id": best})]
         return c["name"]
+    if f == "pypi_major":
+        names = task.data["packages"]
+        res = yield [("pypi_package", {"name": n}) for n in names]
+        return str(sum(int(r["version"].split(".")[0]) for r in res))
+    if f == "sqlite_triage":
+        limit = int(_q(i, r"age_days > (\d+)"))
+        (ids,) = yield [("db_list_tickets", {"status": "open"})]
+        ts = yield [("db_get_ticket", {"ticket_id": t}) for t in ids]
+        stale = [t["id"] for t in ts if t["age_days"] > limit]
+        if stale:
+            yield [("db_update_ticket", {"ticket_id": t, "status": "closed"}) for t in stale]
+        return str(len(stale))
+    if f == "git_review":
+        files = _q(i, r"these files: ([^.]+(?:\.py[^.]*)*)\. For").split(", ")
+        who = _q(i, r"made by ([^,]+), create")
+        res = yield [("git_last_commit", {"path": p}) for p in files]
+        mine = [(p, r["commit"]) for p, r in zip(files, res) if r["author"] == who]
+        if mine:
+            yield [("git_create_tag", {"tag": "review-" + p[:-3], "commit": c}) for p, c in mine]
+        return str(len(mine))
+    if f == "warehouse_shortfall":
+        (names,) = yield [("fs_list", {"directory": "orders"})]
+        orders = yield [("fs_read_json", {"path": "orders/" + n}) for n in names]
+        stock = yield [("warehouse_stock", {"sku": o["sku"]}) for o in orders]
+        short = [n for n, o, s in zip(names, orders, stock) if o["qty"] > s["on_hand"]]
+        yield [("fs_write", {"path": "shortfall.txt", "text": ",".join(short)})]
+        return str(len(short))
     raise ValueError(f)
 
 
@@ -97,6 +124,22 @@ def weave_script(task):
         cust = _IDS.findall(i)
         return (f"best = None\nmost = -1\nfor c in {cust!r}:\n    k = len(list_orders(c))\n    if k > most:\n        most = k\n"
                 "        best = c\nprint(get_customer(best)['name'])\n")
+    if f == "pypi_major":
+        return (f"total = 0\nfor n in {task.data['packages']!r}:\n    total += int(pypi_package(n)['version'].split('.')[0])\n"
+                "print(total)\n")
+    if f == "sqlite_triage":
+        limit = int(_q(i, r"age_days > (\d+)"))
+        return (f"n = 0\nfor t in db_list_tickets('open'):\n    if db_get_ticket(t)['age_days'] > {limit}:\n"
+                "        db_update_ticket(t, 'closed')\n        n += 1\nprint(n)\n")
+    if f == "git_review":
+        files = _q(i, r"these files: ([^.]+(?:\.py[^.]*)*)\. For").split(", ")
+        who = _q(i, r"made by ([^,]+), create")
+        return (f"n = 0\nfor p in {files!r}:\n    c = git_last_commit(p)\n    if c['author'] == {who!r}:\n"
+                "        git_create_tag('review-' + p[:-3], c['commit'])\n        n += 1\nprint(n)\n")
+    if f == "warehouse_shortfall":
+        return ("short = []\nfor n in fs_list('orders'):\n    o = fs_read_json('orders/' + n)\n"
+                "    if o['qty'] > warehouse_stock(o['sku'])['on_hand']:\n        short.append(n)\n"
+                "fs_write('shortfall.txt', ','.join(short))\nprint(len(short))\n")
     raise ValueError(f)
 
 

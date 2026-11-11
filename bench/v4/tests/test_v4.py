@@ -31,7 +31,7 @@ class Suites(unittest.TestCase):
 
     def test_suites_do_not_depend_on_the_hash_seed(self):
         import subprocess
-        code = "from bench.v4.tasks import manifest; print(*(manifest(s)['hash'] for s in ('dev', 'held_out', 'scaling')))"
+        code = "from bench.v4.tasks import manifest; print(*(manifest(s)['hash'] for s in ('dev', 'held_out', 'scaling', 'confirm2', 'real')))"
         outs = {subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True, check=True,
                                env={**os.environ, "PYTHONHASHSEED": seed}).stdout for seed in ("1", "2", "3")}
         self.assertEqual(len(outs), 1, outs)
@@ -39,6 +39,8 @@ class Suites(unittest.TestCase):
     def test_oracles_pass_every_task_in_both_modes(self):
         for suite in SUITES.values():
             for task in suite:
+                if task.family == "pypi_major" and os.environ.get("WEAVE_BENCH_NET") != "1":
+                    continue  # calls pypi.org; run with WEAVE_BENCH_NET=1
                 for mode in ("weave", "native"):
                     row = trial(task, mode, OracleClient(task, mode), latency_ms=0)
                     self.assertTrue(row["passed"], (task.id, mode, row["status"], row["error_detail"]))
@@ -53,6 +55,22 @@ class Suites(unittest.TestCase):
         row = trial(task, "native", Lazy(task, "native"), latency_ms=0)
         self.assertFalse(row["passed"])
         self.assertFalse(row["state_ok"])
+
+    def test_real_backends_grade_the_real_end_state(self):
+        for family in ("sqlite_triage", "git_review", "warehouse_shortfall"):
+            task = next(t for t in SUITES["real_dev"] if t.family == family)
+
+            class Lazy(OracleClient):
+                def complete(self, messages, tools):  # the right answer with no writes
+                    return {"content": task.answer}, {"input": 1, "output": 1, "cached": 0, "reasoning": 0}, [{}]
+
+            row = trial(task, "native", Lazy(task, "native"), latency_ms=0)
+            self.assertTrue(row["answer_ok"], family)
+            self.assertFalse(row["state_ok"], family)
+            self.assertFalse(row["passed"], family)
+            row = trial(task, "weave", OracleClient(task, "weave"), latency_ms=0)
+            self.assertTrue(row["passed"], (family, row["error_detail"]))
+            self.assertTrue(row["footprints"])
 
 
 class Stats(unittest.TestCase):
@@ -93,6 +111,20 @@ class Runner(unittest.TestCase):
             self.assertEqual(len(rows), len(SUITES["dev"]) * 2 * 2)
             self.assertTrue(all(r["passed"] for r in rows))
             self.assertTrue(summary)
+
+    def test_footprints_close_the_write_loop_gap(self):
+        # The oracle's triage script reads every ticket and closes some in one
+        # loop. With declared footprints the reads of other tickets no longer
+        # wait for each close, so execution time drops to about native's.
+        task = next(t for t in SUITES["held_out"] if t.family == "triage")
+        exec_s = {}
+        for mode, fp in (("weave", True), ("weave_nofp", False), ("native", True)):
+            real = "native" if mode == "native" else "weave"
+            row = trial(task, real, OracleClient(task, real), latency_ms=100, footprints=fp)
+            self.assertTrue(row["passed"], row)
+            exec_s[mode] = row["exec_s"]
+        self.assertLess(exec_s["weave"], 0.7 * exec_s["weave_nofp"], exec_s)
+        self.assertLess(exec_s["weave"], 1.3 * exec_s["native"], exec_s)
 
 
 if __name__ == "__main__":
