@@ -13,6 +13,14 @@ pub fn check_program(stmts: &[Stmt], tools: &ToolRegistry) -> Vec<Diagnostic> {
 /// Check `stmts` against names already assigned. Updates `defined` with names
 /// assigned on every path.
 pub fn check_block(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<String>) -> Vec<Diagnostic> {
+    let mut diags = check_block_inner(stmts, tools, defined);
+    for d in &mut diags {
+        d.message = crate::parse::unhide(&d.message);
+    }
+    diags
+}
+
+fn check_block_inner(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<String>) -> Vec<Diagnostic> {
     let mut diags = Vec::new();
     for stmt in stmts {
         match &stmt.kind {
@@ -34,8 +42,8 @@ pub fn check_block(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<S
                 diags.extend(check_expr(test, tools, defined));
                 let mut then_defined = defined.clone();
                 let mut else_defined = defined.clone();
-                diags.extend(check_block(body, tools, &mut then_defined));
-                diags.extend(check_block(orelse, tools, &mut else_defined));
+                diags.extend(check_block_inner(body, tools, &mut then_defined));
+                diags.extend(check_block_inner(orelse, tools, &mut else_defined));
                 // `if True:` (how loops with break/continue are desugared)
                 // always takes its body.
                 *defined = if matches!(test.kind, ExprKind::Bool(true)) {
@@ -49,7 +57,7 @@ pub fn check_block(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<S
                 let mut inner = defined.clone();
                 diags.extend(check_target(target, tools, &inner, false));
                 bind_target(target, &mut inner);
-                diags.extend(check_block(body, tools, &mut inner));
+                diags.extend(check_block_inner(body, tools, &mut inner));
                 // As in Python, a name assigned in the loop (the target, or
                 // `r = ...` in the body) may be used after it; it is unbound
                 // only if no iteration assigned it, which is a runtime error.
@@ -59,12 +67,12 @@ pub fn check_block(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<S
             }
             StmtKind::Try { body, handler } => {
                 let mut try_defined = defined.clone();
-                diags.extend(check_block(body, tools, &mut try_defined));
+                diags.extend(check_block_inner(body, tools, &mut try_defined));
                 let mut exc_defined = defined.clone();
                 if let Some(name) = &handler.name {
                     exc_defined.insert(name.clone());
                 }
-                diags.extend(check_block(&handler.body, tools, &mut exc_defined));
+                diags.extend(check_block_inner(&handler.body, tools, &mut exc_defined));
                 *defined = try_defined.intersection(&exc_defined).cloned().collect();
             }
             StmtKind::Pass => {}

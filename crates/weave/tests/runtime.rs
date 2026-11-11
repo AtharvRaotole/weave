@@ -76,11 +76,13 @@ fn namespaced_tool_calls_point_at_the_bare_name() {
     assert!(text.contains("`functions.fetch` is not defined"), "{text}");
     assert!(text.contains("call `fetch(...)` without the `functions.` prefix"), "{text}");
     assert!(!text.contains("used before assignment"), "{text}");
-    // `max(..., key=lambda ...)` (seen on the held-out suite) explains the loop to write instead.
-    let errors = engine.check("pairs = [[1, \"a\"]]\nbest = max(pairs, key=lambda p: p[0])\n");
+    // `max(..., key=lambda ...)` (seen on the held-out suite) now runs; a
+    // lambda anywhere else says where lambdas are supported.
+    assert!(engine.check("pairs = [[1, \"a\"]]\nbest = max(pairs, key=lambda p: p[0])\n").is_empty());
+    let errors = engine.check("f = [lambda p: p]\n");
     let text = errors.iter().map(|d| d.to_string()).collect::<Vec<_>>().join("\n");
-    assert!(text.contains("loop and keep the best item"), "{text}");
-    assert!(text.contains("write the logic as a for loop"), "{text}");
+    assert!(text.contains("only supported as `key=`"), "{text}");
+    assert!(text.contains("write a `def` helper"), "{text}");
     let plain = Engine::new();
     let sorted = plain.run("p = [[3, \"b\"], [1, \"a\"], [1, \"0\"]]\ns = sorted(p)\nm = max(p)\n").unwrap();
     assert_eq!(sorted.bindings["s"].to_string(), "[[1, '0'], [1, 'a'], [3, 'b']]");

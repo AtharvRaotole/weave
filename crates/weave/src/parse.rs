@@ -1,3 +1,7 @@
+mod sugar;
+
+use std::collections::{HashMap, HashSet};
+
 use ruff_python_ast as ast;
 use ruff_python_ast::{CmpOp, Expr, Number, Operator, Stmt, UnaryOp};
 use ruff_python_parser::parse_module;
@@ -15,8 +19,31 @@ pub struct ParsedProgram {
     pub errors: Vec<Diagnostic>,
 }
 
-pub fn parse_program(source: &str, line_offset: usize) -> Result<Vec<WStmt>, WeaveError> {
-    let parsed = parse_detailed(source, line_offset)?;
+/// Lowering state that outlives one chunk of a streamed script: helpers
+/// defined so far and the counter for compiler-introduced names.
+#[derive(Clone, Debug, Default)]
+pub struct LowerState {
+    defs: HashMap<String, DefInfo>,
+    fresh: usize,
+    expansions: usize,
+    stack: Vec<String>,
+}
+
+/// A top-level `def`, kept as source so each call site re-lowers it.
+#[derive(Clone, Debug)]
+struct DefInfo {
+    text: String,
+    line_offset: usize,
+}
+
+struct FuncCtx {
+    ret: String,
+    plain_end: bool,
+    dry: bool,
+}
+
+pub fn parse_program_with(source: &str, line_offset: usize, state: &mut LowerState) -> Result<Vec<WStmt>, WeaveError> {
+    let parsed = parse_detailed_with(source, line_offset, state)?;
     if parsed.errors.is_empty() {
         Ok(parsed.stmts)
     } else {
@@ -27,6 +54,10 @@ pub fn parse_program(source: &str, line_offset: usize) -> Result<Vec<WStmt>, Wea
 /// Lower the module even when individual statements are outside the subset.
 /// A hard syntax failure is still an `Err`.
 pub fn parse_detailed(source: &str, line_offset: usize) -> Result<ParsedProgram, WeaveError> {
+    parse_detailed_with(source, line_offset, &mut LowerState::default())
+}
+
+pub fn parse_detailed_with(source: &str, line_offset: usize, state: &mut LowerState) -> Result<ParsedProgram, WeaveError> {
     if let Err((offset, message)) = crate::limits::check_source_shape(source) {
         let (line, col) = line_col(source, TextSize::new(offset as u32));
         return Err(WeaveError::static_err(line + line_offset, col, message));
@@ -50,14 +81,37 @@ pub fn parse_detailed(source: &str, line_offset: usize) -> Result<ParsedProgram,
             format!("syntax error: {}", err.error),
         ));
     }
+    let later_defs = parsed
+        .syntax()
+        .body
+        .iter()
+        .filter_map(|stmt| match stmt {
+            Stmt::FunctionDef(f) => Some(f.name.id.as_str().to_string()),
+            _ => None,
+        })
+        .collect();
     let mut lower = Lowerer {
         source,
         lines: LineIndex::new(source),
         line_offset,
         errors: Vec::new(),
         loops: Vec::new(),
+        st: state,
+        scopes: Vec::new(),
+        holes: Vec::new(),
+        later_defs,
+        depth: 0,
+        expr_depth: 0,
+        func: None,
     };
     let stmts: Vec<WStmt> = parsed.syntax().body.iter().map(|stmt| lower.stmt(stmt)).collect();
+    let stmts = lower.place(stmts);
+    let mut seen = HashSet::new();
+    let mut errors = std::mem::take(&mut lower.errors);
+    errors.retain(|d| seen.insert((d.line, d.col, d.message.clone())));
+    for d in &mut errors {
+        d.message = unhide(&d.message);
+    }
     for stmt in &stmts {
         if stmt_depth(stmt, 1) > MAX_DEPTH {
             return Err(WeaveError::static_err(
@@ -67,10 +121,7 @@ pub fn parse_detailed(source: &str, line_offset: usize) -> Result<ParsedProgram,
             ));
         }
     }
-    Ok(ParsedProgram {
-        stmts,
-        errors: lower.errors,
-    })
+    Ok(ParsedProgram { stmts, errors })
 }
 
 /// Depth of a statement tree. Stops descending once past [`MAX_DEPTH`], so the
@@ -139,16 +190,47 @@ fn expr_depth(expr: &WExpr, depth: usize) -> usize {
     }
 }
 
-struct Lowerer<'a> {
+/// `__weave_v12_total` -> `total` in messages shown to the model.
+pub fn unhide(message: &str) -> String {
+    let marker = format!("{HIDDEN_PREFIX}v");
+    let mut out = String::with_capacity(message.len());
+    let mut rest = message;
+    while let Some(i) = rest.find(&marker) {
+        out.push_str(&rest[..i]);
+        let after = &rest[i + marker.len()..];
+        let digits = after.chars().take_while(|c| c.is_ascii_digit()).count();
+        if digits > 0 && after[digits..].starts_with('_') {
+            rest = &after[digits + 1..];
+        } else {
+            out.push_str(&marker);
+            rest = after;
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+struct Lowerer<'a, 's> {
     source: &'a str,
     lines: LineIndex,
     line_offset: usize,
     errors: Vec<Diagnostic>,
     /// Enclosing loops, innermost last: (break flag, continue flag, used).
+    /// Inside a helper the first entry is the helper's own pseudo-loop.
     loops: Vec<(String, String, bool)>,
+    st: &'s mut LowerState,
+    /// Renamed variables, innermost last; `false` stops lookup (helper bodies
+    /// see only their own locals and the globals).
+    scopes: Vec<(HashMap<String, String>, bool)>,
+    holes: crate::anf::Holes,
+    /// Top-level helpers defined later in this chunk.
+    later_defs: HashSet<String>,
+    depth: usize,
+    expr_depth: usize,
+    func: Option<FuncCtx>,
 }
 
-impl<'a> Lowerer<'a> {
+impl<'a> Lowerer<'a, '_> {
     fn loc(&self, offset: TextSize) -> (usize, usize) {
         let (line, col) = self.lines.line_col(self.source, offset.to_usize());
         (line + self.line_offset, col)
@@ -167,12 +249,18 @@ impl<'a> Lowerer<'a> {
     fn stmt(&mut self, stmt: &Stmt) -> WStmt {
         let (line, col) = self.loc(stmt.start());
         let kind = match stmt {
+            Stmt::Assign(s) if matches!(s.value.as_ref(), Expr::Lambda(_)) => {
+                self.err_hint(
+                    stmt.start(),
+                    "assigning a `lambda` is not supported",
+                    "write a helper instead: `def name(x): return ...`",
+                );
+                StmtKind::Pass
+            }
             Stmt::Assign(s) => {
+                let value = self.expr(&s.value);
                 let targets = s.targets.iter().map(|t| self.target(t)).collect();
-                StmtKind::Assign {
-                    targets,
-                    value: self.expr(&s.value),
-                }
+                StmtKind::Assign { targets, value }
             }
             Stmt::AugAssign(s) => match self.bin_op(s.op) {
                 Some(op) => StmtKind::AugAssign {
@@ -201,7 +289,10 @@ impl<'a> Lowerer<'a> {
                     StmtKind::Pass
                 }
             },
-            Stmt::Expr(s) => desugar_list_mutation(self.expr(&s.value)),
+            Stmt::Expr(s) => match self.sugar_method_stmt(&s.value) {
+                Some(kind) => kind,
+                None => desugar_list_mutation(self.expr(&s.value)),
+            },
             Stmt::If(s) => self.lower_if(s),
             Stmt::For(s) => {
                 if s.is_async {
@@ -227,20 +318,13 @@ impl<'a> Lowerer<'a> {
                 }
             }
             Stmt::Pass(_) => StmtKind::Pass,
-            Stmt::FunctionDef(_) => {
-                self.err_hint(
-                    stmt.start(),
-                    "`def` is not supported",
-                    "register a host tool instead of defining a function",
-                );
-                StmtKind::Pass
-            }
+            Stmt::FunctionDef(fd) => self.define(stmt, fd),
             Stmt::ClassDef(_) => {
                 self.err_hint(stmt.start(), "`class` is not supported", "use a dict for the record");
                 StmtKind::Pass
             }
             Stmt::Return(_) => {
-                self.err_hint(stmt.start(), "`return` is not supported", "the script has no functions; assign the value instead");
+                self.err_hint(stmt.start(), "`return` outside a `def` helper", "assign the value instead, or print it");
                 StmtKind::Pass
             }
             Stmt::Delete(_) => {
@@ -286,7 +370,9 @@ impl<'a> Lowerer<'a> {
             }
             Stmt::Break(_) | Stmt::Continue(_) => {
                 let is_break = matches!(stmt, Stmt::Break(_));
-                match self.loops.last_mut() {
+                let base = usize::from(self.func.is_some());
+                let in_loop = self.loops.len() > base;
+                match self.loops.last_mut().filter(|_| in_loop) {
                     Some((brk, cont, used)) => {
                         *used = true;
                         let flag = if is_break { brk.clone() } else { cont.clone() };
@@ -358,7 +444,7 @@ impl<'a> Lowerer<'a> {
                 line,
                 col,
                 catches_all,
-                name: handler.name.as_ref().map(|id| id.id.as_str().to_string()),
+                name: handler.name.as_ref().map(|id| self.resolve(id.id.as_str())),
                 body: self.suite(&handler.body),
             },
         }
@@ -391,17 +477,32 @@ impl<'a> Lowerer<'a> {
     }
 
     fn suite(&mut self, stmts: &[Stmt]) -> Vec<WStmt> {
-        stmts.iter().map(|stmt| self.stmt(stmt)).collect()
+        self.depth += 1;
+        let mut out = Vec::new();
+        for (i, stmt) in stmts.iter().enumerate() {
+            match stmt {
+                Stmt::Return(r) if self.func.is_some() => out.extend(self.lower_return(r, i + 1 == stmts.len())),
+                _ => out.push(self.stmt(stmt)),
+            }
+        }
+        self.depth -= 1;
+        out
     }
 
     fn target(&mut self, expr: &Expr) -> Target {
         let (line, col) = self.loc(expr.start());
         match expr {
-            Expr::Name(name) => Target::Name {
-                line,
-                col,
-                name: name.id.as_str().to_string(),
-            },
+            Expr::Name(name) => {
+                let id = name.id.as_str();
+                if self.is_helper(id) {
+                    self.err_hint(
+                        expr.start(),
+                        format!("`{id}` is a helper defined with `def`"),
+                        "use another name for this variable",
+                    );
+                }
+                Target::Name { line, col, name: self.resolve(id) }
+            }
             Expr::Subscript(sub) => {
                 if matches!(sub.slice.as_ref(), Expr::Slice(_)) {
                     self.err(expr.start(), "slice assignment is not supported; build a new list");
@@ -443,6 +544,24 @@ impl<'a> Lowerer<'a> {
     }
 
     fn expr(&mut self, expr: &Expr) -> WExpr {
+        // Bound the lowering recursion itself; `stmt_depth` re-checks the result.
+        if self.expr_depth > MAX_DEPTH {
+            let (line, col) = self.loc(expr.start());
+            if !self.errors.iter().any(|d| d.message.contains("nested deeper than")) {
+                self.err(expr.start(), format!("code is nested deeper than {MAX_DEPTH} levels; split it into smaller statements"));
+            }
+            return WExpr { line, col, kind: ExprKind::None };
+        }
+        self.expr_depth += 1;
+        let lowered = self.expr_inner(expr);
+        self.expr_depth -= 1;
+        lowered
+    }
+
+    fn expr_inner(&mut self, expr: &Expr) -> WExpr {
+        if let Some(lowered) = self.sugar(expr) {
+            return lowered;
+        }
         let (line, col) = self.loc(expr.start());
         let kind = match expr {
             Expr::NoneLiteral(_) => ExprKind::None,
@@ -470,7 +589,17 @@ impl<'a> Lowerer<'a> {
                 self.err(expr.start(), "`...` is not supported");
                 ExprKind::None
             }
-            Expr::Name(name) => ExprKind::Name(name.id.as_str().to_string()),
+            Expr::Name(name) => {
+                let id = name.id.as_str();
+                if self.is_helper(id) {
+                    self.err_hint(
+                        expr.start(),
+                        format!("helper `{id}` can only be called"),
+                        format!("call it, e.g. `{id}(x)`, or pass it as `key={id}`"),
+                    );
+                }
+                ExprKind::Name(self.resolve(id))
+            }
             Expr::List(list) => {
                 if list.elts.iter().any(|e| matches!(e, Expr::Starred(_))) {
                     self.err(expr.start(), "starred list items are not supported");
@@ -493,10 +622,6 @@ impl<'a> Lowerer<'a> {
                     items.push((self.expr(key), self.expr(&item.value)));
                 }
                 ExprKind::Dict(items)
-            }
-            Expr::Set(_) => {
-                self.err(expr.start(), "sets are not supported; use a list or a dict");
-                ExprKind::None
             }
             Expr::BinOp(op) => match self.bin_op(op.op) {
                 Some(oper) => ExprKind::BinOp {
@@ -609,21 +734,12 @@ impl<'a> Lowerer<'a> {
                 );
                 ExprKind::None
             }
-            Expr::Lambda(_) => {
-                self.err_hint(
-                    expr.start(),
-                    "`lambda` is not supported",
-                    "write the logic as a for loop over the items",
-                );
-                ExprKind::None
-            }
-            Expr::ListComp(_) | Expr::SetComp(_) | Expr::DictComp(_) | Expr::Generator(_) => {
-                self.err(
-                    expr.start(),
-                    "comprehensions are not supported; use a for loop",
-                );
-                ExprKind::None
-            }
+            Expr::Set(_)
+            | Expr::Lambda(_)
+            | Expr::ListComp(_)
+            | Expr::SetComp(_)
+            | Expr::DictComp(_)
+            | Expr::Generator(_) => unreachable!("lowered by `sugar`"),
             Expr::Await(_) => {
                 self.err(expr.start(), "`await` is not supported; Weave schedules tool calls itself");
                 ExprKind::None
@@ -826,6 +942,18 @@ fn is_jump(stmt: &WStmt, brk: &str, cont: &str) -> bool {
     }
 }
 
+fn sets_flag(stmts: &[WStmt], brk: &str, cont: &str) -> bool {
+    stmts.iter().any(|s| {
+        is_jump(s, brk, cont)
+            || match &s.kind {
+                StmtKind::If { body, orelse, .. } => sets_flag(body, brk, cont) || sets_flag(orelse, brk, cont),
+                StmtKind::For { body, .. } => sets_flag(body, brk, cont),
+                StmtKind::Try { body, handler } => sets_flag(body, brk, cont) || sets_flag(&handler.body, brk, cont),
+                _ => false,
+            }
+    })
+}
+
 /// `not a and not b ...` over flag names.
 fn none_set(line: usize, col: usize, flags: &[&str]) -> crate::ast::Expr {
     let values = flags
@@ -867,8 +995,12 @@ fn guard_jumps(stmts: Vec<WStmt>, brk: &str, cont: &str) -> (Vec<WStmt>, bool) {
                 let (handler_body, b) = guard_jumps(handler.body, brk, cont);
                 (StmtKind::Try { body, handler: crate::ast::Handler { body: handler_body, ..handler } }, a || b)
             }
-            // A nested loop's own break/continue use its own flags.
-            other => (other, false),
+            // A nested loop's own break/continue use its own flags; only a
+            // helper's `return` sets an outer loop's flag from inside it.
+            other => {
+                let jumps = matches!(&other, StmtKind::For { body, .. } if sets_flag(body, brk, cont));
+                (other, jumps)
+            }
         };
         out.push(WStmt { line, col, kind });
         if jumps {

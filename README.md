@@ -262,8 +262,9 @@ footprints guide speculative cache invalidation; they do not parallelize writes.
 
 The language supports assignment, `if`/`elif`/`else`, `for`, `break`, `continue`,
 `try`/`except ToolError`, lists, dictionaries, f-strings, and selected builtins and
-methods. Imports, user-defined functions, classes, `while`, comprehensions, and
-`await` are rejected. This is a Python-like subset with its own value semantics.
+methods, comprehensions and generator expressions, `key=` lambdas, `map`/`filter`, sets
+(as duplicate-free lists), and top-level `def` helpers, which are inlined at each call. Imports, classes,
+`while`, recursion, and `await` are rejected with a fix hint. This is a Python-like subset with its own value semantics.
 See the [language reference](docs/language.html).
 
 ## Benchmarks

@@ -443,4 +443,6 @@ REAL = tuple(FAMILIES[f](n, s, "real") for f, n, s in [
     ("sqlite_triage", 12, 101), ("sqlite_triage", 20, 102),
     ("git_review", 8, 101), ("git_review", 14, 102),
     ("warehouse_shortfall", 10, 101), ("warehouse_shortfall", 16, 102)])
-REAL_SUITES = {"real_dev": REAL_DEV, "real": REAL}
+# Round 3, pre-registered in Addendum 3 before any live run: the REAL recipe with fresh seeds.
+REAL2 = tuple(FAMILIES[t.family](t.size, t.seed + 100, "real2") for t in REAL)
+REAL_SUITES = {"real_dev": REAL_DEV, "real": REAL, "real2": REAL2}

@@ -27,8 +27,9 @@ BLUE, GREY = "#2457d6", "#a3a9b4"
 
 def load(run):
     d = RESULTS / run
-    if not d.exists():
-        d = ROOT / "bench/results/v5" / run
+    for newer in ("v5", "v6"):
+        if not d.exists():
+            d = ROOT / "bench/results" / newer / run
     rows = [json.loads(line) for line in (d / "rows.jsonl").read_text().splitlines() if line.strip()]
     return json.loads((d / "run.json").read_text()), rows
 
