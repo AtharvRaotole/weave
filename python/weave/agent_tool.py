@@ -27,6 +27,8 @@ from weave._native import Engine
 RULES = (
     "Do the whole task in as few scripts as possible: one script can call many functions, loop over results, "
     "branch on them and aggregate, and each call of this tool costs a model round trip. "
+    "Call this tool once per turn: put the reads, the decisions and the writes in that one script instead of "
+    "splitting them across parallel calls (scripts do not share variables). "
     "Print only the values you need (the final answer, or what you must see to decide the next step), "
     "not whole intermediate results. "
     "Write a Weave script: a Python subset. No imports, class, while, with, or recursion "
@@ -196,6 +198,19 @@ class WeaveTool:
     def description(self) -> str:
         lines = "\n".join(tool_line(f) for f in self.functions)
         return f"{RULES}\nFunctions callable from the script:\n{lines}"
+
+    @property
+    def request_options(self) -> dict:
+        """Request settings to send with this tool, e.g. ``client.responses.create(...,
+        **tool.request_options)``.
+
+        Weave already runs independent calls in parallel inside one script, so the model gains
+        nothing from several parallel calls of this tool, and splitting the work loses it: scripts
+        do not share variables. Measured on the round-4 dev suite (GPT-4.1, temperature 0, first
+        turn of a 14-file git task): with parallel tool calls on, 6 of 64 responses sent two
+        scripts and then ran away to max_output_tokens with nothing more in the output; with them
+        off, 0 of 28 did, and each sent a single script."""
+        return {"parallel_tool_calls": False}
 
     @property
     def parameters(self) -> dict:

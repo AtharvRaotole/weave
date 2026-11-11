@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Agent tool
+- `WeaveTool.request_options` returns `{"parallel_tool_calls": False}` for hosts to pass with the tool, and the tool
+  rules say to call it once per turn (scripts do not share variables). GPT-4.1 otherwise split tasks across two
+  parallel scripts and sometimes ran away to `max_output_tokens` (`bench/results/v7/diag-turn1/NOTES.md`).
+- `examples/demo.py`: the offline README demo (13 tool calls in 4 overlapping waves, measured); run in CI.
+
+### Benchmark harness
+- An `incomplete` Responses result (billed in full) now adds its provider-reported usage to the trial
+  (`billed_on_error`) with an output excerpt (`partial_output`); every attempt logs its usage. Previously 0.
+- `confirm4` suite (Addendum 4) and the dev-only `real_dev_git` suite.
+
 ### Language
 - List, dict and set comprehensions and generator expressions (nested `for`/`if`), lowered to ordinary pipelined
   loops: `[get(k) for k in keys]` issues its calls in parallel. `any`/`all` over a generator stop at the first

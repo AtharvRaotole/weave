@@ -46,9 +46,15 @@ def _pace(interval_s):
 
 
 class ProviderError(Exception):
-    def __init__(self, kind, detail=""):
+    """A failed request. ``usage`` holds what the provider billed for it when the response said so
+    (an incomplete Responses result is billed in full); None when the provider reported nothing
+    (HTTP errors, timeouts). ``partial`` is a short excerpt of an incomplete response's output."""
+
+    def __init__(self, kind, detail="", usage=None, partial=None):
         super().__init__(f"{kind}: {detail}")
         self.kind = kind
+        self.usage = usage
+        self.partial = partial
 
 
 class ChatClient:
@@ -67,12 +73,13 @@ class ChatClient:
         self.timeout_s, self.retries, self.request_cap = timeout_s, retries, request_cap
         self.sent = 0
         self.min_interval_s = min_interval_s
+        self.parallel_tool_calls = True  # the Weave arm applies WeaveTool.request_options (round 4)
 
     def payload(self, messages, tools):
         body = {"model": self.model, "messages": [{k: v for k, v in m.items() if k != "_raw"} for m in messages]}
         if tools:
             body["tools"] = tools
-            body["parallel_tool_calls"] = True
+            body["parallel_tool_calls"] = getattr(self, "parallel_tool_calls", True)
             if self.provider == "gemini":
                 body.pop("parallel_tool_calls")  # accepted implicitly; the flag is rejected
         if self.provider == "openai" and self.reasoning_effort:
@@ -101,7 +108,7 @@ class ChatClient:
             elif m["role"] == "tool":
                 items.append({"type": "function_call_output", "call_id": m["tool_call_id"], "output": m["content"]})
         body = {"model": self.model, "input": items, "store": False, "max_output_tokens": self.max_tokens,
-                "parallel_tool_calls": True}
+                "parallel_tool_calls": getattr(self, "parallel_tool_calls", True)}
         if instructions:
             body["instructions"] = instructions
         if tools:
@@ -141,14 +148,18 @@ class ChatClient:
                 if responses:
                     rec["model"] = out.get("model")
                     rec["finish_reason"] = out.get("status")
+                    usage = normalize_responses_usage(out.get("usage"))
+                    rec["usage"] = usage
                     if out.get("status") != "completed":
-                        raise ProviderError("incomplete", str(out.get("incomplete_details")))
-                    return _from_responses(out), normalize_responses_usage(out.get("usage")), attempts
+                        raise ProviderError("incomplete", str(out.get("incomplete_details")), usage=usage,
+                                            partial=_excerpt(out))
+                    return _from_responses(out), usage, attempts
                 choice = (out.get("choices") or [{}])[0]
                 msg = choice.get("message") or {}
                 rec["finish_reason"] = choice.get("finish_reason")
                 rec["model"] = out.get("model")
-                return msg, normalize_usage(out.get("usage")), attempts
+                rec["usage"] = normalize_usage(out.get("usage"))
+                return msg, rec["usage"], attempts
             except urllib.error.HTTPError as exc:
                 rec["status"] = exc.code
                 rec["elapsed_s"] = time.monotonic() - t0
@@ -186,6 +197,21 @@ def normalize_usage(raw):
     cd = raw.get("completion_tokens_details") or {}
     return {"input": int(raw.get("prompt_tokens") or 0), "output": int(raw.get("completion_tokens") or 0),
             "cached": int(pd.get("cached_tokens") or 0), "reasoning": int(cd.get("reasoning_tokens") or 0)}
+
+
+def _excerpt(out, limit=1500):
+    """Head and tail of an incomplete response's text and tool-call arguments, for diagnosis."""
+    parts = []
+    for o in out.get("output") or []:
+        if o.get("type") == "function_call":
+            parts.append(f"[call {o.get('name')}] " + (o.get("arguments") or ""))
+        elif o.get("type") == "message":
+            parts.extend(p.get("text", "") for p in o.get("content", []) if p.get("type") == "output_text")
+    text = "\n".join(parts)
+    if len(text) <= limit:
+        return text
+    half = limit // 2
+    return text[:half] + f"\n[... {len(text) - limit} characters omitted ...]\n" + text[-half:]
 
 
 def _from_responses(out):

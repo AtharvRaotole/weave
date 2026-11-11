@@ -1,0 +1,187 @@
+{
+  "protocol": "weave-benchmark-protocol-v4",
+  "kind": "live",
+  "started_utc": "2026-11-11T04:09:23Z",
+  "source_commit": "afed294470cdbc4bde56e1456bcf7d45da77cc39",
+  "source_dirty": false,
+  "weave_version": "0.0.0",
+  "python": "3.13.5",
+  "provider": "openai",
+  "model": "gpt-4.1-2025-04-14",
+  "effort": null,
+  "temperature": 0.0,
+  "max_tokens": 4096,
+  "suite": "real_dev_git",
+  "manifest": {
+    "suite": "real_dev_git",
+    "tasks": [
+      {
+        "id": "git_review-n8-s901",
+        "family": "git_review",
+        "size": 8,
+        "fingerprint": "6d26673dcfd25f2d"
+      },
+      {
+        "id": "git_review-n8-s902",
+        "family": "git_review",
+        "size": 8,
+        "fingerprint": "1338fed8f87389c2"
+      },
+      {
+        "id": "git_review-n8-s903",
+        "family": "git_review",
+        "size": 8,
+        "fingerprint": "1cd9226c045d0464"
+      },
+      {
+        "id": "git_review-n8-s904",
+        "family": "git_review",
+        "size": 8,
+        "fingerprint": "781b480142fb46d3"
+      },
+      {
+        "id": "git_review-n14-s901",
+        "family": "git_review",
+        "size": 14,
+        "fingerprint": "c5c29eb71ca3d633"
+      },
+      {
+        "id": "git_review-n14-s902",
+        "family": "git_review",
+        "size": 14,
+        "fingerprint": "d0f2cbe5feb478f5"
+      },
+      {
+        "id": "git_review-n14-s903",
+        "family": "git_review",
+        "size": 14,
+        "fingerprint": "bbd3770c49500fe3"
+      },
+      {
+        "id": "git_review-n14-s904",
+        "family": "git_review",
+        "size": 14,
+        "fingerprint": "b9a678cb2e1200f2"
+      }
+    ],
+    "hash": "d10d0bb256728b04"
+  },
+  "task_subset": null,
+  "modes": [
+    "weave"
+  ],
+  "repeats": 3,
+  "latency_ms": [
+    0.0
+  ],
+  "concurrency_cap": 8,
+  "max_turns": 16,
+  "system_prompt": "You are an operations agent with access to tools. Use them to complete the user's task; tool results are authoritative. When the task is complete, reply with only the final answer in the requested format and no other text.",
+  "planned_trials": 24,
+  "workers": 6,
+  "min_interval_s": 0.0,
+  "token_budget": 200000,
+  "seed": 2026,
+  "finished_utc": "2026-11-11T04:09:59Z",
+  "completed_trials": 24,
+  "skipped_for_budget": 0,
+  "tokens_spent": 119047,
+  "summary": {
+    "real_dev@0.0ms": {
+      "weave": {
+        "trials": 24,
+        "passed": 22,
+        "pass_rate": 0.9166666666666666,
+        "pass_wilson95": [
+          0.741507847985494,
+          0.9768416721570266
+        ],
+        "statuses": {
+          "answered": 22,
+          "provider_error:incomplete": 2
+        },
+        "answer_wrong": 2,
+        "state_wrong": 2,
+        "unexpected_write_trials": 0,
+        "mean_turns": 2.9166666666666665,
+        "mean_turns_ci95": [
+          2.625,
+          3.1666666666666665
+        ],
+        "mean_wall_s": 6.354735950083826,
+        "mean_wall_s_ci95": [
+          4.668897666708593,
+          8.720541256458395
+        ],
+        "p50_wall_s": 4.9946747875037545,
+        "p95_wall_s": 22.254983598002582,
+        "mean_tokens": 4960.291666666667,
+        "mean_tokens_ci95": [
+          4616.291666666667,
+          5307.791666666667
+        ],
+        "mean_input_tokens": 4220.666666666667,
+        "mean_output_tokens": 739.625,
+        "sum_tokens": {
+          "input": 101296,
+          "output": 17751,
+          "cached": 25344,
+          "reasoning": 0
+        },
+        "unknown_usage_turns": 0,
+        "mean_backend_calls": 17.5,
+        "script_error_trials": 1,
+        "retry_wait_s": 0.0
+      },
+      "by_family": {
+        "git_review": {
+          "weave": {
+            "trials": 24,
+            "passed": 22,
+            "pass_rate": 0.9166666666666666,
+            "pass_wilson95": [
+              0.741507847985494,
+              0.9768416721570266
+            ],
+            "statuses": {
+              "answered": 22,
+              "provider_error:incomplete": 2
+            },
+            "answer_wrong": 2,
+            "state_wrong": 2,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.9166666666666665,
+            "mean_turns_ci95": [
+              2.625,
+              3.1666666666666665
+            ],
+            "mean_wall_s": 6.354735950083826,
+            "mean_wall_s_ci95": [
+              4.668897666708593,
+              8.720541256458395
+            ],
+            "p50_wall_s": 4.9946747875037545,
+            "p95_wall_s": 22.254983598002582,
+            "mean_tokens": 4960.291666666667,
+            "mean_tokens_ci95": [
+              4616.291666666667,
+              5307.791666666667
+            ],
+            "mean_input_tokens": 4220.666666666667,
+            "mean_output_tokens": 739.625,
+            "sum_tokens": {
+              "input": 101296,
+              "output": 17751,
+              "cached": 25344,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 17.5,
+            "script_error_trials": 1,
+            "retry_wait_s": 0.0
+          }
+        }
+      }
+    }
+  }
+}

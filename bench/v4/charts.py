@@ -27,7 +27,7 @@ BLUE, GREY = "#2457d6", "#a3a9b4"
 
 def load(run):
     d = RESULTS / run
-    for newer in ("v5", "v6"):
+    for newer in ("v5", "v6", "v7"):
         if not d.exists():
             d = ROOT / "bench/results" / newer / run
     rows = [json.loads(line) for line in (d / "rows.jsonl").read_text().splitlines() if line.strip()]
@@ -201,6 +201,46 @@ def headline_net(runs, suite):
                     "tokens": stats.paired(g, lambda r: r["total_tokens"], 2), "mcnemar": stats.mcnemar_exact(g),
                     "statuses": sorted({r["status"] for r in rows}), "n": len(rows)})
     return out
+
+
+def round4_section(runs):
+    """Round 4 (Addendum 4): confirm4 headline and by family, G1 (no runaway), G2 (git_review), A1 (accounting)."""
+    c4 = headline_net(runs, "confirm4")
+    if not c4:
+        return []
+    lines = ["", "## Real services, round 4 (`confirm4`: fresh seeds; Weave arm sends one script per turn)", "",
+             "Weave arm: `parallel_tool_calls: false` (`WeaveTool.request_options`), declared in Addendum 4; native "
+             "arm unchanged. No injected latency; wall time is net of provider waits (zero here).", ""]
+    lines += [x.replace(" 0 ms |", " real |") for x in headline_table(c4)]
+    lines += ["", "### G1, G2 and A1", "",
+              "| model | Weave incomplete (G1) | git_review pass W / N | git_review wall s W / N | git_review Δ wall s [95% CI] | provider errors with 0 tokens but billed usage (A1) |",
+              "|---|---|---|---|---|---|"]
+    for label, run in runs["confirm4"].items():
+        _, rows = load(run)
+        inc = sum(r["status"] == "provider_error:incomplete" for r in rows if r["mode"] == "weave")
+        g = [r for r in rows if r["family"] == "git_review"]
+        w, n = sel(g, mode="weave"), sel(g, mode="native")
+        d = stats.paired(g, lambda r: r["wall_s"] - r["retry_wait_s"], 5)
+        bad = sum(r["status"].startswith("provider_error") and r["total_tokens"] == 0 and r.get("billed_on_error")
+                  for r in rows)
+        lines.append(f"| {label} | {inc} | {sum(r['passed'] for r in w)}/{len(w)} / {sum(r['passed'] for r in n)}/{len(n)} | "
+                     f"{statistics.fmean(r['wall_s'] for r in w):.2f} / {statistics.fmean(r['wall_s'] for r in n):.2f} | "
+                     f"{d['mean_diff']:+.2f} {fmt_ci(d['mean_diff_ci95'])} | {bad} |")
+    lines += family_table(families(runs, 0.0, "confirm4"), "### `confirm4` by family (mean per trial)")
+    lines += ["", "### Unrecorded spend in rounds 1–3 (disclosed, not re-derived)", "",
+              "Rows that ended `provider_error:incomplete` before round 4 recorded 0 tokens for the incomplete request; "
+              "their ledgers did not keep its usage. Each such request was billed its full 4,096 output tokens plus its "
+              "input (about 0.9–1.0k on a first turn).", "",
+              "| suite | model | rows | recorded tokens of the failed request | billed at least |", "|---|---|---|---|---|"]
+    for suite, entries in runs.items():
+        if suite in ("confirm4", "dev_round4"):
+            continue
+        for label, run in entries.items():
+            _, rows = load(run)
+            k = sum(r["status"] == "provider_error:incomplete" and "billed_on_error" not in r for r in rows)
+            if k:
+                lines.append(f"| {suite} | {label} | {k} | 0 | {k * 4096:,} output tokens |")
+    return lines
 
 
 def headline_table(head):
@@ -391,6 +431,37 @@ def charts_v6(runs):
     save(fig, "benchmark-v6-real")
 
 
+def charts_v7(runs):
+    """Weave/native wall time and turns on real services across rounds 2, 3 and 4 (GPT-4.1, GPT-5.4 mini)."""
+    import matplotlib.pyplot as plt
+    rounds = [(suite, name, color) for suite, name, color in (
+        ("real", "round 2 (`real`)", "#c9ced6"), ("real2", "round 3 (`real2`)", GREY), ("confirm4", "round 4 (`confirm4`)", BLUE))
+        if suite in runs]
+    if not any(s == "confirm4" for s, _, _ in rounds):
+        return
+    data = {s: {h["label"]: h for h in headline(runs, s)} for s, _, _ in rounds}
+    labels = [l for l in data["confirm4"] if all(l in data[s] for s, _, _ in rounds)]
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.9), sharey=True)
+    width = 0.8 / len(rounds)
+    for ax, (metric, title) in zip(axes, (("wall", "wall time"), ("turns", "model turns"))):
+        for k, (suite, name, color) in enumerate(rounds):
+            xs = [j + (k - (len(rounds) - 1) / 2) * width for j in range(len(labels))]
+            ys = [data[suite][l][metric]["ratio_gm"] for l in labels]
+            lo = [y - data[suite][l][metric]["ratio_gm_ci95"][0] for y, l in zip(ys, labels)]
+            hi = [data[suite][l][metric]["ratio_gm_ci95"][1] - y for y, l in zip(ys, labels)]
+            ax.bar(xs, ys, width * 0.92, yerr=[lo, hi], capsize=2, color=color, label=name)
+            for x, y in zip(xs, ys):
+                ax.text(x, 0.03, f"{y:.2f}", ha="center", va="bottom", fontsize=6.5, color="white" if color != "#c9ced6" else "#333")
+        ax.axhline(1.0, color="#333", lw=0.8, ls="--")
+        ax.set_xticks(range(len(labels)), labels, fontsize=7)
+        ax.set_title(f"Weave / native {title}", fontsize=9)
+    axes[0].set_ylabel("geo. mean ratio (below 1: Weave less)")
+    axes[0].legend(frameon=False, fontsize=6.5, loc="upper left")
+    fig.suptitle("Real services (SQLite, git, files, HTTP, PyPI), fresh seeds each round", fontsize=9)
+    fig.tight_layout()
+    save(fig, "benchmark-v7-real")
+
+
 def charts(head, fams, scaling):
     import matplotlib
     matplotlib.use("Agg")
@@ -467,11 +538,13 @@ def main():
     extra = ablation(runs) + fp_lines + (echo_section(runs) if fp else [])
     if "confirm3" in runs or "real2" in runs:
         extra += static_section(runs)
+    extra += round4_section(runs)
     write_tables(runs, head, fams, scaling, extra)
     try:
         charts(head, fams, scaling)
         charts_v5(runs, fp)
         charts_v6(runs)
+        charts_v7(runs)
     except ImportError:
         print("matplotlib not installed: wrote tables only")
     print(f"wrote {TABLES.relative_to(ROOT)} and assets/benchmark-v4*.svg")

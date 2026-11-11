@@ -215,3 +215,54 @@ Hypotheses:
 - **R2.** R1 (Addendum 2) holds on `real2` for GPT-5.5 and GPT-5.4 mini.
 - **C4.** H1 (turns), H3 (tokens, ratio ≤ 1) and H4 (pass rate, non-inferiority) hold on `confirm3` for each OpenAI
   model. H2 (wall time at 200 ms) is tested for GPT-4.1 and GPT-5.4 mini.
+
+## Addendum 4: round 4 (written and committed before any run on `confirm4`)
+
+Since Addendum 3, three things changed.
+
+1. **Accounting.** A Responses request that ends `incomplete` (for example at `max_output_tokens`) is billed in
+   full but was recorded as 0 tokens. The harness now adds the provider-reported usage of such a request to the
+   trial (`billed_on_error`) and keeps a short excerpt of its output (`partial_output`); every attempt also logs its
+   usage. Requests that fail without a usage report (HTTP 429/5xx, timeouts) still add 0, as before. The round-1–3
+   ledgers did not keep the usage of the three affected OpenAI trials (round-2 `real` GPT-4.1 ×1, round-3 `real2`
+   GPT-4.1 ×2), so past tables are not re-derived; their unrecorded spend is at least 3 × 4,096 output tokens and is
+   disclosed.
+2. **One script per turn.** Diagnosis on the dev-only suite `real_dev_git` (`bench/results/v7/diag-turn1/NOTES.md`):
+   GPT-4.1 at temperature 0 usually answers the first turn with two parallel `run_weave` calls, and in 6 of 64
+   first-turn samples it then ran away to `max_output_tokens` with nothing more in the output. With
+   `parallel_tool_calls` off it sent one script every time (0 of 28 ran away). The round-3 "printed the tags instead
+   of creating them" failure also came from splitting the work across parallel scripts and re-typing results.
+   `WeaveTool.request_options` now returns `{"parallel_tool_calls": false}` and the tool rules say to call the tool
+   once per turn because scripts do not share variables. **Deviation from identical settings, declared here:** the
+   Weave arm sends `parallel_tool_calls: false` (the product's recommended setting); the native arm keeps `true`,
+   which is what native tool calling needs to batch calls. Model, temperature/effort, max output tokens (4,096),
+   system prompt, task text, tools and backends stay identical.
+3. Dev results after the change (not evidence): GPT-4.1 `real_dev_git` Weave 24/24, 2.00 turns, 2,233 tokens per trial
+   (round-3 product on the same suite: 22/24, 2.92, 4,960, the two failures incomplete); GPT-4.1 `real_dev` Weave 12/12
+   vs native 9/12; GPT-5.4 mini `real_dev_git` Weave 24/24.
+
+| suite | hash | tasks |
+|---|---|---|
+| **confirm4** | `c3ae4a6c9fe95a31` | the `real` recipe with seeds + 200 (pypi_major n10 s301, n16 s302; sqlite_triage n12, n20; git_review n8, n14; warehouse_shortfall n10, n16) plus git_review n10 s303 and n18 s304 |
+
+Runs (each configuration once; same stopping and exclusion rules; provider errors count as failures; round-4 live
+spend stops at 1.5M tokens):
+
+| provider | model | settings | suite | modes | repeats |
+|---|---|---|---|---|---|
+| openai | gpt-4.1-2025-04-14 | temperature 0 | confirm4 | weave, native | 3 |
+| openai | gpt-5.4-mini-2026-03-17 | effort low | confirm4 | weave, native | 3 |
+| gemini | gemini-3.5-flash | free tier, 1 worker, ≥ 12 s between requests; one attempt, only if a smoke request answers | confirm4 | weave, native | 1 |
+| nvidia | z-ai/glm-5.3-flash | temperature 0; one attempt, only if a 35 s smoke request answers | confirm4 | weave, native | 1 |
+
+Gemini and GLM stay best effort and are not pooled.
+
+Hypotheses (OpenAI only):
+
+- **G1 (no runaway).** No Weave trial on `confirm4` ends `provider_error:incomplete`.
+- **G2 (git_review).** On the four `git_review` tasks, GPT-4.1 Weave passes at least as many trials as native
+  (12 per arm) and its mean wall time is at most native's (descriptive; paired CI reported).
+- **G3 (the S2 wall-time gap closes).** On `confirm4`, GPT-4.1: paired mean Δ wall < 0 with the 95% bootstrap CI below
+  0; Δ turns CI below 0; token ratio CI upper bound ≤ 1; pass rate non-inferior (H4 margin).
+- **G4.** The same four criteria for GPT-5.4 mini.
+- **A1 (accounting).** Every row whose provider returned usage has it counted; no `incomplete` row has 0 tokens.

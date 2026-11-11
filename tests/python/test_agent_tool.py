@@ -158,3 +158,12 @@ if __name__ == "__main__":
         if name.startswith("test_"):
             fn()
             print("ok", name)
+
+
+def test_request_options_ask_for_one_script_per_turn():
+    """Round 4: GPT-4.1 sent two parallel run_weave calls and then ran away to max_output_tokens
+    (bench/results/v7/diag-turn1). The tool recommends parallel_tool_calls off and says why."""
+    tool = make()
+    assert tool.request_options == {"parallel_tool_calls": False}
+    assert "once per turn" in tool.description
+    assert "do not share variables" in tool.description

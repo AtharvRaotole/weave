@@ -31,7 +31,7 @@ from .agent import trial, SYSTEM, MAX_TURNS
 from .tasks import SUITES, manifest
 
 ROOT = Path(__file__).resolve().parents[2]
-DEV_SUITES = ("dev", "real_dev")  # tuning allowed; every other suite must be pre-registered
+DEV_SUITES = ("dev", "real_dev", "real_dev_git")  # tuning allowed; every other suite must be pre-registered
 
 
 def git(*args):

@@ -34,6 +34,7 @@ jobs:
           maturin build --release --out dist
           python -m pip install dist/*.whl
           python examples/quickstart.py
+          python examples/demo.py --fast
           python examples/cancel_run.py
           python examples/speedup.py
           python examples/hard_deadline.py

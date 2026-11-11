@@ -246,6 +246,44 @@ Every Weave script on `confirm3` and `real2` that the static check rejected, cou
 | GPT-5.4 mini (low) | real2 | 61 | 0 | 0 | none |
 | GPT-4.1 (temp 0) | real2 | 43 | 0 | 0 | none |
 
+## Real services, round 4 (`confirm4`: fresh seeds; Weave arm sends one script per turn)
+
+Weave arm: `parallel_tool_calls: false` (`WeaveTool.request_options`), declared in Addendum 4; native arm unchanged. No injected latency; wall time is net of provider waits (zero here).
+
+| model | latency | pass weave | pass native | McNemar p | turns W / N | Δ turns [95% CI] | wall s W / N | Δ wall s [95% CI] | tokens W / N | token ratio [95% CI] |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GPT-5.4 mini (low) | real | 30/30 [0.89, 1.00] | 25/30 [0.66, 0.93] | 0.062 | 2.10 / 3.40 | -1.30 [-1.97, -0.63] | 3.14 / 7.17 | -3.83 [-5.98, -1.74] | 2584 / 5100 | 0.54 [0.41, 0.72] |
+| GPT-4.1 (temp 0) | real | 30/30 [0.89, 1.00] | 18/30 [0.42, 0.75] | 0.000 | 2.00 / 3.40 | -1.40 [-2.00, -0.80] | 2.13 / 4.63 | -2.50 [-3.36, -1.64] | 2167 / 4604 | 0.51 [0.40, 0.66] |
+
+### G1, G2 and A1
+
+| model | Weave incomplete (G1) | git_review pass W / N | git_review wall s W / N | git_review Δ wall s [95% CI] | provider errors with 0 tokens but billed usage (A1) |
+|---|---|---|---|---|---|
+| GPT-5.4 mini (low) | 0 | 12/12 / 8/12 | 2.95 / 7.82 | -4.54 [-7.20, -1.87] | 0 |
+| GPT-4.1 (temp 0) | 0 | 12/12 / 9/12 | 2.10 / 4.04 | -1.95 [-2.66, -1.11] | 0 |
+
+### `confirm4` by family (mean per trial)
+
+| model | family | pass W / N | turns W / N | wall s W / N | script/tool exec s W / N | tokens W / N |
+|---|---|---|---|---|---|---|
+| GPT-5.4 mini (low) | git_review | 12/12 / 8/12 | 2.17 / 3.00 | 2.95 / 7.82 | 0.02 / 0.02 | 2898 / 4610 |
+| GPT-5.4 mini (low) | pypi_major | 6/6 / 6/6 | 2.17 / 2.00 | 4.98 / 4.07 | 2.60 / 1.01 | 2532 / 2352 |
+| GPT-5.4 mini (low) | sqlite_triage | 6/6 / 6/6 | 2.00 / 4.00 | 2.19 / 6.08 | 0.02 / 0.02 | 2233 / 6180 |
+| GPT-5.4 mini (low) | warehouse_shortfall | 6/6 / 5/6 | 2.00 / 5.00 | 2.61 / 10.03 | 0.02 / 0.02 | 2358 / 7750 |
+| GPT-4.1 (temp 0) | git_review | 12/12 / 9/12 | 2.00 / 3.00 | 2.10 / 4.04 | 0.03 / 0.02 | 2256 / 4208 |
+| GPT-4.1 (temp 0) | pypi_major | 6/6 / 0/6 | 2.00 / 2.00 | 2.58 / 3.31 | 0.82 / 0.84 | 2119 / 2154 |
+| GPT-4.1 (temp 0) | sqlite_triage | 6/6 / 6/6 | 2.00 / 4.00 | 1.83 / 5.82 | 0.02 / 0.02 | 2011 / 5641 |
+| GPT-4.1 (temp 0) | warehouse_shortfall | 6/6 / 3/6 | 2.00 / 5.00 | 2.07 / 5.94 | 0.02 / 0.02 | 2193 / 6810 |
+
+### Unrecorded spend in rounds 1–3 (disclosed, not re-derived)
+
+Rows that ended `provider_error:incomplete` before round 4 recorded 0 tokens for the incomplete request; their ledgers did not keep its usage. Each such request was billed its full 4,096 output tokens plus its input (about 0.9–1.0k on a first turn).
+
+| suite | model | rows | recorded tokens of the failed request | billed at least |
+|---|---|---|---|---|
+| real | GPT-4.1 (temp 0) | 1 | 0 | 4,096 output tokens |
+| real2 | GPT-4.1 (temp 0) | 2 | 0 | 8,192 output tokens |
+
 ## Runs
 
 | label | suite | run directory | source commit | trials | total tokens |
@@ -273,3 +311,9 @@ Every Weave script on `confirm3` and `real2` that the static check rejected, cou
 | GPT-4.1 (temp 0) | real2 | `20261111T033838Z-real2-openai-gpt-4.1-2025-04-14` | `20ef658` | 48 | 171,394 |
 | GPT-4.1 (temp 0), real_dev | dev_round3 | `20261111T033709Z-real_dev-openai-gpt-4.1-2025-04-14sugar-dev` | `08fcb52` | 16 | 45,215 |
 | Gemini 3.5 Flash (free tier) | partial3 | `20261111T033948Z-real2-gemini-gemini-3.5-flash` | `20ef658` | 16 | 11,745 |
+| GPT-5.4 mini (low) | confirm4 | `20261111T041733Z-confirm4-openai-gpt-5.4-mini-2026-03-17` | `e35e9d0` | 60 | 230,524 |
+| GPT-4.1 (temp 0) | confirm4 | `20261111T041733Z-confirm4-openai-gpt-4.1-2025-04-14` | `e35e9d0` | 60 | 203,131 |
+| GPT-4.1 (temp 0), dev git, round-3 product | dev_round4 | `20261111T040923Z-real_dev_git-openai-gpt-4.1-2025-04-14-diag-baseline` | `afed294` | 24 | 119,047 |
+| GPT-4.1 (temp 0), dev git, one script per turn | dev_round4 | `20261111T041602Z-real_dev_git-openai-gpt-4.1-2025-04-14-diag-fixed` | `581644f` | 24 | 53,602 |
+| GPT-4.1 (temp 0), real_dev, one script per turn | dev_round4 | `20261111T041602Z-real_dev-openai-gpt-4.1-2025-04-14-dev-fixed` | `581644f` | 24 | 65,340 |
+| GPT-5.4 mini (low), dev git, one script per turn | dev_round4 | `20261111T041635Z-real_dev_git-openai-gpt-5.4-mini-2026-03-17-dev-fixed` | `12a6971` | 24 | 61,448 |

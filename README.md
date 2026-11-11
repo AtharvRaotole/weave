@@ -12,18 +12,49 @@ Python bindings, and an MCP proxy.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Status: 1.0](https://img.shields.io/badge/status-1.0-green.svg)
 
-[Quickstart](#quickstart) · [Getting started](docs/getting-started.md) · [Agent integration](#give-your-agent-one-workflow-tool) · [MCP](#connect-mcp-servers) · [Benchmarks](#benchmarks) · [Production use](docs/production.md) · [Contributing](CONTRIBUTING.md)
+[Try it](#try-it-in-one-minute) · [Quickstart](#quickstart) · [Getting started](docs/getting-started.md) · [Agent integration](#give-your-agent-one-workflow-tool) · [MCP](#connect-mcp-servers) · [Benchmarks](#benchmarks) · [Production use](docs/production.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
-**Measured result (pre-registered, held-out, [paper](docs/paper/weave.md)):** against native
-*parallel* function calling on the same model, tools and endpoint, Weave used **39–52% of the
-tokens** and **1.6–2.0 fewer model turns** per task on GPT-5.5, GPT-5.4 mini and GPT-4.1, with equal
-or higher success (30/30 vs 30/30, 30/30 vs 30/30, 28/30 vs 23/30). A second pre-registered round fixed the
-one loss: with footprint-aware ordering, loops that write now run their backend calls at native speed
-(0.96–1.07×, down from about 2×). Against real services (SQLite, git, files, HTTP, PyPI), Weave used
-44–77% of the tokens and passed as often or more, but saved turns only on the GPT-5 models.
-[Details below](#benchmarks).
+<p align="center"><img src="assets/demo.gif" alt="Terminal recording of python examples/demo.py: one Weave script makes 13 tool calls in 4 overlapping waves in 1.2 s" width="720"></p>
+
+<p align="center"><sub>A real run of <a href="examples/demo.py"><code>examples/demo.py</code></a> (offline, no API key; recording: <a href="assets/demo.cast"><code>assets/demo.cast</code></a>, animated SVG: <a href="assets/demo.svg"><code>assets/demo.svg</code></a>).</sub></p>
+
+Instead of one model turn per tool call, the model writes **one short script** (Python syntax:
+loops, comprehensions, `key=` lambdas, helpers). Weave runs its independent calls together,
+orders the writes by their declared effects, and returns only what the script printed.
+
+**Measured, pre-registered, fresh seeds, against native *parallel* function calling on the same
+model, tools and services** ([paper](docs/paper/weave.md), [tables](docs/paper/results-tables.md)):
+
+- **Real services** (SQLite, git, files, HTTP, the live PyPI API; round 4, `confirm4`, 30 trials per arm):
+  GPT-4.1 passed **30/30 vs 18/30** in **2.1 s vs 4.6 s** per task (Δ −2.5 s, 95% CI [−3.4, −1.6]) with
+  **0.51×** the tokens; GPT-5.4 mini **30/30 vs 25/30**, Δ −3.8 s [−6.0, −1.7], **0.54×** the tokens.
+- **Held-out simulated APIs** (round 1, 200 ms per call): **39–52% of the tokens** and **1.6–2.0 fewer model
+  turns** on GPT-5.5, GPT-5.4 mini and GPT-4.1, with equal or higher success.
+- **Losses are kept:** earlier rounds' wall-time gaps, a GPT-4.1 runaway at `max_output_tokens`, and
+  providers we could not test (Gemini quota, GLM timeouts) are in the paper. Round 4's Weave arm uses the
+  product's recommended `parallel_tool_calls: false`, declared before the run.
+
+<p align="center"><img src="assets/benchmark-v7-real.png" alt="Weave/native wall time and turns on real services across rounds 2, 3 and 4" width="720"></p>
+
+### Try it in one minute
+
+No API key, no network after the clone. You need Python 3.9–3.13 and [Rust](https://rustup.rs/)
+(the first build compiles Weave: 18 s on an 8-core Linux machine, 20 s from a fresh clone to `demo ok`,
+with crates already downloaded; a first download adds to that).
+
+```bash
+git clone https://github.com/AtharvRaotole/weave.git && cd weave
+python3 -m venv .venv && . .venv/bin/activate
+pip install "maturin>=1.8,<2" && maturin develop --release --locked
+python examples/demo.py        # the recording above
+python examples/quickstart.py  # register two functions, run a script, replay it from its trace
+```
+
+Every file in [`examples/`](examples/) runs offline without keys, and CI runs them on each push.
+
+## What it is
 
 Weave lets an agent express tool calls, dependencies, branches, and loops in one
 script. The runtime runs independent reads concurrently and applies ordering
@@ -171,9 +202,14 @@ def order_total(order_id):
 
 tool = weave.WeaveTool([order_total])
 tools = [tool.chat_tool()]
-# Pass `tools` to Chat Completions.
+# Pass `tools` and **tool.request_options to Chat Completions or Responses.
 # For a returned tool call: messages.append(tool.handle(call))
 ```
+
+`tool.request_options` is `{"parallel_tool_calls": False}`: Weave already runs a script's
+independent calls together, and scripts do not share variables, so one script per turn is
+better. Without it GPT-4.1 sometimes sent two scripts and then ran to `max_output_tokens`
+(see [the round-4 diagnosis](bench/results/v7/diag-turn1/NOTES.md)).
 
 Use `tool.responses_tool()` for a Responses definition, or `tool.agents_tool()`
 with the optional `openai-agents` package.
@@ -346,6 +382,28 @@ already schedules (tested against CPython and in the differential fuzzer).
 - The GPT-4.1 real-services wall-time loss is smaller but not gone: the mean is now −1.4 s per task, with a CI that
   includes zero. Two GPT-4.1 Weave `git_review` trials stopped on the first turn at the provider's output-token limit,
   and the pre-registered rules count them as failures.
+
+**Round 4 (pre-registered in [Addendum 4](docs/paper/preregistration.md), fresh seeds).** Two fixes. The harness now
+records the tokens a provider bills for a failed (incomplete) response, which it used to count as 0. The traces showed
+that the GPT-4.1 `git_review` failures came from splitting the work across two parallel `run_weave` calls: in 6 of 64
+dev samples the second call was followed by a runaway to the output-token limit, and in one round-3 trial the model
+printed the tags instead of creating them. `WeaveTool.request_options` now asks for one script per turn
+(`parallel_tool_calls: false`), and the tool text says why. The Weave arm uses that setting; the native arm does not.
+
+![Real services across rounds 2, 3 and 4](assets/benchmark-v7-real.png)
+
+| suite | model | pass W / N | turns W / N | Δ wall per task [95% CI] | tokens W/N [95% CI] |
+|---|---|---|---|---|---|
+| confirm4 | `gpt-5.4-mini-2026-03-17` (low) | 30/30 / 25/30 | 2.10 / 3.40 | −3.8 s [−6.0, −1.7] | 0.54 [0.41, 0.72] |
+| confirm4 | `gpt-4.1-2025-04-14` (temp 0) | 30/30 / 18/30 | 2.00 / 3.40 | −2.5 s [−3.4, −1.6] | 0.51 [0.40, 0.66] |
+
+- No Weave trial hit the output-token limit. On the four `git_review` tasks GPT-4.1 Weave passed 12/12 (native 9/12)
+  in 2.1 s against 4.0 s.
+- Still a loss: GPT-5.4 mini's `pypi_major` Weave time was 5.0 s against native's 4.1 s (6 trials per arm).
+- Rounds 2 and 3 undercounted three GPT-4.1 trials by at least 4,096 output tokens each. Their ledgers did not keep the
+  billed usage, so those tables are not re-derived; the undercount is listed in the
+  [tables](docs/paper/results-tables.md).
+- Gemini (quota) and GLM (timeout) failed their smoke requests again and were not run.
 
 Reproduce: `make bench-mock` (offline) or `WEAVE_BENCH_LIVE=1 make bench-live MODEL=...` (spends tokens).
 The real-services suite runs offline with oracle agents: `python -m bench.v4.run --mock --suite real --latency-ms 0`.

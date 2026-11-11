@@ -1,7 +1,7 @@
 ---
 title: "Weave: one script instead of many tool calls. A pre-registered comparison with native parallel function calling"
 author: "Atharv Raotole"
-date: "November 2026 (draft v3)"
+date: "November 2026 (draft v4)"
 ---
 
 ## Abstract
@@ -32,9 +32,14 @@ pre-registered round adds those forms: comprehensions, generator expressions, `k
 inlined `def` helpers, all lowered to the loops Weave already schedules. On fresh seeds, no Weave script was rejected
 for them (92 of 269 scripts used them), and GPT-4.1 passed 39/39 against native's 27/39 on `confirm3` (p < 0.001) and
 21/24 against 13/24 on real services, with 1.3 fewer turns and 0.60× the tokens. Its real-services wall time went
-from +0.1 s to −1.4 s per task, but that CI still includes zero, because two GPT-4.1 Weave trials ran out of output
-tokens on their first turn. Code, data, all three pre-registrations and a one-command reproduction are in the
-repository.
+from +0.1 s to −1.4 s per task, but that CI still included zero, because two GPT-4.1 Weave trials ran out of output
+tokens on their first turn. A fourth pre-registered round traced those failures to the model splitting the work across
+two parallel calls of the Weave tool and then running away to the output-token limit (6 of 64 dev samples), and fixed
+the harness so such billed-but-failed responses count their tokens. With the tool's recommended `parallel_tool_calls:
+false` in the Weave arm (declared before the run; native unchanged), a fresh real-services suite gave GPT-4.1 **30/30
+against 18/30**, **−2.5 s per task [−3.4, −1.6]** and **0.51×** the tokens, and GPT-5.4 mini 30/30 against 25/30,
+−3.8 s [−6.0, −1.7] and 0.54×; no Weave trial hit the limit. Code, data, all four pre-registrations and a one-command
+reproduction are in the repository.
 
 ## 1. Introduction
 
@@ -166,6 +171,24 @@ CPython in batch, streamed and replayed form (`tests/audit/test_python_sugar.py`
 longer local run), and the Rust differential fuzzer now generates comprehensions, a helper with an early `return` and
 a write, `key=` lambdas and short-circuit `any`, which must agree across sequential, parallel, streaming, speculative
 and replayed execution (2 000 seeds locally).
+
+### 2.6 One script per turn (round 4)
+
+Round 3's two GPT-4.1 `max_output_tokens` failures recorded no output, so we replayed the exact first-turn request of
+two dev `git_review` tasks (`bench/results/v7/diag-turn1/`). GPT-4.1 at temperature 0 almost always answered with
+**two parallel `run_weave` calls**: a first script that only read and printed, and a second that did the whole task.
+In 6 of 64 samples it then kept generating after the second call until the 4 096-token limit, and the API returned
+nothing beyond the two completed calls. The round-3 trial that "printed the tags instead of creating them" had the
+same shape: the work was split across scripts that do not share variables, and the model re-typed 40-character hashes
+from one printout into the next script. Turning `parallel_tool_calls` off made every sample (28 of 28) a single script
+with no runaway; a sentence in the tool rules alone ("call this tool once per turn ... scripts do not share
+variables") cut the runaways from 5 of 28 to 1 of 28 but did not stop the split. `WeaveTool.request_options` now
+returns `{"parallel_tool_calls": false}` for hosts to pass with the tool, and the rules carry the sentence. Native
+tool calling needs parallel calls to batch, so the native arm keeps them; this is the one setting in which the arms
+differ, and Addendum 4 declares it.
+
+The harness also stopped recording 0 tokens for such responses: an `incomplete` Responses result is billed in full,
+and its usage is now added to the trial (`billed_on_error`, with an excerpt of the output for diagnosis).
 
 ## 3. Related work
 
@@ -468,10 +491,10 @@ table, not evidence).
   13/24) and tokens (ratio 0.60) meet the criteria. Wall time does not: the mean moved from +0.06 s in round 2 to
   −1.43 s, but its CI is [−4.95, +2.31]. The loss moved to `git_review` (Weave 3/6 and 9.8 s against native 6/6 and
   3.7 s). Two of those Weave trials ended on the first turn with the provider's `max_output_tokens` stop (16 and 21 s),
-  and the pre-registered rules count them as failures. A third printed the tags it meant to create and answered
+  and the pre-registered rules count them as failures (Section 2.6 has the cause). A third printed the tags it meant to create and answered
   without creating them. Excluding the two provider-error pairs, which the rules do not allow and we report only as
   a sensitivity check, gives −2.71 s [−5.56, −0.02]. Those two trials record 0 tokens, although the provider billed
-  up to 4 096 output tokens for each; the token ratio is therefore slightly understated.
+  4 096 output tokens plus the input for each; the token ratio is therefore slightly understated (Section 5.12).
 - **S3 (PyPI): supported.** On `pypi_major` GPT-4.1 Weave took 3.49 s against native's 3.61 s (round 2: 7.5 vs 3.1 s),
   and passed 6/6 against 0/6. GPT-4.1 now writes the comprehension it wrote in round 2, and it runs.
 - **R2: supported** for GPT-5.5 and GPT-5.4 mini: pass rate non-inferior, turns and tokens lower, and wall time lower
@@ -481,6 +504,40 @@ table, not evidence).
   because `max(..., key=lambda ...)` was rejected, passed 6/6.
 - **By family on `real2` (GPT-4.1).** `sqlite_triage` 1.8 vs 8.5 s, `warehouse_shortfall` 2.9 vs 8.6 s (6/6 vs 1/6),
   `pypi_major` 3.5 vs 3.6 s, `git_review` 9.8 vs 3.7 s.
+
+### 5.12 Round 4: one script per turn, and honest accounting
+
+Pre-registered in Addendum 4 (commit `e35e9d0`) before any run on `confirm4`: the `real` recipe with seeds + 200
+plus two more `git_review` tasks (n10 s303, n18 s304), 10 tasks, 3 repeats, GPT-4.1 and GPT-5.4 mini. The changes
+since round 3 are Section 2.6. Dev runs preceded the addendum (`real_dev_git` and `real_dev`; runs table, not
+evidence): GPT-4.1 Weave on `real_dev_git` went from 22/24, 2.92 turns and 4 960 tokens per trial (round-3 product,
+both failures `incomplete`) to 24/24, 2.00 and 2 233.
+
+| suite | model | pass W | pass N | turns W / N | Δ turns [95 % CI] | Δ wall s [95 % CI] | token ratio W/N [95 % CI] |
+|---|---|---|---|---|---|---|---|
+| confirm4 | GPT-5.4 mini (low) | 30/30 | 25/30 (p = 0.062) | 2.10 / 3.40 | −1.30 [−1.97, −0.63] | −3.83 [−5.98, −1.74] | 0.54 [0.41, 0.72] |
+| confirm4 | GPT-4.1 (t = 0) | 30/30 | 18/30 (p < 0.001) | 2.00 / 3.40 | −1.40 [−2.00, −0.80] | −2.50 [−3.36, −1.64] | 0.51 [0.40, 0.66] |
+
+![Real services across rounds 2, 3 and 4](../../assets/benchmark-v7-real.png)
+
+- **G1 (no runaway): supported.** No trial in either arm ended `incomplete`; every one of the 120 trials answered.
+- **G2 (git_review): supported.** GPT-4.1 Weave 12/12 against native 9/12, 2.10 s against 4.04 s (Δ −1.95 s
+  [−2.66, −1.11]); GPT-5.4 mini 12/12 against 8/12, 2.95 against 7.82 s.
+- **G3 (the S2 wall-time gap closes): supported.** GPT-4.1: Δ wall −2.50 s with the CI below 0, Δ turns CI below 0,
+  token ratio upper bound 0.66, pass 30/30 against 18/30.
+- **G4: supported** for GPT-5.4 mini on all four criteria.
+- **A1 (accounting): supported, weakly tested.** No `confirm4` row had a provider error, so the rule was not exercised
+  there; on the dev run with the round-3 product the two `incomplete` rows recorded their 5 033 billed tokens each.
+  Rounds 2 and 3 have three `incomplete` OpenAI rows (one in `real`, two in `real2`, all GPT-4.1) whose ledgers did not
+  keep the usage, so their tables are not re-derived; they undercount at least 3 × 4 096 output tokens.
+- **What still loses.** GPT-5.4 mini's `pypi_major` Weave time was 4.98 s against native's 4.07 s (6 trials per arm;
+  its script time was 2.6 s against 1.0 s, consistent with the PyPI TLS slowdowns seen in round 3). Native GPT-4.1 still
+  fails every `pypi_major` task by adding version numbers in its head, which inflates its pass-rate gap.
+- **The deviation matters for interpretation.** Round 4 measures Weave as we now recommend shipping it (one script per
+  turn), not the round-3 configuration. Native keeps parallel calls, which it needs; we did not run a native arm with
+  them off.
+- **Other providers.** Gemini answered its smoke request with HTTP 429 (quota) and GLM timed out after 35 s
+  (`bench/results/v7/smoke-best-effort.md`); per the addendum, neither was run.
 
 ## 6. Threats to validity
 
@@ -504,6 +561,8 @@ table, not evidence).
 - **Prompt.** Weave's tool description was tuned on dev, while the native arm uses plain JSON tool definitions with
   the same contracts. A stronger native prompt, for example one asking the model to batch all calls, might narrow the
   turn gap. We gave native parallel calls and return types but did not tune its prompt.
+- **Arms differ in one setting from round 4.** The Weave arm sends `parallel_tool_calls: false`, the native arm
+  `true` (Section 2.6). This is how each would be deployed, but it means round 4 is not a same-settings comparison.
 - **One run per configuration.** Repeats measure model sampling noise within a run, not drift between days.
 - **Tokens, not dollars.** Cached-input discounts differ by provider, and native's long contexts may cache well.
 
@@ -530,6 +589,11 @@ Round 2 spent about **1.57 M** more: 0.11 M on dev and real_dev, 0.96 M on confi
 used none, because every request was refused.
 
 Round 3 spent about **1.20 M** more: 0.05 M on real_dev, 0.72 M on confirm3, 0.42 M on real2 and 0.01 M on Gemini.
+Rounds 2 and 3 also left at least 0.012 M of billed output unrecorded (three `incomplete` responses, Section 5.12).
+
+Round 4 spent about **0.86 M** more: 0.30 M on dev runs (`real_dev_git`, `real_dev`), 0.43 M on `confirm4`, and an
+estimated 0.13 M on the 92 first-turn diagnosis requests (937 input tokens each plus their logged output; those
+requests are outside the run ledgers). The four rounds total about 6.6 M tokens.
 
 ## 8. Conclusion
 
@@ -541,9 +605,10 @@ pipelining, the latency gain disappears). With footprint declarations, writes in
 backend time. On real services the token and success gains hold. The turn and latency gains depend on the model
 writing code Weave accepts the first time. Round 3 accepts the `def`, comprehensions and `lambda` that GPT-4.1 kept
 writing, and those rejections are gone: GPT-4.1 now passes more often than native on both fresh suites, with fewer
-turns and tokens. Its wall-time gain on real services is not yet established (the mean is negative but the CI
-includes zero, because of two output-token overruns). The next steps are what the remaining failures show: the model
-sometimes splits one task into many one-line scripts, or plans writes in a printout instead of making them.
+turns and tokens. Round 4 found that GPT-4.1's remaining real-services losses came from splitting one task across parallel
+calls of the tool. With one script per turn, GPT-4.1's wall-time gain on real services is established on fresh seeds
+(−2.5 s per task, CI below zero) and no trial ran out of output tokens. The remaining gaps are small suites written by
+us, a single-setting difference between the arms in round 4, and providers we could not run.
 
 ## References
 

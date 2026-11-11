@@ -127,5 +127,76 @@ class Runner(unittest.TestCase):
         self.assertLess(exec_s["weave"], 1.3 * exec_s["native"], exec_s)
 
 
+class Accounting(unittest.TestCase):
+    """Provider-billed usage of a failed request is kept, not recorded as 0 (round 4)."""
+
+    def _incomplete_body(self):
+        return json.dumps({"model": "m", "status": "incomplete", "incomplete_details": {"reason": "max_output_tokens"},
+                           "usage": {"input_tokens": 1500, "output_tokens": 4096,
+                                     "input_tokens_details": {"cached_tokens": 0},
+                                     "output_tokens_details": {"reasoning_tokens": 0}},
+                           "output": [{"type": "function_call", "call_id": "c", "name": "run_weave",
+                                       "arguments": "x" * 5000}]}).encode()
+
+    def test_incomplete_response_raises_with_billed_usage(self):
+        from unittest import mock
+        from bench.v4 import providers
+
+        class Resp:
+            status = 200
+            def __init__(self, body): self.body = body
+            def read(self): return self.body
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        client = providers.ChatClient.__new__(providers.ChatClient)
+        client.__dict__.update(provider="openai", model="m", max_tokens=4096, reasoning_effort=None, temperature=0,
+                               retries=0, request_cap=10, sent=0, min_interval_s=0.0, timeout_s=5,
+                               base="http://x", _key="k")
+        with mock.patch("urllib.request.urlopen", return_value=Resp(self._incomplete_body())):
+            with self.assertRaises(providers.ProviderError) as cm:
+                client.complete([{"role": "user", "content": "hi"}], [])
+        self.assertEqual(cm.exception.kind, "incomplete")
+        self.assertEqual(cm.exception.usage["output"], 4096)
+        self.assertEqual(cm.exception.usage["input"], 1500)
+        self.assertIn("omitted", cm.exception.partial)
+        self.assertLess(len(cm.exception.partial), 1700)
+
+    def test_trial_row_counts_billed_tokens_of_a_failed_turn(self):
+        from bench.v4.providers import ProviderError
+
+        class Client:
+            provider, model = "fake", "fake"
+            def complete(self, messages, tools):
+                raise ProviderError("incomplete", "max_output_tokens",
+                                    usage={"input": 1000, "output": 4096, "cached": 0, "reasoning": 0}, partial="abc")
+
+        task = next(t for t in SUITES["dev"])
+        row = trial(task, "weave", Client(), latency_ms=0)
+        self.assertEqual(row["status"], "provider_error:incomplete")
+        self.assertFalse(row["passed"])
+        self.assertEqual(row["total_tokens"], 5096)
+        self.assertEqual(row["billed_on_error"]["output"], 4096)
+        self.assertEqual(row["partial_output"], "abc")
+
+
+class RequestOptions(unittest.TestCase):
+    def test_weave_arm_sends_one_script_per_turn_and_native_keeps_parallel_calls(self):
+        seen = {}
+
+        class Client:
+            provider, model = "fake", "fake"
+            parallel_tool_calls = True
+            def __init__(self, mode): self.mode = mode
+            def complete(self, messages, tools):
+                seen[self.mode] = self.parallel_tool_calls
+                return {"content": "0"}, {"input": 1, "output": 1, "cached": 0, "reasoning": 0}, [{}]
+
+        task = next(t for t in SUITES["dev"])
+        for mode in ("weave", "native"):
+            trial(task, mode, Client(mode), latency_ms=0)
+        self.assertEqual(seen, {"weave": False, "native": True})
+
+
 if __name__ == "__main__":
     unittest.main()

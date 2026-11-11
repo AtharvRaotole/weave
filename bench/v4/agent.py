@@ -139,6 +139,9 @@ def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline
     else:
         wt = weave_tool(world, pipeline_loops=pipeline_loops, footprints=footprints, tools=spec, fps=fps)
         tools = [wt.chat_tool()]
+        # The product's recommended request settings (WeaveTool.request_options): one script per turn.
+        if hasattr(client, "parallel_tool_calls"):
+            client.parallel_tool_calls = wt.request_options.get("parallel_tool_calls", True)
     usage = {"input": 0, "output": 0, "cached": 0, "reasoning": 0}
     unknown_usage = 0
     turns = scripts = script_errors = tool_messages = 0
@@ -146,6 +149,7 @@ def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline
     attempts_n = 0
     status, answer, error_detail = "turn_limit", None, None
     script_log = []
+    billed_on_error, partial_output = None, None
     started = time.monotonic()
     try:
         while turns < MAX_TURNS:
@@ -198,6 +202,12 @@ def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline
     except Exception as exc:  # provider failure keeps the row (and its cost) in every denominator
         status = "provider_error:" + getattr(exc, "kind", type(exc).__name__)
         error_detail = str(exc)[:300]
+        billed = getattr(exc, "usage", None)
+        if billed:  # e.g. an incomplete (max_output_tokens) response: billed although unusable
+            for k in usage:
+                usage[k] += billed[k]
+            billed_on_error = billed
+        partial_output = getattr(exc, "partial", None)
     wall = time.monotonic() - started
     truth = getattr(world, "answer", task.answer)
     answer_ok = answer is not None and normalize(answer) == normalize(truth)
@@ -224,6 +234,8 @@ def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline
         "provider_attempts": attempts_n, "retry_wait_s": retry_wait,
         "llm_s": llm_s, "exec_s": exec_s, "wall_s": wall, "peak_backend_concurrency": world.peak,
         "scripts_log": script_log,
+        "billed_on_error": billed_on_error, "partial_output": partial_output,
+        "parallel_tool_calls": getattr(client, "parallel_tool_calls", None),
     }
 
 
