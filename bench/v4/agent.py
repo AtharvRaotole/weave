@@ -32,9 +32,9 @@ def schema_type(schema):
     return render(schema)
 
 
-def native_tools():
+def native_tools(tools=TOOLS):
     out = []
-    for name, (effect, params, returns, desc) in TOOLS.items():
+    for name, (effect, params, returns, desc) in tools.items():
         out.append({"type": "function", "function": {
             "name": name,
             "description": f"{desc} Effect: {effect}. Returns: {schema_type(returns)}",
@@ -44,11 +44,11 @@ def native_tools():
     return out
 
 
-def weave_tool(world, *, pipeline_loops=True, footprints=True):
+def weave_tool(world, *, pipeline_loops=True, footprints=True, tools=TOOLS, fps=FOOTPRINTS):
     from weave import ToolError, WeaveTool, declare
 
     functions = []
-    for name, (effect, params, returns, desc) in TOOLS.items():
+    for name, (effect, params, returns, desc) in tools.items():
         def make(name=name, order=tuple(params)):
             def fn(*args, **kwargs):
                 if len(args) > len(order):
@@ -65,7 +65,7 @@ def weave_tool(world, *, pipeline_loops=True, footprints=True):
         fn.__signature__ = inspect.Signature([inspect.Parameter(p, inspect.Parameter.POSITIONAL_OR_KEYWORD,
                                                                 annotation="str") for p in params])
         fn.__weave_returns__ = returns
-        fp = FOOTPRINTS.get(name, {}) if footprints else {}
+        fp = fps.get(name, {}) if footprints else {}
         functions.append(declare(effect=effect, **fp)(fn))
     tool = WeaveTool(functions, max_wall_time_ms=60_000, max_output_chars=20_000)
     if not pipeline_loops:
@@ -81,7 +81,7 @@ def normalize(text):
     return t.casefold()
 
 
-def run_native_calls(world, calls):
+def run_native_calls(world, calls, tools=TOOLS):
     """Reads in one turn run concurrently; a write waits for earlier calls and blocks later ones."""
     results = [None] * len(calls)
 
@@ -104,7 +104,7 @@ def run_native_calls(world, calls):
         group = []
         for i, call in enumerate(calls):
             name = call.get("function", {}).get("name")
-            if TOOLS.get(name, (READ,))[0] == READ:
+            if tools.get(name, (READ,))[0] == READ:
                 group.append(pool.submit(one, i))
             else:
                 for f in group:
@@ -117,12 +117,27 @@ def run_native_calls(world, calls):
 
 
 def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_loops=True, footprints=True, seed=0):
-    world = World(task.data, latency_ms=latency_ms, concurrency=concurrency, seed=seed)
+    if task.backend == "real":
+        from . import real
+        world = real.RealWorld(task, concurrency=concurrency)
+        spec, fps = real.TOOLS, real.FOOTPRINTS
+    else:
+        world = World(task.data, latency_ms=latency_ms, concurrency=concurrency, seed=seed)
+        spec, fps = TOOLS, FOOTPRINTS
+    try:
+        return _trial(task, mode, client, world, spec, fps, latency_ms=latency_ms, repeat=repeat,
+                      pipeline_loops=pipeline_loops, footprints=footprints)
+    finally:
+        if hasattr(world, "close"):
+            world.close()
+
+
+def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline_loops, footprints):
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": task.instruction}]
     if mode == "native":
-        tools = native_tools()
+        tools = native_tools(spec)
     else:
-        wt = weave_tool(world, pipeline_loops=pipeline_loops, footprints=footprints)
+        wt = weave_tool(world, pipeline_loops=pipeline_loops, footprints=footprints, tools=spec, fps=fps)
         tools = [wt.chat_tool()]
     usage = {"input": 0, "output": 0, "cached": 0, "reasoning": 0}
     unknown_usage = 0
@@ -158,7 +173,7 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
                 break
             t1 = time.monotonic()
             if mode == "native":
-                outputs = run_native_calls(world, calls)
+                outputs = run_native_calls(world, calls, spec)
             else:
                 # Product path: WeaveTool.handle_many runs read-only scripts of one turn concurrently.
                 known = [c for c in calls if c.get("function", {}).get("name") == wt.name]
@@ -184,14 +199,17 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
         status = "provider_error:" + getattr(exc, "kind", type(exc).__name__)
         error_detail = str(exc)[:300]
     wall = time.monotonic() - started
-    answer_ok = answer is not None and normalize(answer) == normalize(task.answer)
-    expected = sorted(task.writes)
+    truth = getattr(world, "answer", task.answer)
+    answer_ok = answer is not None and normalize(answer) == normalize(truth)
+    expected = sorted(world.expected_writes() if hasattr(world, "expected_writes") else task.writes)
     actual = sorted(world.writes)
     state_ok = actual == expected and (not task.ordered or list(world.writes) == list(task.writes))
+    if hasattr(world, "verify"):
+        state_ok = state_ok and world.verify()
     passed = status == "answered" and answer_ok and state_ok
     return {
         "task": task.id, "family": task.family, "split": task.split, "size": task.size, "mode": mode,
-        "repeat": repeat, "latency_ms": latency_ms, "pipeline_loops": pipeline_loops, "footprints": footprints and mode == "weave",
+        "repeat": repeat, "latency_ms": latency_ms, "backend": task.backend, "pipeline_loops": pipeline_loops, "footprints": footprints and mode == "weave",
         "provider": client.provider, "model": client.model,
         "status": status, "error_detail": error_detail, "passed": passed, "answer_ok": answer_ok, "state_ok": state_ok,
         "answer": (answer or "")[:300], "expected_answer_hash": task.fingerprint(),

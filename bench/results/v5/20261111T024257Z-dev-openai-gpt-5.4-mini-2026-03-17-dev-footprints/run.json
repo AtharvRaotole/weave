@@ -1,0 +1,68 @@
+{
+  "protocol": "weave-benchmark-protocol-v4",
+  "kind": "live",
+  "started_utc": "2026-11-11T02:42:57Z",
+  "source_commit": "f6de1d4e505ee67140d6d75ca1dcef21894b3dff",
+  "source_dirty": false,
+  "weave_version": "0.0.0",
+  "python": "3.13.5",
+  "provider": "openai",
+  "model": "gpt-5.4-mini-2026-03-17",
+  "effort": "low",
+  "temperature": null,
+  "max_tokens": 4096,
+  "suite": "dev",
+  "manifest": {
+    "suite": "dev",
+    "tasks": [
+      {
+        "id": "fanout_sum-n8-s1",
+        "family": "fanout_sum",
+        "size": 8,
+        "fingerprint": "6a17ca59b1564a79"
+      },
+      {
+        "id": "partial_failure-n8-s1",
+        "family": "partial_failure",
+        "size": 8,
+        "fingerprint": "deed62e26414862e"
+      },
+      {
+        "id": "order_value-n5-s1",
+        "family": "order_value",
+        "size": 5,
+        "fingerprint": "3504266f4d83c062"
+      },
+      {
+        "id": "chain-n4-s1",
+        "family": "chain",
+        "size": 4,
+        "fingerprint": "70787ee73f10cb2a"
+      },
+      {
+        "id": "triage-n8-s1",
+        "family": "triage",
+        "size": 8,
+        "fingerprint": "bd4e4961935b0d71"
+      }
+    ],
+    "hash": "f66da35bc9ee37a3"
+  },
+  "task_subset": null,
+  "modes": [
+    "weave",
+    "native",
+    "weave_nofp"
+  ],
+  "repeats": 2,
+  "latency_ms": [
+    200.0
+  ],
+  "concurrency_cap": 8,
+  "max_turns": 16,
+  "system_prompt": "You are an operations agent with access to tools. Use them to complete the user's task; tool results are authoritative. When the task is complete, reply with only the final answer in the requested format and no other text.",
+  "planned_trials": 30,
+  "workers": 4,
+  "token_budget": 3000000,
+  "seed": 2026
+}

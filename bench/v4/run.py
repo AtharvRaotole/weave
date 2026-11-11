@@ -31,6 +31,7 @@ from .agent import trial, SYSTEM, MAX_TURNS
 from .tasks import SUITES, manifest
 
 ROOT = Path(__file__).resolve().parents[2]
+DEV_SUITES = ("dev", "real_dev")  # tuning allowed; every other suite must be pre-registered
 
 
 def git(*args):
@@ -104,9 +105,9 @@ def main(argv=None):
             raise SystemExit("refusing: live runs spend money; pass --allow-live AND set WEAVE_BENCH_LIVE=1")
         if not args.model:
             raise SystemExit("--model is required")
-        if dirty and (not args.allow_dirty or args.suite != "dev"):
+        if dirty and (not args.allow_dirty or args.suite not in DEV_SUITES):
             raise SystemExit("refusing: commit first so results pin a clean source commit")
-        if args.suite != "dev":
+        if args.suite not in DEV_SUITES:
             prereg = ROOT / "docs/paper/preregistration.md"
             if not prereg.exists() or manifest(args.suite)["hash"] not in prereg.read_text():
                 raise SystemExit(f"refusing: {args.suite} manifest hash is not in docs/paper/preregistration.md")
