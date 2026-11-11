@@ -39,7 +39,7 @@ source text ──parse.rs──▶ AST (ast.rs) ──check.rs──▶ diagnos
   - An `irreversible` write also waits for the whole script to finish (`complete_rx`), so a script fails before it
     sends anything.
 - **Branches and loops.**
-  - An `if` waits for its condition, then launches the taken branch.
+  - An `if` waits for its condition (`schedule_if`), then launches the taken branch.
   - A `for` loop runs in parallel when no iteration depends on another and the body only reads.
   - A read-only loop that carries names (accumulators, dict fills, appends) is *pipelined*. Windows of 64 iterations
     are launched at once, the environment is threaded through them as futures, and carried values are materialised
@@ -63,5 +63,5 @@ turn concurrently.
 ## Where to start reading
 
 1. `crates/weave/tests/runtime.rs` shows the behaviour from the outside.
-2. `exec.rs::run_block`, `run_for`, `run_sequential_for` and `schedule_call` are the scheduler.
+2. `exec.rs::launch_block`, `schedule_for` (with `run_parallel_for` and `run_sequential_for`) and `schedule_call` are the scheduler.
 3. `check.rs` is the static check, and the place to improve error messages.

@@ -348,6 +348,9 @@ Open [the local documentation](http://127.0.0.1:8000). References:
 
 Core code is in `crates/weave`; Python bindings in `crates/weave-py` and
 `python/weave`; the proxy and CLI in `crates/weave-mcp` and `crates/weave-cli`.
+[Architecture](docs/architecture.md) maps the scheduler for contributors, and the
+[roadmap](ROADMAP.md) lists measured weaknesses and good first issues. To cite Weave,
+see [CITATION.cff](CITATION.cff).
 
 ```bash
 cargo test --workspace --locked

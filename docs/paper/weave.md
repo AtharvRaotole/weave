@@ -279,7 +279,10 @@ does. This fix is not evaluated here.
 ### 5.8 Protocol v3 rerun (before and after the fixes)
 
 The earlier protocol-v3 suite (10 file/git/memory tasks over the real `weave-mcp` binary, strict grading) was the
-diagnosis set, so this is a before-and-after comparison on tuned data, not a held-out result.
+diagnosis set, so this is a before-and-after comparison on tuned data, not a held-out result. Protocol v3 is the
+*strict* arm. It replaces Weave's error hints with one generic message and sends both arms the full tool results, so
+the improvement below comes from the typed listing, the rules and the runtime fixes, not from the error messages.
+Benchmark v4 is the *product* arm, which shows Weave's real output and errors.
 
 | model | Weave first-try, before → after | Weave pass | native pass | Weave turns | native turns |
 |---|---|---|---|---|---|
