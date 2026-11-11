@@ -252,7 +252,7 @@ impl<'a> Lowerer<'a> {
                 StmtKind::Pass
             }
             Stmt::While(_) => {
-                self.err_hint(stmt.start(), "`while` is not supported", "use `for` over a list");
+                self.err_hint(stmt.start(), "`while` is not supported", "use `for` over a list; for a loop of unknown length write `for _ in range(100):` and `break` when done");
                 StmtKind::Pass
             }
             Stmt::With(_) => {
@@ -610,7 +610,11 @@ impl<'a> Lowerer<'a> {
                 ExprKind::None
             }
             Expr::Lambda(_) => {
-                self.err(expr.start(), "`lambda` is not supported; register a host tool");
+                self.err_hint(
+                    expr.start(),
+                    "`lambda` is not supported",
+                    "write the logic as a for loop over the items",
+                );
                 ExprKind::None
             }
             Expr::ListComp(_) | Expr::SetComp(_) | Expr::DictComp(_) | Expr::Generator(_) => {

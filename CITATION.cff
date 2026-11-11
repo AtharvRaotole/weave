@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use Weave or its benchmark, please cite it as below."
+title: "Weave: a parallel runtime for agent-written tool workflows"
+type: software
+authors:
+  - family-names: Raotole
+    given-names: Atharv
+repository-code: "https://github.com/AtharvRaotole/weave"
+license: MIT
+version: 1.0.0
+date-released: 2026-11-09
+keywords: [agents, llm, tool-calling, function-calling, mcp, scheduler, rust]
+preferred-citation:
+  type: report
+  title: "Weave: one script instead of many tool calls. A pre-registered comparison with native parallel function calling"
+  authors:
+    - family-names: Raotole
+      given-names: Atharv
+  year: 2026
+  month: 11
+  url: "https://github.com/AtharvRaotole/weave/blob/main/docs/paper/weave.md"

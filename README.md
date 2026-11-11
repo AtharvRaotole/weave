@@ -16,6 +16,12 @@ Python bindings, and an MCP proxy.
 
 </div>
 
+**Measured result (pre-registered, held-out, [paper](docs/paper/weave.md)):** against native
+*parallel* function calling on the same model, tools and endpoint, Weave used **39–52% of the
+tokens** and **1.6–2.0 fewer model turns** per task on GPT-5.5, GPT-5.4 mini and GPT-4.1, with equal
+or higher success (30/30 vs 30/30, 30/30 vs 30/30, 28/30 vs 23/30). It loses on one shape: loops
+that write run their backend calls about 2× slower than native. [Details below](#benchmarks).
+
 Weave lets an agent express tool calls, dependencies, branches, and loops in one
 script. The runtime runs independent reads concurrently and applies ordering
 rules to tools that change state. You keep your existing Python functions or
@@ -259,49 +265,46 @@ See the [language reference](docs/language.html).
 
 ## Benchmarks
 
-![Weave vs native tool calling, live protocol v3: task success, model turns, wall-clock and tokens for GPT-5.5, GPT-5.4 mini and GPT-4.1](assets/benchmark-v3.png)
+![Weave/native ratios of turns, wall time and tokens on the held-out suite](assets/benchmark-v4.png)
 
-Live, fair comparison under [benchmark protocol v3](docs/benchmark-protocol-v3.md),
-run 2026-11-09 against the OpenAI Responses API. Both modes get the same task
-text, tool contracts and context, call the same `weave-mcp` backend over real
-disposable files, a git repository and a memory store, and pass only when the
-model's **final answer** and the **actual end state and ordered write log** are
-correct. Native mode runs independent calls from one turn in parallel. Ten
-frozen tasks × 3 repeats = 30 trials per mode per model; failures stay in every
-number.
+**Benchmark v4 (2026-11-10, [paper](docs/paper/weave.md), [pre-registration](docs/paper/preregistration.md),
+[all tables](docs/paper/results-tables.md)).** Ten held-out tool-use tasks in seven families: fan-out, partial
+failures, two-level dependent lookups, pointer chains, conditional writes, deduplicated irreversible sends, and argmax.
+They run against a simulated backend with seeded per-call latency. **Native** gets one JSON tool per function,
+including return types, and may call tools in parallel; the harness runs the reads of a turn concurrently. **Weave**
+gets one `run_weave` tool. The two arms share the prompt, model, settings and endpoint. A trial passes only if the
+answer **and** the backend's write log are right. The suites and hypotheses were committed before the held-out run,
+and each configuration ran once (3 repeats × 10 tasks × 2 latencies).
 
-| Model (run) | Mode | Passed | 95% CI | First try | Mean turns | p50 / p95 wall | Mean tokens / trial | Failures |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| `gpt-5.5-2026-04-23` (low) | weave | 28/30 | 79%–98% | 11/30 | 2.97 | 5.5s / 23.8s | 3,882 | wrong_answer_or_state 2 |
-| `gpt-5.5-2026-04-23` (low) | native | 29/30 | 83%–99% | 29/30 | 3.27 | 3.9s / 6.9s | 3,474 | turn_limit 1 |
-| `gpt-5.4-mini-2026-03-17` (low) | weave | 28/30 | 79%–98% | 26/30 | 2.80 | 3.0s / 16.4s | 3,766 | wrong_answer_or_state 2 |
-| `gpt-5.4-mini-2026-03-17` (low) | native | 28/30 | 79%–98% | 27/30 | 3.27 | 3.3s / 15.3s | 3,556 | wrong_answer_or_state 2 |
-| `gpt-4.1-2025-04-14` (temp 0) | weave | 25/30 | 66%–93% | 20/30 | 3.23 | 2.5s / 7.2s | 4,023 | wrong_answer_or_state 5 |
-| `gpt-4.1-2025-04-14` (temp 0) | native | 26/30 | 70%–95% | 26/30 | 3.30 | 2.9s / 6.1s | 3,282 | wrong_answer_or_state 4 |
+| model, 200 ms/call | pass weave | pass native | turns W / N | Δ wall per task [95% CI] | tokens W/N [95% CI] |
+|---|---|---|---|---|---|
+| `gpt-5.5-2026-04-23` (low) | 30/30 | 30/30 | 2.00 / 4.00 | −2.9 s [−3.8, −2.1] | 0.39 [0.31, 0.48] |
+| `gpt-5.4-mini-2026-03-17` (low) | 30/30 | 30/30 | 2.30 / 4.00 | −2.1 s [−2.8, −1.5] | 0.44 [0.36, 0.54] |
+| `gpt-4.1-2025-04-14` (temp 0) | 28/30 | 23/30 | 2.43 / 4.03 | −1.4 s [−2.4, −0.1] | 0.52 [0.40, 0.69] |
 
-What this shows, at n = 30 per cell:
+What it shows:
 
-- **No detectable difference in success** between Weave and native tool
-  calling for any of the three models; the 95% intervals overlap heavily.
-- **Weave averaged slightly fewer model turns** (2.8–3.2 vs 3.3 per task),
-  mostly on multi-step write tasks such as the file + git + memory task. The
-  intervals overlap, and on some tasks it needed more turns (GPT-4.1 on the
-  pointer chain, GPT-5.5 on the index fan-out). See the
-  [per-task chart](assets/benchmark-v3-tasks.png).
-- **It was not faster end-to-end and used more tokens** in this controlled mode:
-  mean wall-clock was similar for GPT-5.4 mini and GPT-4.1 and higher for GPT-5.5,
-  and Weave used 6–23% more tokens per trial.
+- **Fewer turns and about half the tokens.** Native sends every tool result back through the model and pays for it
+  again on each later turn. A Weave script returns only what it prints. On the scaling suite, native tokens grow by
+  about 78 per fanned-out item and native turns grow by one per chain hop. Weave stays flat
+  ([chart](assets/benchmark-v4-scaling.png)).
+- **The speedup comes from model round trips, not from concurrency.** At 0 ms backend latency the saving is almost
+  the same as at 200 ms. Loop pipelining still matters: with it switched off, Weave's backend time on fan-out
+  tasks rises 4–5×.
+- **Where Weave loses.** In a loop that writes (`triage`), each read waits for the previous write, so Weave's backend
+  time is about 2× native's. It still wins end-to-end only because it saves two model turns.
+- **Not covered.** Only OpenAI models were run in full. on Gemini's free tier only 4 of 20 trials finished before the rate limit, the NVIDIA-hosted
+  GLM endpoint timed out, and no Anthropic key was available. The tasks are synthetic and maintainer-authored. See
+  the paper's threats-to-validity section.
 
-What it does **not** show: a speedup (none is claimed), results for other
-providers, or Weave's shipped compact-output mode. To keep observations equal,
-protocol v3 sends both modes the full tool results and replaces Weave's
-script errors and hints with one generic message, which costs Weave repair
-turns. The ten tasks are small, public and maintainer-authored, not a held-out
-or independent benchmark. Raw ledgers, an earlier run with a harness defect
-(kept, not discarded), and methodology: [docs/benchmarks.md](docs/benchmarks.md).
+Reproduce: `make bench-mock` (offline) or `WEAVE_BENCH_LIVE=1 make bench-live MODEL=...` (spends tokens).
 
-Older numbers in the history section of that page compared unequal endpoints
-and are not speedup evidence.
+**Protocol v3 (strict mode, real MCP servers).** The earlier [protocol v3](docs/benchmark-protocol-v3.md) hides
+Weave's error hints and sends both arms the full tool results. It found no difference on 2026-11-09. Its traces led to
+the fixes in this release (return types in the listing, clearer errors, loop pipelining). Rerun after the fixes,
+Weave's first-try success rose from 11/30 to 30/30 on GPT-5.5, from 26/30 to 30/30 on GPT-5.4 mini, and from 20/30 to
+26/30 on GPT-4.1. That suite was the diagnosis set, so this is a before/after result, not a held-out one. Full
+tables are in [docs/benchmarks.md](docs/benchmarks.md).
 
 ## Execution boundaries
 
@@ -345,6 +348,9 @@ Open [the local documentation](http://127.0.0.1:8000). References:
 
 Core code is in `crates/weave`; Python bindings in `crates/weave-py` and
 `python/weave`; the proxy and CLI in `crates/weave-mcp` and `crates/weave-cli`.
+[Architecture](docs/architecture.md) maps the scheduler for contributors, and the
+[roadmap](ROADMAP.md) lists measured weaknesses and good first issues. To cite Weave,
+see [CITATION.cff](CITATION.cff).
 
 ```bash
 cargo test --workspace --locked

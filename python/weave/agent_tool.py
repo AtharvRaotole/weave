@@ -25,14 +25,96 @@ from typing import Any, Callable, Iterable
 from weave._native import Engine
 
 RULES = (
+    "Do the whole task in as few scripts as possible: one script can call many functions, loop over results, "
+    "branch on them and aggregate, and each call of this tool costs a model round trip. "
+    "Print only the values you need (the final answer, or what you must see to decide the next step), "
+    "not whole intermediate results. "
     "Write a Weave script: a Python subset. No imports, def, class, while, with, lambda, "
-    "or comprehensions. Use assignment, calls, if/else, for (with break/continue), try/except ToolError, lists, dicts, "
+    "or comprehensions (for a loop of unknown length use `for _ in range(100):` with break). "
+    "Call functions by their bare names, e.g. `get(x)`, not `functions.get(x)`. Use assignment, calls, if/else, for (with break/continue), try/except ToolError, lists, dicts, "
     "f-strings, string/list/dict methods, and builtins (str, int, len, range, sum, min, max, "
     "sorted, enumerate, zip, any, all, list, parse_json). Independent calls on separate lines run "
     "in parallel. `for x in text` loops over characters; use text.splitlines() for lines. "
+    "A loop's tool calls run in parallel when their arguments use only the loop variable and values "
+    "from before the loop, even if the loop accumulates results, so loop over items freely. "
+    "A function's return type follows `->`. "
     "A failing tool raises ToolError. print() the values you need; the tool returns "
     "what the script printed, or the error with a hint so you can fix the script."
 )
+
+
+def echo_last_expression(source: str) -> str:
+    """Print the value of a script's final bare expression, like a REPL.
+
+    Models often end a script with `get_customer(cid)` and expect to see the result; without this
+    the value is discarded and the model guesses (seen live with GPT-4.1). Returns the source
+    unchanged when the last statement is not a lone top-level expression."""
+    import ast
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source
+    if not tree.body or not isinstance(tree.body[-1], ast.Expr):
+        return source
+    node = tree.body[-1].value
+    if isinstance(node, ast.Constant) or (
+        isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "print"
+    ):
+        return source
+    lines = source.splitlines(keepends=True)
+    first, last = tree.body[-1].lineno, tree.body[-1].end_lineno
+    segment = ast.get_source_segment(source, tree.body[-1])
+    if segment is None or "".join(lines[first - 1:last]).strip() != segment.strip():
+        return source  # shares a line with another statement
+    return "".join(lines[: first - 1]) + f"print({segment})\n" + "".join(lines[last:])
+
+
+def _annotation(annotation: Any) -> str | None:
+    if annotation is inspect.Parameter.empty or annotation is inspect.Signature.empty:
+        return None
+    if isinstance(annotation, str):
+        return annotation
+    if annotation is type(None):
+        return "None"
+    if isinstance(annotation, type) and not getattr(annotation, "__args__", None):
+        return annotation.__name__
+    return str(annotation).replace("typing.", "")
+
+
+def schema_type(schema: Any, depth: int = 0) -> str:
+    """Render a JSON schema as a short Python-like type, e.g. `{"value": str}`."""
+    if not isinstance(schema, dict) or depth > 4:
+        return "any"
+    if "enum" in schema and isinstance(schema["enum"], list):
+        return " | ".join(json.dumps(v) for v in schema["enum"][:8])
+    kind = schema.get("type")
+    if isinstance(kind, list):
+        return " | ".join(schema_type({**schema, "type": k}, depth) for k in kind)
+    if kind == "object" or "properties" in schema:
+        props = schema.get("properties") or {}
+        if not props:
+            return "dict"
+        required = set(schema.get("required") or ())
+        fields = ", ".join(
+            f'"{k}": {schema_type(v, depth + 1)}' + ("" if k in required else "?") for k, v in props.items()
+        )
+        return "{" + fields + "}"
+    if kind == "array":
+        return f"list[{schema_type(schema.get('items'), depth + 1)}]"
+    return {"string": "str", "integer": "int", "number": "float", "boolean": "bool", "null": "None"}.get(kind, "any")
+
+
+def _returns(func: Callable) -> str | None:
+    declared = getattr(func, "__weave_returns__", None)
+    if isinstance(declared, dict):
+        return schema_type(declared)
+    if isinstance(declared, str):
+        return declared
+    try:
+        return _annotation(inspect.signature(func).return_annotation)
+    except (TypeError, ValueError):
+        return None
 
 
 def _signature(func: Callable) -> str:
@@ -40,14 +122,34 @@ def _signature(func: Callable) -> str:
         params = inspect.signature(func).parameters.values()
     except (TypeError, ValueError):
         return "..."
-    return ", ".join(p.name if p.default is inspect.Parameter.empty else f"{p.name}={p.default!r}" for p in params)
+    out = []
+    for p in params:
+        if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) or p.name == "cancel":
+            continue
+        text = p.name
+        hint = _annotation(p.annotation)
+        if hint:
+            text += f": {hint}"
+        if p.default is not inspect.Parameter.empty:
+            text += f"={p.default!r}"
+        out.append(text)
+    return ", ".join(out)
 
 
 def tool_line(func: Callable) -> str:
+    """One listing line: `name(params) -> returns, effect E. First doc line.`
+
+    The return type comes from `func.__weave_returns__` (a JSON schema or a
+    string) or the return annotation. A script cannot see a result's shape
+    the way a native tool call shows the model each JSON result, so listing
+    it avoids a wasted round trip (for example treating a `{"value": str}`
+    envelope as a plain string)."""
     meta = getattr(func, "__weave__", None) or {}
     effect = meta.get("effect") or "irreversible"
     doc = (inspect.getdoc(func) or "").split("\n", 1)[0]
-    return f"{func.__name__}({_signature(func)}), effect {effect}. {doc}".rstrip()
+    returns = _returns(func)
+    arrow = f" -> {returns}" if returns else ""
+    return f"{func.__name__}({_signature(func)}){arrow}, effect {effect}. {doc}".rstrip()
 
 
 class WeaveTool:
@@ -121,6 +223,7 @@ class WeaveTool:
         problems = self.engine.check(source)
         if problems:
             return "error: the script did not pass the static check\n" + "\n".join(problems)
+        source = echo_last_expression(source)
         try:
             if _cancel is not None and hasattr(self.engine, "session"):
                 session = self.engine.session()
@@ -138,6 +241,57 @@ class WeaveTool:
         if len(out) > self.max_output_chars:
             out = out[: self.max_output_chars] + f"\n[truncated to {self.max_output_chars} characters]"
         return out if out.strip() else "(the script printed nothing; print the values you need)"
+
+    def run_many(self, sources: list) -> list:
+        """Run the scripts of one model turn (parallel tool calls) and return
+        their outputs in order. Consecutive scripts that only read run
+        concurrently; a script that may write waits for the scripts before
+        it and blocks the ones after it, like native parallel tool calls."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        def effect(source):
+            try:
+                return self.engine.script_effect(source if isinstance(source, str) else "")
+            except Exception:  # noqa: BLE001 - a script that does not parse just reports its error
+                return "pure"
+
+        outputs: list = [None] * len(sources)
+        with ThreadPoolExecutor(max_workers=max(1, min(8, len(sources)))) as pool:
+            group: list = []
+            for i, source in enumerate(sources):
+                if effect(source) in ("pure", "read"):
+                    group.append((i, pool.submit(self.run, source)))
+                    continue
+                for j, future in group:
+                    outputs[j] = future.result()
+                group = []
+                outputs[i] = self.run(source)
+            for j, future in group:
+                outputs[j] = future.result()
+        return outputs
+
+    def handle_many(self, calls: list) -> list:
+        """`handle` for every tool call of one model turn, using `run_many`."""
+        get = lambda obj, key: obj.get(key) if isinstance(obj, dict) else getattr(obj, key, None)  # noqa: E731
+        sources, shapes = [], []
+        for call in calls:
+            function = get(call, "function")
+            chat = function is not None
+            args = (get(function, "arguments") if chat else get(call, "arguments")) or "{}"
+            try:
+                source = json.loads(args)["source"]
+            except (json.JSONDecodeError, KeyError, TypeError):
+                source = None
+            sources.append(source)
+            shapes.append((chat, get(call, "id") if chat else get(call, "call_id")))
+        valid = [i for i, src in enumerate(sources) if isinstance(src, str)]
+        ran = dict(zip(valid, self.run_many([sources[i] for i in valid])))
+        out = []
+        for i, (chat, call_id) in enumerate(shapes):
+            text = ran.get(i, 'error: call run_weave with JSON arguments {"source": "<script>"}')
+            out.append({"role": "tool", "tool_call_id": call_id, "content": text} if chat
+                       else {"type": "function_call_output", "call_id": call_id, "output": text})
+        return out
 
     def handle(self, call: Any) -> dict:
         """Run one tool call and return the message to append.

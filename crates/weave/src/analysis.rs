@@ -191,7 +191,11 @@ fn reads_before_assign(stmts: &[Stmt], writes: &HashSet<String>, assigned: &mut 
     for stmt in stmts {
         match &stmt.kind {
             StmtKind::Assign { targets, value } => {
-                if expr_reads_carried(value, writes, assigned) {
+                // `d[k] = v` reads `d` (it rebuilds the container), so a
+                // container filled across iterations is loop-carried.
+                if expr_reads_carried(value, writes, assigned)
+                    || targets.iter().any(|t| target_reads_carried(t, writes, assigned))
+                {
                     return true;
                 }
                 for target in targets {
@@ -330,3 +334,4 @@ fn mark_assigned(target: &Target, assigned: &mut HashSet<String>) {
         }
     }
 }
+

@@ -194,9 +194,9 @@ impl PyEngine {
     /// Set resource limits for later runs. `max_steps` counts statements and
     /// loop iterations; `max_value_size` counts string bytes and container
     /// elements. Omitted values keep their current setting.
-    #[pyo3(signature = (max_steps=None, max_value_size=None, max_wall_time_ms=None, max_source_bytes=None, max_output_bytes=None, max_trace_bytes=None))]
+    #[pyo3(signature = (max_steps=None, max_value_size=None, max_wall_time_ms=None, max_source_bytes=None, max_output_bytes=None, max_trace_bytes=None, pipeline_loops=None))]
     #[allow(clippy::too_many_arguments)]
-    fn set_limits(&mut self, max_steps: Option<u64>, max_value_size: Option<usize>, max_wall_time_ms: Option<u64>, max_source_bytes: Option<usize>, max_output_bytes: Option<usize>, max_trace_bytes: Option<usize>) {
+    fn set_limits(&mut self, max_steps: Option<u64>, max_value_size: Option<usize>, max_wall_time_ms: Option<u64>, max_source_bytes: Option<usize>, max_output_bytes: Option<usize>, max_trace_bytes: Option<usize>, pipeline_loops: Option<bool>) {
         let mut limits = self.inner.limits();
         if let Some(steps) = max_steps {
             limits = limits.with_max_steps(steps);
@@ -210,7 +210,14 @@ impl PyEngine {
         if let Some(n) = max_source_bytes { limits.max_source_bytes = n; }
         if let Some(n) = max_output_bytes { limits.max_output_bytes = n; }
         if let Some(n) = max_trace_bytes { limits.max_trace_bytes = n; }
+        if let Some(on) = pipeline_loops { limits.pipeline_loops = on; }
         self.inner.set_limits(limits);
+    }
+
+    /// "pure", "read", "reversible" or "irreversible": the strongest effect
+    /// of any call in the script (unknown names count as irreversible).
+    fn script_effect(&self, source: &str) -> PyResult<String> {
+        self.inner.script_effect(source).map(|e| e.as_str().to_string()).map_err(weave_err)
     }
 
     fn check(&self, source: &str) -> Vec<String> {
@@ -782,8 +789,23 @@ fn call_python(
     // Errors raised by host code may carry secrets; only Weave's own argument
     // and conversion errors above and below are reported verbatim.
     let result = if has_kw { func.call(py, &tuple, Some(&dict)) } else { func.call1(py, &tuple) };
-    let result = result.map_err(|err| public_error(py, &err, debug))?;
+    let result = result.map_err(|err| {
+        if err.is_instance_of::<PyTypeError>(py) {
+            if let Some(text) = call_mismatch(py, func, &tuple, &dict) {
+                return text;
+            }
+        }
+        public_error(py, &err, debug)
+    })?;
     py_to_value(&result.into_bound(py)).map_err(|err| err.to_string())
+}
+
+/// The script called the tool with arguments its signature rejects.
+fn call_mismatch(py: Python<'_>, func: &Py<PyAny>, args: &Bound<'_, PyTuple>, kwargs: &Bound<'_, PyDict>) -> Option<String> {
+    py.import("weave.errors")
+        .and_then(|module| module.getattr("call_mismatch")?.call1((func.bind(py), args, kwargs)))
+        .ok()
+        .and_then(|text| text.extract::<Option<String>>().ok().flatten())
 }
 
 /// Host exception text for scripts: redacted unless `weave.ToolError` or debug.

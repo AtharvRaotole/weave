@@ -173,6 +173,10 @@ pub fn type_name(value: &Value) -> &'static str {
     }
 }
 
+fn is_numeric(value: &Value) -> bool {
+    matches!(value, Value::Bool(_) | Value::Int(_) | Value::Float(_))
+}
+
 fn as_number(value: &Value) -> Result<Num, String> {
     match value {
         Value::Bool(b) => Ok(Num::Int(if *b { 1 } else { 0 })),
@@ -181,8 +185,22 @@ fn as_number(value: &Value) -> Result<Num, String> {
         Value::Float(_) => Err("float is not finite".into()),
         other => Err(format!(
             "expected a number, got {}",
-            type_name(other)
+            describe(other)
         )),
+    }
+}
+
+/// A type name for error messages. Dicts list their first keys, so a
+/// script that treats a `{"value": ...}` result as a plain value learns
+/// which key to read.
+pub fn describe(value: &Value) -> String {
+    match value {
+        Value::Dict(items) if !items.is_empty() => {
+            let keys: Vec<String> = items.iter().take(8).map(|(k, _)| py_repr(k)).collect();
+            let more = if items.len() > 8 { ", ..." } else { "" };
+            format!("dict with keys {}{more}", keys.join(", "))
+        }
+        other => type_name(other).to_string(),
     }
 }
 
@@ -203,6 +221,11 @@ pub fn add(a: &Value, b: &Value) -> Result<Value, String> {
             out.extend(y.iter().cloned());
             Ok(Value::List(out))
         }
+        _ if !is_numeric(a) || !is_numeric(b) => Err(format!(
+            "cannot add {} and {}",
+            describe(a),
+            describe(b)
+        )),
         _ => {
             let (a, b) = (as_number(a)?, as_number(b)?);
             match (a, b) {
@@ -476,32 +499,38 @@ fn contains(container: &Value, item: &Value) -> Result<bool, String> {
 }
 
 fn cmp_ord(left: &Value, right: &Value, op: Cmp) -> Result<bool, String> {
-    let ord = match (left, right) {
-        (Value::Int(a), Value::Int(b)) => a.cmp(b),
-        (Value::Str(a), Value::Str(b)) => a.cmp(b),
-        (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
-        _ => {
-            if let (Ok(a), Ok(b)) = (as_number(left), as_number(right)) {
-                let af = to_f(a);
-                let bf = to_f(b);
-                af.partial_cmp(&bf)
-                    .ok_or_else(|| "cannot compare these numbers".to_string())?
-            } else {
-                return Err(format!(
-                    "cannot compare {} and {} with `{}`",
-                    type_name(left),
-                    type_name(right),
-                    cmp_token(op)
-                ));
-            }
-        }
-    };
+    let ord = ordering(left, right).map_err(|_| {
+        format!("cannot compare {} and {} with `{}`", type_name(left), type_name(right), cmp_token(op))
+    })?;
     Ok(match op {
         Cmp::Lt => ord.is_lt(),
         Cmp::LtE => ord.is_le(),
         Cmp::Gt => ord.is_gt(),
         Cmp::GtE => ord.is_ge(),
         _ => unreachable!(),
+    })
+}
+
+/// Python ordering: numbers, strings and bools among themselves, and lists
+/// lexicographically (so `sorted` of `[key, item]` pairs works).
+fn ordering(left: &Value, right: &Value) -> Result<std::cmp::Ordering, ()> {
+    Ok(match (left, right) {
+        (Value::Int(a), Value::Int(b)) => a.cmp(b),
+        (Value::Str(a), Value::Str(b)) => a.cmp(b),
+        (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
+        (Value::List(a), Value::List(b)) => {
+            for (x, y) in a.iter().zip(b) {
+                let o = ordering(x, y)?;
+                if o.is_ne() {
+                    return Ok(o);
+                }
+            }
+            a.len().cmp(&b.len())
+        }
+        _ => match (as_number(left), as_number(right)) {
+            (Ok(a), Ok(b)) => to_f(a).partial_cmp(&to_f(b)).ok_or(())?,
+            _ => return Err(()),
+        },
     })
 }
 
@@ -542,7 +571,10 @@ pub fn get_item(container: &Value, index: &Value) -> Result<Value, String> {
         }
         Value::Dict(xs) => dict_get(xs, index)
             .cloned()
-            .ok_or_else(|| format!("key {} is missing", py_repr(index))),
+            .ok_or_else(|| match describe(container) {
+                d if d.starts_with("dict with keys") => format!("key {} is missing; the dict has keys {}", py_repr(index), &d[15..]),
+                _ => format!("key {} is missing; the dict is empty", py_repr(index)),
+            }),
         other => Err(format!("cannot index {}", type_name(other))),
     }
 }

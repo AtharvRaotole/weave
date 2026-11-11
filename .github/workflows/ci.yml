@@ -60,6 +60,10 @@ jobs:
           python tests/audit/test_mcp.py
           python tests/audit/test_benchmark.py
           timeout 35 python tests/audit/test_workers.py
+      - name: benchmark v4 harness (offline oracle, no network)
+        run: |
+          timeout 300 python bench/v4/tests/test_v4.py
+          python -m bench.v4.run --mock --suite held_out --repeats 1 --latency-ms 0 --out /tmp/v4mock
 
   python-cross:
     # Isolation, privacy and bounded-phase guarantees on macOS and Windows.

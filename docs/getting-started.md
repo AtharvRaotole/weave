@@ -109,7 +109,12 @@ tools = [tool.chat_tool()]          # Chat Completions
 
 # In your loop, for each tool call the model returns:
 messages.append(tool.handle(call))  # runs the script, returns printed output or a repairable error
+# Or, for all the calls of one model turn at once (read-only scripts run concurrently):
+messages.extend(tool.handle_many(calls))
 ```
+
+A script's last bare expression is printed, as in a REPL, so `get_customer(cid)` on its own line shows its
+value.
 
 The tool description teaches the model the language rules and lists your
 functions with their effects. [`examples/run_weave_tool.py`](../examples/run_weave_tool.py)

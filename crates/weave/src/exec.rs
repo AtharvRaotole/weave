@@ -327,6 +327,18 @@ impl Engine {
         self.run_with(source, None)
     }
 
+    /// The strongest effect any call in `source` can have (pure < read <
+    /// reversible < irreversible). A host running several scripts from one
+    /// model turn can run the read-only ones concurrently. Unknown names
+    /// count as irreversible; a script that does not parse is an error.
+    pub fn script_effect(&self, source: &str) -> Result<Effect, WeaveError> {
+        let parsed = parse_detailed(source, 0)?;
+        if let Some(first) = parsed.errors.into_iter().next() {
+            return Err(WeaveError::one(first));
+        }
+        Ok(block_effects(&parsed.stmts, &self.tools).max)
+    }
+
     /// Run `source`, serving pure and read calls from `speculation` when the
     /// arguments match a prediction. See [`Engine::speculate`].
     pub fn run_with(&self, source: &str, speculation: Option<&SpecCache>) -> Result<RunResult, WeaveError> {
@@ -1208,6 +1220,9 @@ async fn run_parallel_for(
     Ok(Arc::new(merged))
 }
 
+/// Iterations of a pipelined loop launched together.
+const PIPELINE_WINDOW: usize = 64;
+
 async fn run_sequential_for(
     line: usize,
     col: usize,
@@ -1228,9 +1243,59 @@ async fn run_sequential_for(
     let mut local_print = branch_print;
     let mut local_prior = branch_prior;
     let mut carried: HashMap<String, Value> = HashMap::new();
-    {
+    let pipelined = {
         let g = arc.lock().expect("launch lock");
         charge(&g, items.len(), line, col)?;
+        g.limits.pipeline_loops
+            && items.len() >= 2
+            && block_effects(body, &g.tools).max <= Effect::Read
+    };
+    if pipelined {
+        // Read-only body with a loop-carried name (an accumulator, a running
+        // best, a `break` flag): launch a window of iterations at once,
+        // threading each iteration's names into the next exactly as
+        // straight-line code would. Values that depend on the carried names
+        // wait for them; everything else, typically the tool calls, overlaps.
+        // Carried values are materialized between windows so dependency
+        // chains (and the stack depth of polling them) stay bounded.
+        let (mut local_mut, mut local_obs, mut local_print, mut local_prior) =
+            (local_mut, local_obs, local_print, local_prior);
+        for (window, chunk) in items.chunks(PIPELINE_WINDOW).enumerate() {
+            let (roots, assigned) = {
+                let mut g = arc.lock().expect("launch lock");
+                let saved = BarrierSnap::capture(&g);
+                g.last_mutation = local_mut.clone();
+                g.last_observable = local_obs.clone();
+                g.print_barrier = local_print.clone();
+                g.prior = local_prior.clone();
+                let mut env = snap.clone();
+                for (name, value) in &carried {
+                    env.insert(name.clone(), ready(value.clone()));
+                }
+                let mut roots = Vec::new();
+                for (offset, item) in chunk.iter().enumerate() {
+                    g.path = branch_path.clone();
+                    g.path.extend([line, col, window * PIPELINE_WINDOW + offset]);
+                    bind_ready(target, item.clone(), &mut env);
+                    roots.extend(launch_block(&mut g, arc, body, &mut env, false));
+                }
+                let assigned = capture_assigned(written, &env);
+                local_mut = g.last_mutation.clone();
+                local_obs = g.last_observable.clone();
+                local_print = g.print_barrier.clone();
+                local_prior = g.prior.clone();
+                saved.install(&mut g);
+                (roots, assigned)
+            };
+            spawn_pending(arc);
+            await_roots(roots).await?;
+            let map = collect_assigned(assigned).await?;
+            for (k, v) in map.iter() {
+                carried.insert(k.clone(), v.clone());
+            }
+        }
+        fill_from_snapshot(written, &snap, &mut carried).await?;
+        return Ok(Arc::new(carried));
     }
     for (iteration, item) in items.iter().enumerate() {
         let (roots, assigned) = {
@@ -1408,8 +1473,10 @@ fn schedule_aug(
             let col = *col;
             let max = g.limits.max_value_size;
             let updated = share(async move {
-                let left = old.await?;
-                let right = rhs.await?;
+                // Poll both: the right side (often a tool call) must not wait
+                // for the previous value of an accumulator.
+                let (left, right) = futures::future::join(old, rhs).await;
+                let (left, right) = (left?, right?);
                 let value = apply_bin(op, &left, &right).map_err(|msg| WeaveError::runtime(line, col, msg))?;
                 checked(line, col, max, value)
             });
@@ -1429,10 +1496,10 @@ fn schedule_aug(
             let col = *col;
             let max = g.limits.max_value_size;
             let updated = share(async move {
-                let container = old.await?;
-                let index = idx.await?;
+                let (container, index, right) = futures::future::join3(old, idx, rhs).await;
+                let (container, index) = (container?, index?);
                 let current = value::get_item(&container, &index).map_err(|msg| WeaveError::runtime(line, col, msg))?;
-                let right = rhs.await?;
+                let right = right?;
                 let new_value = apply_bin(op, &current, &right).map_err(|msg| WeaveError::runtime(line, col, msg))?;
                 let value = value::set_item(&container, &index, new_value).map_err(|msg| WeaveError::runtime(line, col, msg))?;
                 checked(line, col, max, value)
@@ -1475,9 +1542,28 @@ fn schedule_expr_inner(expr: &Expr, g: &mut Launch, arc: &Arc<Mutex<Launch>>, en
             Ok(value) => ready(value),
             Err(err) => fail(err),
         },
-        ExprKind::Name(name) => env.get(name).cloned().unwrap_or_else(|| {
-            fail(WeaveError::one(Diagnostic::unbound(line, col, name)))
-        }),
+        ExprKind::Name(name) => match env.get(name).cloned() {
+            // Reading a name no executed path assigned (e.g. one set only
+            // inside a loop that ran zero times) is a runtime error, as in
+            // Python. The internal unbound marker never reaches a value.
+            Some(fut) => {
+                let name = name.clone();
+                share(async move {
+                    fut.await.map_err(|err| {
+                        if err.is_unbound() {
+                            WeaveError::runtime(
+                                line,
+                                col,
+                                format!("name `{name}` is not defined: no iteration or branch that ran assigned it"),
+                            )
+                        } else {
+                            err
+                        }
+                    })
+                })
+            }
+            None => fail(WeaveError::one(Diagnostic::unbound(line, col, name))),
+        },
         ExprKind::List(xs) | ExprKind::Tuple(xs) => {
             let parts: Vec<ValFut> = xs.iter().map(|e| schedule_expr(e, g, arc, env)).collect();
             let max = g.limits.max_value_size;
@@ -2561,7 +2647,7 @@ fn to_int(value: &Value) -> Result<Value, String> {
             .parse::<i64>()
             .map(Value::Int)
             .map_err(|_| format!("invalid int literal {s:?}")),
-        other => Err(format!("int() cannot convert {}", value::type_name(other))),
+        other => Err(format!("int() cannot convert {}", value::describe(other))),
     }
 }
 
@@ -2784,7 +2870,7 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
         }
         (other, method) => Err(format!(
             "{} has no method `{method}`",
-            value::type_name(other)
+            value::describe(other)
         )),
     }
 }
@@ -2910,8 +2996,9 @@ fn tool_failure(
     args: &[Value],
     kwargs: &BTreeMap<String, Value>,
 ) -> WeaveError {
+    let bad_call = message.contains("bad call:");
     let mut diagnostic = crate::error::Diagnostic::tool(line, col, message);
-    let single_char = args
+    let single_char = !bad_call && args
         .iter()
         .chain(kwargs.values())
         .any(|v| matches!(v, Value::Str(s) if s.chars().count() == 1));

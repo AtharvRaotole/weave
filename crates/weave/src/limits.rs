@@ -47,6 +47,11 @@ pub struct Limits {
     /// scheduler. At the limit the run is cancelled (in-flight async and
     /// isolated tools are stopped) and fails. Default 30 s.
     pub max_wall_time: std::time::Duration,
+    /// Pipeline loops whose iterations share a carried name (an
+    /// accumulator, a running best, a `break` flag) when the body only reads:
+    /// all iterations are launched at once and only the work that depends on
+    /// the carried names waits for the previous iteration. Default true.
+    pub pipeline_loops: bool,
 }
 
 impl Default for Limits {
@@ -58,6 +63,7 @@ impl Default for Limits {
             max_trace_bytes: 4 * 1024 * 1024,
             max_value_size: 16 * 1024 * 1024,
             max_wall_time: std::time::Duration::from_secs(30),
+            pipeline_loops: true,
         }
     }
 }
@@ -70,6 +76,11 @@ impl Limits {
 
     pub fn with_max_wall_time(mut self, limit: std::time::Duration) -> Self {
         self.max_wall_time = limit;
+        self
+    }
+
+    pub fn with_pipeline_loops(mut self, enabled: bool) -> Self {
+        self.pipeline_loops = enabled;
         self
     }
 

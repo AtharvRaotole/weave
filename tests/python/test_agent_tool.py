@@ -94,11 +94,36 @@ def test_agents_sdk_tool_when_installed():
     assert out == "Q\n"
 
 
-if __name__ == "__main__":
-    for name, fn in list(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("ok", name)
+def test_listing_shows_return_types_and_bad_calls_are_explained():
+    import time
+    from weave import WeaveTool, declare
+
+    @declare(effect="read")
+    def fs_read(*, path):
+        "Read a file."
+        return {"value": "blue"}
+
+    fs_read.__weave_returns__ = {"type": "object", "properties": {"value": {"type": "string"}}, "required": ["value"]}
+
+    @declare(effect="read")
+    def score(name: str) -> int:
+        "Score a name."
+        time.sleep(0.1)
+        return len(name)
+
+    tool = WeaveTool([fs_read, score])
+    assert 'fs_read(path) -> {"value": str}, effect read.' in tool.description
+    assert "score(name: str) -> int, effect read." in tool.description
+    out = tool.run('t = fs_read(path="a")\nprint("got " + t)')
+    assert "cannot add str and dict with keys 'value'" in out, out
+    out = tool.run('t = fs_read("a")')
+    assert "bad call" in out and "fs_read(path=...)" in out and "single character" not in out, out
+    # An accumulator loop still overlaps its reads (loop prefetch).
+    started = time.monotonic()
+    out = tool.run("total = 0\nfor n in ['ab', 'cde', 'f', 'ghij', 'k', 'lm']:\n    total += score(n)\nprint(total)")
+    assert out == "13\n", out
+    assert time.monotonic() - started < 0.45
+
 
 
 def test_version_matches_the_package():
@@ -107,3 +132,29 @@ def test_version_matches_the_package():
 
     assert weave.__version__ == "1.0.0"
     assert dispatch(["--version"]) == "weave 1.0.0"
+
+
+def test_a_final_bare_expression_is_printed():
+    from weave import WeaveTool, declare
+    from weave.agent_tool import echo_last_expression
+
+    @declare(effect="read")
+    def get_customer(cid: str) -> dict:
+        "Look up a customer."
+        return {"id": cid, "name": "Ada"}
+
+    tool = WeaveTool([get_customer])
+    assert tool.run("get_customer('C-1')") == "{'id': 'C-1', 'name': 'Ada'}\n"
+    assert tool.run("c = get_customer('C-1')\nc['name']") == "Ada\n"
+    assert tool.run("print('x')\nget_customer('C-1')['name']") == "x\nAda\n"
+    assert "printed nothing" in tool.run("c = get_customer('C-1')")
+    assert echo_last_expression("x = 1\nprint(x)\n") == "x = 1\nprint(x)\n"
+    assert echo_last_expression("x = 1; x\n") == "x = 1; x\n"
+    assert echo_last_expression("for i in [1]:\n    i\n") == "for i in [1]:\n    i\n"
+
+
+if __name__ == "__main__":
+    for name, fn in list(globals().items()):
+        if name.startswith("test_"):
+            fn()
+            print("ok", name)

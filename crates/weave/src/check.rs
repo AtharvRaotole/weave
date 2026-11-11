@@ -36,10 +36,13 @@ pub fn check_block(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<S
                 let mut else_defined = defined.clone();
                 diags.extend(check_block(body, tools, &mut then_defined));
                 diags.extend(check_block(orelse, tools, &mut else_defined));
-                *defined = then_defined
-                    .intersection(&else_defined)
-                    .cloned()
-                    .collect();
+                // `if True:` (how loops with break/continue are desugared)
+                // always takes its body.
+                *defined = if matches!(test.kind, ExprKind::Bool(true)) {
+                    then_defined
+                } else {
+                    then_defined.intersection(&else_defined).cloned().collect()
+                };
             }
             StmtKind::For { target, iter, body } => {
                 diags.extend(check_expr(iter, tools, defined));
@@ -47,7 +50,12 @@ pub fn check_block(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet<S
                 diags.extend(check_target(target, tools, &inner, false));
                 bind_target(target, &mut inner);
                 diags.extend(check_block(body, tools, &mut inner));
-                // Names assigned only inside the loop are unbound when the iterable is empty.
+                // As in Python, a name assigned in the loop (the target, or
+                // `r = ...` in the body) may be used after it; it is unbound
+                // only if no iteration assigned it, which is a runtime error.
+                // Scripts commonly read the last item after `break`.
+                defined.extend(inner);
+                defined.extend(crate::analysis::assigned_names(body));
             }
             StmtKind::Try { body, handler } => {
                 let mut try_defined = defined.clone();
@@ -248,7 +256,17 @@ fn check_call(
                 );
             }
         }
-        ExprKind::Attribute { value, .. } => diags.extend(check_expr(value, tools, defined)),
+        ExprKind::Attribute { value, attr } => match &value.kind {
+            // `functions.get_order(...)`: models trained on JSON tool calling often prefix a
+            // namespace. Point at the bare name instead of reporting an unassigned `functions`.
+            ExprKind::Name(ns) if !defined.contains(ns) && !is_builtin(ns) && tools.get(attr).is_some() => {
+                diags.push(
+                    Diagnostic::static_err(line, col, format!("`{ns}.{attr}` is not defined; tools are plain names"))
+                        .with_hint(format!("call `{attr}(...)` without the `{ns}.` prefix")),
+                );
+            }
+            _ => diags.extend(check_expr(value, tools, defined)),
+        },
         _ => {
             diags.push(Diagnostic::static_err(
                 line,
@@ -279,11 +297,18 @@ fn check_builtin(line: usize, col: usize, name: &str, argc: usize, keywords: &[c
         ).with_hint(format!("check the argument count for `{name}`")));
     }
     if name != "print" && !keywords.is_empty() {
-        diags.push(Diagnostic::static_err(
-            line,
-            col,
-            format!("builtin `{name}` does not take keyword arguments"),
-        ));
+        let err = Diagnostic::static_err(line, col, format!("builtin `{name}` does not take keyword arguments"));
+        let by_key = keywords.iter().any(|kw| kw.name.as_deref() == Some("key"));
+        diags.push(match name {
+            "max" | "min" if by_key => err.with_hint(format!(
+                "`key=` is not supported; loop and keep the best item, e.g. `if best is None or v {} best_v: best, best_v = x, v`",
+                if name == "max" { ">" } else { "<" }
+            )),
+            "sorted" if by_key => err.with_hint(
+                "`key=` is not supported; build a list of [key, item] pairs in a loop and sort that",
+            ),
+            _ => err,
+        });
     }
     diags
 }
