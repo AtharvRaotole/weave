@@ -1,5 +1,21 @@
 # Benchmarks
 
+## Round 6: tau-bench retail on fresh tasks (2026-11-10)
+
+Pre-registered in Addendum 6 (`retail_test10r6`, hash `5d4fdabdbbd74701`; 10 test tasks, 1 repeat, both arms
+`parallel_tool_calls: true`; Weave arm `conversational=True`, `persist_variables=True`, sampled return shapes).
+Everything was tuned on the train split only (dev runs A–C, 1.01M tokens).
+
+| model | pass W / N | agent calls W / N | Δ agent calls [95% CI] | Δ wall s [95% CI] | token ratio [95% CI] |
+|---|---|---|---|---|---|
+| GPT-4.1 (temp 0) | 6/10 / 7/10 | 10.6 / 15.0 | −4.40 [−7.50, −1.50] | −0.60 [−6.33, +5.13] | 0.78 [0.60, 1.02] |
+| GPT-5.4 mini (low) | 8/10 / 6/10 | 12.8 / 13.3 | −0.50 [−2.20, +1.30] | **+4.76 [+0.47, +9.52]** | 1.11 [0.95, 1.32] |
+| pooled | 14/20 / 13/20 | 11.7 / 14.2 | −2.45 [−4.45, −0.50] | +2.08 [−1.73, +6.05] | 0.93 [0.78, 1.11] |
+
+Weave script errors per trial: GPT-4.1 0.20 (3.43 in round 5), GPT-5.4 mini 0.30 (0.29). The mini wall-time loss
+includes about 2.2 s per trial of return-shape sampling in our adapter, since cached. Airline was not run.
+Spend: 3.90M tokens, under the 5.0M cap; about 14.3M over all rounds.
+
 ## Round 5: tau-bench retail and equal settings (2026-11-10)
 
 Pre-registered in Addendum 5. tau-bench retail (`retail_test7`, hash `eaf9d60846f82626`; 7 test tasks, 1 repeat):

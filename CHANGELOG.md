@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Agent tool and benchmarks (round 6)
+- `WeaveTool(conversational=True)` adds rules for hosts where a person replies between turns: fetch everything the
+  next reply needs in one script, and change no state before the person confirms that exact change.
+- `WeaveTool(persist_variables=True)`: later scripts see the variables earlier scripts set (snapshots, passed as
+  literal assignments; error line numbers still refer to the model's script).
+- `weave.agent_tool.shape_of_samples`: one return shape from several real results. Id-keyed dicts become
+  `dict[str, V]`, free-form string maps become `dict[str, str]`, and fields missing from some samples are marked `?`.
+- The static check no longer rejects a name assigned in one branch (or a `try`) when the other branch or handler ends
+  in `continue`, `break`, `return` or `raise`.
+- tau-bench adapter: return shapes sampled with `Tool.invoke` on a copy of the data (never `env.step`) and cached. In
+  the round-6 evidence run they were not cached, which cost about 2.2 s per Weave trial.
+- Round 6 tau-bench retail results (`retail_test10r6`, Addendum 6): `bench/results/v9/`, `assets/benchmark-v9-tau.*`.
+
 ### Language (round 6)
 - Iterating a dict yields its keys (`for k in d`, `sorted(d)`, `min(d)`, `enumerate(d)`, comprehensions); strings
   iterate as characters in those builtins too.
@@ -15,7 +28,7 @@
   `%` formatting.
 - `d.update(...)`, `d.pop(k[, default])` and `xs.pop([i])` as statements.
 - Indexing a str or list with a key names the value it actually got (it was `string index must be int`).
-- Fixes found by the new CPython differential suite (`tests/audit/test_python_idioms.py`, 58 fixtures + 600
+- Fixes found by the new CPython differential suite (`tests/audit/test_python_idioms.py`, 63 fixtures + 600
   generated programs, batch/stream/replay): `//` and `%` now follow Python's sign rules for negative operands (they
   used Euclidean division), and floats print in scientific notation below 1e-4 and from 1e16, as `repr` does.
 
