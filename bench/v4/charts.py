@@ -2,8 +2,9 @@
 
     python bench/v4/charts.py
 
-Reads bench/results/v4/runs.json (label -> run directory) and each run's rows.jsonl, and writes
-assets/benchmark-v4*.{svg,png} and docs/paper/results-tables.md. No number is typed in by hand.
+Reads bench/results/v4/runs.json (label -> run directory under bench/results/v4 or v5) and each run's
+rows.jsonl, and writes assets/benchmark-v4*.{svg,png}, assets/benchmark-v5*.{svg,png} and
+docs/paper/results-tables.md. No number is typed in by hand.
 """
 
 from __future__ import annotations
@@ -26,6 +27,8 @@ BLUE, GREY = "#2457d6", "#a3a9b4"
 
 def load(run):
     d = RESULTS / run
+    if not d.exists():
+        d = ROOT / "bench/results/v5" / run
     rows = [json.loads(line) for line in (d / "rows.jsonl").read_text().splitlines() if line.strip()]
     return json.loads((d / "run.json").read_text()), rows
 
@@ -55,14 +58,14 @@ def headline(runs, suite="held_out"):
     return out
 
 
-def families(runs, lat=200.0):
+def families(runs, lat=200.0, suite="held_out", modes=("weave", "native")):
     """Per model and family: mean turns, wall, tokens per mode, and pass counts."""
     out = {}
-    for label, run in runs["held_out"].items():
+    for label, run in runs.get(suite, {}).items():
         _, rows = load(run)
         rows = sel(rows, latency_ms=lat)
         for fam in sorted({r["family"] for r in rows}):
-            for mode in ("weave", "native"):
+            for mode in modes:
                 g = sel(rows, family=fam, mode=mode)
                 if g:
                     out[(label, fam, mode)] = {
@@ -70,7 +73,96 @@ def families(runs, lat=200.0):
                         "turns": statistics.fmean(r["turns"] for r in g),
                         "wall": statistics.fmean(r["wall_s"] for r in g),
                         "exec": statistics.fmean(r["exec_s"] for r in g),
-                        "tokens": statistics.fmean(r["total_tokens"] for r in g)}
+                        "tokens": statistics.fmean(r["total_tokens"] for r in g),
+                        "wall_net": statistics.fmean(r["wall_s"] - r["retry_wait_s"] for r in g)}
+    return out
+
+
+def family_table(fams, title, wall="wall"):
+    lines = ["", title, "",
+             "| model | family | pass W / N | turns W / N | wall s W / N | script/tool exec s W / N | tokens W / N |",
+             "|---|---|---|---|---|---|---|"]
+    for (label, fam, mode), v in fams.items():
+        if mode != "weave" or (label, fam, "native") not in fams:
+            continue
+        n = fams[(label, fam, "native")]
+        lines.append(f"| {label} | {fam} | {v['passed']}/{v['n']} / {n['passed']}/{n['n']} | {v['turns']:.2f} / {n['turns']:.2f} | "
+                     f"{v[wall]:.2f} / {n[wall]:.2f} | {v['exec']:.2f} / {n['exec']:.2f} | {v['tokens']:.0f} / {n['tokens']:.0f} |")
+    return lines
+
+
+def as_native(rows, mode):
+    """Rows of `mode` relabelled `native`, so stats.paired compares Weave with that arm."""
+    return [dict(r, mode="native") for r in rows if r["mode"] == mode] + [r for r in rows if r["mode"] == "weave"]
+
+
+WRITE_LOOPS = ("triage", "notify_gold")
+
+
+def footprint_section(runs):
+    """F1/F2/F3 on confirm2: execution time on write-loop families, Weave vs native and vs weave_nofp."""
+    lines, data = [], {}
+    entries = runs.get("confirm2", {})
+    if not entries:
+        return lines, data
+    lines += ["", "## Footprint-aware ordering on `confirm2` (write-loop families: triage, notify_gold; 200 ms)", "",
+              "Ratios are geometric means of paired (task, repeat) `exec_s` with 95% cluster-bootstrap CIs.", "",
+              "| model | exec s W / native / W-no-footprints | W / native [95% CI] | W / W-no-footprints [95% CI] | pass W / native / no-fp (whole suite) |",
+              "|---|---|---|---|---|"]
+    for label, run in entries.items():
+        _, rows = load(run)
+        wl = [r for r in rows if r["family"] in WRITE_LOOPS]
+        m = {mode: statistics.fmean(r["exec_s"] for r in wl if r["mode"] == mode) for mode in ("weave", "native", "weave_nofp")
+             if any(r["mode"] == mode for r in wl)}
+        vs_n = stats.paired(wl, lambda r: r["exec_s"], 3)
+        vs_fp = stats.paired(as_native(wl, "weave_nofp"), lambda r: r["exec_s"], 4) if "weave_nofp" in m else None
+        p = {mode: f"{sum(r['passed'] for r in rows if r['mode'] == mode)}/{sum(r['mode'] == mode for r in rows)}"
+             for mode in ("weave", "native", "weave_nofp")}
+        data[label] = {"exec": m, "vs_native": vs_n, "vs_nofp": vs_fp}
+        lines.append(f"| {label} | {m.get('weave', 0):.2f} / {m.get('native', 0):.2f} / {m.get('weave_nofp', float('nan')):.2f} | "
+                     f"{vs_n['ratio_gm']:.2f} {fmt_ci(vs_n['ratio_gm_ci95'])} | "
+                     + (f"{vs_fp['ratio_gm']:.2f} {fmt_ci(vs_fp['ratio_gm_ci95'])}" if vs_fp else "n/a")
+                     + f" | {p['weave']} / {p['native']} / {p['weave_nofp']} |")
+    return lines, data
+
+
+def echo_section(runs):
+    """E1: Weave scripts whose last statement is a bare expression, and what they got back."""
+    import ast
+    lines = ["", "## Final-expression echo on `confirm2` (E1)", "",
+             "| model | Weave scripts | ending in a bare expression | of those, got 'printed nothing' |", "|---|---|---|---|"]
+    for label, run in runs.get("confirm2", {}).items():
+        _, rows = load(run)
+        total = bare = empty = 0
+        for r in rows:
+            if not r["mode"].startswith("weave"):
+                continue
+            for s in r["scripts_log"]:
+                total += 1
+                try:
+                    body = ast.parse(s["source"]).body
+                except SyntaxError:
+                    continue
+                if body and isinstance(body[-1], ast.Expr) and not (
+                        isinstance(body[-1].value, ast.Call) and getattr(body[-1].value.func, "id", "") == "print"):
+                    bare += 1
+                    empty += "printed nothing" in s["output"]
+        lines.append(f"| {label} | {total} | {bare} | {empty} |")
+    return lines
+
+
+def headline_net(runs, suite):
+    """Like headline, with wall time net of provider waits (free-tier pacing, retries)."""
+    out = []
+    for label, run in runs.get(suite, {}).items():
+        meta, rows = load(run)
+        g = [r for r in rows if r["mode"] in ("weave", "native")]
+        out.append({"label": label, "latency": rows[0]["latency_ms"] if rows else 0, "meta": meta,
+                    "weave": stats.describe(sel(g, mode="weave")), "native": stats.describe(sel(g, mode="native")),
+                    "turns": stats.paired(g, lambda r: r["turns"]),
+                    "wall": stats.paired(g, lambda r: r["wall_s"] - r["retry_wait_s"], 1),
+                    "tokens": stats.paired(g, lambda r: r["total_tokens"], 2), "mcnemar": stats.mcnemar_exact(g),
+                    "statuses": sorted({r["status"] for r in rows}), "n": len(rows)})
     return out
 
 
@@ -97,15 +189,25 @@ def write_tables(runs, head, fams, scaling, extra):
     confirm = headline(runs, "confirm")
     if confirm:
         lines += ["", "## Confirm suite (fresh seeds, after the post-held-out fixes)", ""] + headline_table(confirm)
-    lines += ["", "## Held-out by family at 200 ms (mean per trial)", "",
-              "| model | family | pass W / N | turns W / N | wall s W / N | script/tool exec s W / N | tokens W / N |",
-              "|---|---|---|---|---|---|---|"]
-    for (label, fam, mode), v in fams.items():
-        if mode != "weave" or (label, fam, "native") not in fams:
-            continue
-        n = fams[(label, fam, "native")]
-        lines.append(f"| {label} | {fam} | {v['passed']}/{v['n']} / {n['passed']}/{n['n']} | {v['turns']:.2f} / {n['turns']:.2f} | "
-                     f"{v['wall']:.2f} / {n['wall']:.2f} | {v['exec']:.2f} / {n['exec']:.2f} | {v['tokens']:.0f} / {n['tokens']:.0f} |")
+    confirm2 = headline(runs, "confirm2")
+    if confirm2:
+        lines += ["", "## Confirm2 suite (round 2: fresh seeds, footprints and echo; weave vs native)", ""] + headline_table(confirm2)
+    real = headline_net(runs, "real")
+    if real:
+        lines += ["", "## Real services (`real` suite: SQLite, git, filesystem, local HTTP server, PyPI; no injected latency)", "",
+                  "Wall time is net of provider waits (zero for OpenAI; pacing and retries for free tiers).", ""]
+        lines += [x.replace(" 0 ms |", " real |") for x in headline_table(real)]
+    partial = headline_net(runs, "partial2")
+    if partial:
+        lines += ["", "## Best-effort providers, round 2 (not pooled; wall net of pacing)", "",
+                  "| model | suite | trials run | statuses |", "|---|---|---|---|"]
+        lines += [f"| {h['label']} | {h['meta']['suite']} | {h['n']} | {', '.join(h['statuses'])} |" for h in partial]
+        lines += [""] + headline_table(partial)
+    lines += family_table(fams, "## Held-out by family at 200 ms (mean per trial)")
+    if confirm2:
+        lines += family_table(families(runs, 200.0, "confirm2"), "## Confirm2 by family at 200 ms (mean per trial)")
+    if real:
+        lines += family_table(families(runs, 0.0, "real"), "## Real services by family (mean per trial)")
     if scaling:
         lines += ["", "## Scaling suite (mean per trial)", "",
                   "| model | latency | task | pass W / N | turns W / N | wall s W / N | tokens W / N |", "|---|---|---|---|---|---|---|"]
@@ -162,6 +264,48 @@ def ablation(runs):
                 lines.append(f"| {fam} | {sum(r['passed'] for r in a)}/{len(a)} / {sum(r['passed'] for r in b)}/{len(b)} | "
                              f"{m(a, 'exec_s'):.2f} / {m(b, 'exec_s'):.2f} | {m(a, 'wall_s'):.2f} / {m(b, 'wall_s'):.2f} |")
     return lines
+
+
+def charts_v5(runs, fp):
+    import matplotlib.pyplot as plt
+    if fp:
+        labels = list(fp)
+        modes = (("weave", "Weave", BLUE), ("weave_nofp", "Weave, no footprints", "#9db5ee"), ("native", "native", GREY))
+        fig, ax = plt.subplots(figsize=(7.2, 2.8))
+        width = 0.26
+        for k, (mode, name, color) in enumerate(modes):
+            ys = [fp[l]["exec"].get(mode, 0) for l in labels]
+            xs = [j + (k - 1) * width for j in range(len(labels))]
+            ax.bar(xs, ys, width * 0.92, color=color, label=name)
+            for x, y in zip(xs, ys):
+                ax.text(x, y + 0.03, f"{y:.2f}", ha="center", va="bottom", fontsize=7)
+        ax.set_xticks(range(len(labels)), labels)
+        ax.set_ylabel("tool/script execution s per trial")
+        ax.set_title("confirm2, write-loop families (triage, notify_gold), 200 ms per call", fontsize=9)
+        ax.legend(frameon=False, fontsize=7, ncol=3, loc="upper center", bbox_to_anchor=(0.5, -0.1))
+        fig.tight_layout()
+        save(fig, "benchmark-v5-footprints")
+    real = [h for h in headline(runs, "real")]
+    if real:
+        metrics = (("turns", "model turns"), ("wall", "wall time"), ("tokens", "total tokens"))
+        fig, ax = plt.subplots(figsize=(7.2, 2.9))
+        width = 0.8 / max(1, len(real))
+        for i, h in enumerate(real):
+            xs = [j + (i - (len(real) - 1) / 2) * width for j in range(len(metrics))]
+            ys = [h[m]["ratio_gm"] for m, _ in metrics]
+            lo = [y - h[m]["ratio_gm_ci95"][0] for y, (m, _) in zip(ys, metrics)]
+            hi = [h[m]["ratio_gm_ci95"][1] - y for y, (m, _) in zip(ys, metrics)]
+            ax.bar(xs, ys, width * 0.9, yerr=[lo, hi], capsize=2, label=h["label"],
+                   color=plt.cm.Greens(0.45 + 0.5 * i / max(1, len(real) - 1)))
+            for x, y in zip(xs, ys):
+                ax.text(x, 0.03, f"{y:.2f}", ha="center", va="bottom", fontsize=7, color="white")
+        ax.axhline(1.0, color="#333", lw=0.8, ls="--")
+        ax.set_xticks(range(len(metrics)), [m for _, m in metrics])
+        ax.set_ylabel("Weave / native (geo. mean)")
+        ax.set_title("Real services (SQLite, git, files, HTTP, PyPI): below 1 means Weave used less", fontsize=9)
+        ax.legend(frameon=False, fontsize=7, ncol=len(real), loc="upper center", bbox_to_anchor=(0.5, -0.12))
+        fig.tight_layout()
+        save(fig, "benchmark-v5-real")
 
 
 def charts(head, fams, scaling):
@@ -236,9 +380,11 @@ def main():
     head = headline(runs)
     fams = families(runs)
     scaling = scaling_data(runs)
-    write_tables(runs, head, fams, scaling, ablation(runs))
+    fp_lines, fp = footprint_section(runs)
+    write_tables(runs, head, fams, scaling, ablation(runs) + fp_lines + (echo_section(runs) if fp else []))
     try:
         charts(head, fams, scaling)
+        charts_v5(runs, fp)
     except ImportError:
         print("matplotlib not installed: wrote tables only")
     print(f"wrote {TABLES.relative_to(ROOT)} and assets/benchmark-v4*.svg")
