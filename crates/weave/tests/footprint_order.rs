@@ -126,3 +126,14 @@ fn write_loops_stay_sequential_when_pipelining_is_off() {
     assert_eq!(engine.run(TRIAGE).unwrap().stdout(), "4\n");
     assert!(started.elapsed() >= Duration::from_millis(700));
 }
+
+#[test]
+fn a_long_write_history_neither_overflows_nor_crawls() {
+    let mut engine = Engine::new();
+    engine.register("note", ToolSpec::effect(Effect::Reversible).with_arity(1).with_writes(Footprint::only(["n:{0}"])), |_, _| Ok(Value::Null));
+    engine.register("peek", ToolSpec::effect(Effect::Read).with_arity(1).with_reads(Footprint::only(["n:{0}"])), |a, _| Ok(a[0].clone()));
+    let started = Instant::now();
+    let src = "for i in range(20000):\n    note(i)\nprint(peek(7))\n";
+    assert_eq!(engine.run(src).unwrap().stdout(), "7\n");
+    assert!(started.elapsed() < Duration::from_secs(20), "{:?}", started.elapsed());
+}
