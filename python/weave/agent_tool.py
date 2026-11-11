@@ -43,6 +43,33 @@ RULES = (
 )
 
 
+def echo_last_expression(source: str) -> str:
+    """Print the value of a script's final bare expression, like a REPL.
+
+    Models often end a script with `get_customer(cid)` and expect to see the result; without this
+    the value is discarded and the model guesses (seen live with GPT-4.1). Returns the source
+    unchanged when the last statement is not a lone top-level expression."""
+    import ast
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source
+    if not tree.body or not isinstance(tree.body[-1], ast.Expr):
+        return source
+    node = tree.body[-1].value
+    if isinstance(node, ast.Constant) or (
+        isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "print"
+    ):
+        return source
+    lines = source.splitlines(keepends=True)
+    first, last = tree.body[-1].lineno, tree.body[-1].end_lineno
+    segment = ast.get_source_segment(source, tree.body[-1])
+    if segment is None or "".join(lines[first - 1:last]).strip() != segment.strip():
+        return source  # shares a line with another statement
+    return "".join(lines[: first - 1]) + f"print({segment})\n" + "".join(lines[last:])
+
+
 def _annotation(annotation: Any) -> str | None:
     if annotation is inspect.Parameter.empty or annotation is inspect.Signature.empty:
         return None
@@ -196,6 +223,7 @@ class WeaveTool:
         problems = self.engine.check(source)
         if problems:
             return "error: the script did not pass the static check\n" + "\n".join(problems)
+        source = echo_last_expression(source)
         try:
             if _cancel is not None and hasattr(self.engine, "session"):
                 session = self.engine.session()

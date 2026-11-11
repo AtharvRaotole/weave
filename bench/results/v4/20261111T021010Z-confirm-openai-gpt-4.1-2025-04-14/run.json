@@ -1,0 +1,97 @@
+{
+  "protocol": "weave-benchmark-protocol-v4",
+  "kind": "live",
+  "started_utc": "2026-11-11T02:10:10Z",
+  "source_commit": "4213743a40f2d1cf8afee7c31a22441b52580fd2",
+  "source_dirty": false,
+  "weave_version": "0.0.0",
+  "python": "3.13.5",
+  "provider": "openai",
+  "model": "gpt-4.1-2025-04-14",
+  "effort": null,
+  "temperature": 0.0,
+  "max_tokens": 4096,
+  "suite": "confirm",
+  "manifest": {
+    "suite": "confirm",
+    "tasks": [
+      {
+        "id": "fanout_sum-n20-s201",
+        "family": "fanout_sum",
+        "size": 20,
+        "fingerprint": "b23113985fbef422"
+      },
+      {
+        "id": "fanout_sum-n12-s202",
+        "family": "fanout_sum",
+        "size": 12,
+        "fingerprint": "bed6dd32914ffb95"
+      },
+      {
+        "id": "partial_failure-n16-s201",
+        "family": "partial_failure",
+        "size": 16,
+        "fingerprint": "07746c8368829a66"
+      },
+      {
+        "id": "order_value-n10-s201",
+        "family": "order_value",
+        "size": 10,
+        "fingerprint": "a3d8165ca5e4134b"
+      },
+      {
+        "id": "chain-n6-s201",
+        "family": "chain",
+        "size": 6,
+        "fingerprint": "17b08a24e980e217"
+      },
+      {
+        "id": "triage-n15-s201",
+        "family": "triage",
+        "size": 15,
+        "fingerprint": "05e15bc07fcde314"
+      },
+      {
+        "id": "notify_gold-n12-s201",
+        "family": "notify_gold",
+        "size": 12,
+        "fingerprint": "908d891c9ce7d3c2"
+      },
+      {
+        "id": "notify_gold-n20-s202",
+        "family": "notify_gold",
+        "size": 20,
+        "fingerprint": "1b85aff21bce8601"
+      },
+      {
+        "id": "top_customer-n8-s201",
+        "family": "top_customer",
+        "size": 8,
+        "fingerprint": "14ce058be31b1903"
+      },
+      {
+        "id": "top_customer-n15-s202",
+        "family": "top_customer",
+        "size": 15,
+        "fingerprint": "b91cebea62e066a0"
+      }
+    ],
+    "hash": "f0829e845bfd6e2b"
+  },
+  "task_subset": null,
+  "modes": [
+    "weave",
+    "native"
+  ],
+  "repeats": 3,
+  "latency_ms": [
+    200.0
+  ],
+  "concurrency_cap": 8,
+  "max_turns": 16,
+  "system_prompt": "You are an operations agent with access to tools. Use them to complete the user's task; tool results are authoritative. When the task is complete, reply with only the final answer in the requested format and no other text.",
+  "planned_trials": 60,
+  "workers": 6,
+  "token_budget": 3000000,
+  "seed": 2026
+}

@@ -125,12 +125,6 @@ def test_listing_shows_return_types_and_bad_calls_are_explained():
     assert time.monotonic() - started < 0.45
 
 
-if __name__ == "__main__":
-    for name, fn in list(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("ok", name)
-
 
 def test_version_matches_the_package():
     import weave
@@ -138,3 +132,29 @@ def test_version_matches_the_package():
 
     assert weave.__version__ == "1.0.0"
     assert dispatch(["--version"]) == "weave 1.0.0"
+
+
+def test_a_final_bare_expression_is_printed():
+    from weave import WeaveTool, declare
+    from weave.agent_tool import echo_last_expression
+
+    @declare(effect="read")
+    def get_customer(cid: str) -> dict:
+        "Look up a customer."
+        return {"id": cid, "name": "Ada"}
+
+    tool = WeaveTool([get_customer])
+    assert tool.run("get_customer('C-1')") == "{'id': 'C-1', 'name': 'Ada'}\n"
+    assert tool.run("c = get_customer('C-1')\nc['name']") == "Ada\n"
+    assert tool.run("print('x')\nget_customer('C-1')['name']") == "x\nAda\n"
+    assert "printed nothing" in tool.run("c = get_customer('C-1')")
+    assert echo_last_expression("x = 1\nprint(x)\n") == "x = 1\nprint(x)\n"
+    assert echo_last_expression("x = 1; x\n") == "x = 1; x\n"
+    assert echo_last_expression("for i in [1]:\n    i\n") == "for i in [1]:\n    i\n"
+
+
+if __name__ == "__main__":
+    for name, fn in list(globals().items()):
+        if name.startswith("test_"):
+            fn()
+            print("ok", name)

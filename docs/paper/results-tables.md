@@ -13,6 +13,12 @@ Differences are Weave minus native: mean over tasks of per-task means, 95% clust
 | GPT-4.1 (temp 0) | 200 ms | 28/30 [0.79, 0.98] | 23/30 [0.59, 0.88] | 0.125 | 2.43 / 4.03 | -1.60 [-2.53, -0.83] | 4.17 / 5.55 | -1.38 [-2.38, -0.10] | 2760 / 5367 | 0.52 [0.40, 0.69] |
 | GPT-4.1 (temp 0) | 0 ms | 28/30 [0.79, 0.98] | 23/30 [0.59, 0.88] | 0.125 | 2.57 / 4.47 | -1.90 [-2.80, -1.17] | 2.79 / 4.67 | -1.88 [-2.65, -1.07] | 2983 / 7243 | 0.50 [0.41, 0.62] |
 
+## Confirm suite (fresh seeds, after the post-held-out fixes)
+
+| model | latency | pass weave | pass native | McNemar p | turns W / N | Δ turns [95% CI] | wall s W / N | Δ wall s [95% CI] | tokens W / N | token ratio [95% CI] |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GPT-4.1 (temp 0) | 200 ms | 28/30 [0.79, 0.98] | 21/30 [0.52, 0.83] | 0.039 | 2.70 / 4.13 | -1.43 [-2.47, -0.53] | 4.39 / 6.68 | -2.28 [-3.83, -0.79] | 3239 / 5590 | 0.55 [0.44, 0.72] |
+
 ## Held-out by family at 200 ms (mean per trial)
 
 | model | family | pass W / N | turns W / N | wall s W / N | script/tool exec s W / N | tokens W / N |
@@ -89,3 +95,4 @@ Least-squares slopes over the scaling suite (per-trial means):
 | GPT-5.4 mini (low) | scaling | `20261111T015725Z-scaling-openai-gpt-5.4-mini-2026-03-17` | `8dae373` | 96 | 289,702 |
 | GPT-5.4 mini (low) | ablation | `20261111T020037Z-held_out-openai-gpt-5.4-mini-2026-03-17-ablation` | `29f7057` | 20 | 47,152 |
 | Gemini 3.5 Flash (free tier) | partial | `20261111T015202Z-held_out-gemini-gemini-3.5-flash` | `8dae373` | 20 | 27,404 |
+| GPT-4.1 (temp 0) | confirm | `20261111T021010Z-confirm-openai-gpt-4.1-2025-04-14` | `4213743` | 60 | 264,865 |
