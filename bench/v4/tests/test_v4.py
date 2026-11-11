@@ -180,5 +180,23 @@ class Accounting(unittest.TestCase):
         self.assertEqual(row["partial_output"], "abc")
 
 
+class RequestOptions(unittest.TestCase):
+    def test_weave_arm_sends_one_script_per_turn_and_native_keeps_parallel_calls(self):
+        seen = {}
+
+        class Client:
+            provider, model = "fake", "fake"
+            parallel_tool_calls = True
+            def __init__(self, mode): self.mode = mode
+            def complete(self, messages, tools):
+                seen[self.mode] = self.parallel_tool_calls
+                return {"content": "0"}, {"input": 1, "output": 1, "cached": 0, "reasoning": 0}, [{}]
+
+        task = next(t for t in SUITES["dev"])
+        for mode in ("weave", "native"):
+            trial(task, mode, Client(mode), latency_ms=0)
+        self.assertEqual(seen, {"weave": False, "native": True})
+
+
 if __name__ == "__main__":
     unittest.main()
