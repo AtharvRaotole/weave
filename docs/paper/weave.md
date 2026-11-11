@@ -42,7 +42,8 @@ against 18/30**, **−2.5 s per task [−3.4, −1.6]** and **0.51×** the token
 benchmark, tau-bench retail** (Sierra, MIT; its tasks, user simulator and grader unchanged; 7 pre-registered test
 tasks), **Weave showed no gain**: GPT-4.1 passed 4/7 against 3/7 but was 3.0 s slower per task (CI [0.3, 5.8]) and used
 1.19× the tokens; GPT-5.4 mini passed **2/7 against 4/7**. These tasks are paced by a conversation with the user, and
-Weave scripts failed on Python the models expected (iterating a dict, `except Exception`, `isinstance`). With
+Weave scripts failed when the model guessed the shape of data it had not yet seen, or used Python Weave lacks
+(iterating a dict, `except Exception`). With
 `parallel_tool_calls` set the same in both arms, our real-services result held (both on: GPT-4.1 −1.8 s [−3.0, −0.5]
 and 0.59× the tokens; GPT-5.4 mini −4.6 s and 0.45×). Round 5 also overspent its token budget (Section 7). Code, data,
 all five pre-registrations and a one-command reproduction are in the repository.

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Benchmarks (round 5)
+- `bench/taubench/`: a Weave arm for tau-bench (sierra-research/tau-bench, MIT, pinned `59a200c`) next to its own
+  `ToolCallingAgent`, with a metering wrapper that applies the same request settings to both arms.
+- `weave_ptc` and `native_noptc` arms for a symmetric `parallel_tool_calls` ablation; `confirm5` suite.
+- Both runners reserve tokens for every trial in flight before starting one (`--reserve-per-trial`); round 5 overspent
+  without it.
+
 ### Agent tool
 - `WeaveTool.request_options` returns `{"parallel_tool_calls": False}` for hosts to pass with the tool, and the tool
   rules say to call it once per turn (scripts do not share variables). GPT-4.1 otherwise split tasks across two
