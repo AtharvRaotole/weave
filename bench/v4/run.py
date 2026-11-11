@@ -85,7 +85,7 @@ def main(argv=None):
     ap.add_argument("--max-tokens", type=int, default=4096)
     ap.add_argument("--suite", choices=sorted(SUITES), default="dev")
     ap.add_argument("--tasks", help="comma-separated task ids (subset)")
-    ap.add_argument("--modes", default="weave,native", help="weave,native[,weave_nopipe]")
+    ap.add_argument("--modes", default="weave,native", help="weave,native[,weave_nopipe,weave_nofp]")
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--latency-ms", default="200", help="comma-separated per-call latency means")
     ap.add_argument("--workers", type=int, default=4, help="trials in flight")
@@ -156,7 +156,7 @@ def main(argv=None):
                 return None
         real_mode = "weave" if mode.startswith("weave") else "native"
         row = trial(task, real_mode, client_for(task, mode), latency_ms=lat, repeat=rep,
-                    pipeline_loops=(mode != "weave_nopipe"), seed=hash((task.id, rep, lat)) & 0xFFFF)
+                    pipeline_loops=(mode != "weave_nopipe"), footprints=(mode != "weave_nofp"), seed=hash((task.id, rep, lat)) & 0xFFFF)
         row["mode"] = mode
         row["schedule_index"] = i
         with lock:

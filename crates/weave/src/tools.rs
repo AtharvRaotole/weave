@@ -273,10 +273,11 @@ fn fill_template(name: &str, args: &[Value], kwargs: &BTreeMap<String, Value>) -
         let after = &rest[open + 1..];
         let close = after.find('}')?;
         let key = &after[..close];
-        let value = match key.parse::<usize>() {
-            Ok(index) => args.get(index)?,
-            Err(_) => kwargs.get(key)?,
-        };
+        // `{0|ticket_id}`: the first argument, or the keyword `ticket_id`.
+        let value = key.split('|').find_map(|alt| match alt.parse::<usize>() {
+            Ok(index) => args.get(index),
+            Err(_) => kwargs.get(alt),
+        })?;
         out.push_str(&render_arg(value));
         rest = &after[close + 1..];
     }

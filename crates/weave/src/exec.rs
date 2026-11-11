@@ -22,7 +22,7 @@ use crate::stream::complete_prefix_end;
 use crate::cancel::{CancelSource, CancelToken};
 use crate::limits::{check_value, Limits};
 use crate::speculate::{PredictedCall, Predictor, SpecCache, SpecStats};
-use crate::tools::{IsolatedJob, IsolatedStart, ToolBody, ToolFn, ToolRegistry, ToolSpec};
+use crate::tools::{Footprint, IsolatedJob, IsolatedStart, ToolBody, ToolFn, ToolRegistry, ToolSpec};
 use crate::trace::{Trace, TraceBuilder, TraceEvent};
 use crate::value::{self, Value};
 
@@ -88,6 +88,247 @@ impl PriorSet {
     }
 }
 
+type BoxFut<T> = Pin<Box<dyn Future<Output = Result<T, WeaveError>> + Send>>;
+type FpFut = Shared<Pin<Box<dyn Future<Output = Footprint> + Send>>>;
+
+fn fp_ready(fp: Footprint) -> FpFut {
+    let fut: Pin<Box<dyn Future<Output = Footprint> + Send>> = Box::pin(async move { fp });
+    fut.shared()
+}
+
+fn fp_from<F: Future<Output = Footprint> + Send + 'static>(fut: F) -> FpFut {
+    let fut: Pin<Box<dyn Future<Output = Footprint> + Send>> = Box::pin(fut);
+    fut.shared()
+}
+
+/// The writes a later read may have to wait for, newest first.
+///
+/// Each node carries the resources it writes (a future, because a write's
+/// footprint depends on its arguments) and the future that completes when the
+/// write has happened. A read waits only for the writes whose footprint
+/// overlaps its own. Tools without declared footprints touch everything, so
+/// without declarations this is exactly "a read waits for the last write".
+#[derive(Clone, Default)]
+struct MutLog(Option<Arc<MutNode>>);
+
+struct MutNode {
+    fp: FpFut,
+    done: ValFut,
+    /// A single tool call. Writes wait for every earlier observable call, so
+    /// once a call node is done every older node is done too. A control-flow
+    /// node (an `if`/`for` with writes inside) gives no such guarantee.
+    call: bool,
+    prev: MutLog,
+}
+
+impl Drop for MutNode {
+    // Long write chains (big loops) would otherwise drop recursively.
+    fn drop(&mut self) {
+        let mut next = self.prev.0.take();
+        while let Some(arc) = next {
+            match Arc::try_unwrap(arc) {
+                Ok(mut node) => next = node.prev.0.take(),
+                Err(_) => break,
+            }
+        }
+    }
+}
+
+impl MutLog {
+    fn push(&self, fp: FpFut, done: ValFut, call: bool) -> Self {
+        MutLog(Some(Arc::new(MutNode { fp, done, call, prev: self.clone() })))
+    }
+
+    fn same(&self, other: &MutLog) -> bool {
+        match (&self.0, &other.0) {
+            (None, None) => true,
+            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            _ => false,
+        }
+    }
+
+    /// Wait for every logged write whose footprint overlaps `reads`.
+    async fn wait(self, reads: Footprint) -> Result<(), WeaveError> {
+        let mut cur = self.0;
+        while let Some(node) = cur {
+            let fp = node.fp.clone().await;
+            if fp.overlaps(&reads) {
+                node.done.clone().await?;
+                if node.call {
+                    return Ok(());
+                }
+            }
+            cur = node.prev.0.clone();
+        }
+        Ok(())
+    }
+
+    /// Union of the footprints of the writes logged on top of `base`.
+    fn since(&self, base: &MutLog) -> FpFut {
+        let mut fps = Vec::new();
+        let mut cur = self.clone();
+        loop {
+            if cur.same(base) {
+                break;
+            }
+            match cur.0.clone() {
+                Some(node) => {
+                    fps.push(node.fp.clone());
+                    cur = node.prev.clone();
+                }
+                None => return fp_ready(Footprint::All),
+            }
+        }
+        fp_from(async move { union_fps(fps).await })
+    }
+}
+
+/// A control-flow node's footprint: `fixed` when the writes it may make are
+/// known up front, else whatever its launched body logged (sent on `rx`);
+/// all resources if the body never launched.
+fn ctrl_fp(fixed: Option<FpFut>, rx: futures::channel::oneshot::Receiver<FpFut>) -> FpFut {
+    match fixed {
+        Some(fp) => fp,
+        None => fp_from(async move {
+            match rx.await {
+                Ok(fp) => fp.await,
+                Err(_) => Footprint::All,
+            }
+        }),
+    }
+}
+
+/// The writes an `if` may make, resolved from values already bound when the
+/// statement is scheduled, so a later read need not wait for the condition.
+/// `None` when some write's footprint depends on something else.
+fn static_writes(stmts: &[&[Stmt]], g: &Launch, env: &HashMap<String, ValFut>) -> Option<FpFut> {
+    let mut assigned = HashSet::new();
+    for block in stmts {
+        assigned.extend(assigned_names(block));
+    }
+    let mut parts: Vec<FpFut> = Vec::new();
+    for block in stmts {
+        collect_static_writes(block, g, env, &assigned, &mut parts)?;
+    }
+    Some(fp_from(union_fps(parts)))
+}
+
+fn collect_static_writes(
+    stmts: &[Stmt],
+    g: &Launch,
+    env: &HashMap<String, ValFut>,
+    assigned: &HashSet<String>,
+    out: &mut Vec<FpFut>,
+) -> Option<()> {
+    for stmt in stmts {
+        match &stmt.kind {
+            StmtKind::Pass => {}
+            StmtKind::Expr(e) => expr_static_writes(e, g, env, assigned, out)?,
+            StmtKind::Assign { value, .. } => expr_static_writes(value, g, env, assigned, out)?,
+            StmtKind::AugAssign { value, .. } => expr_static_writes(value, g, env, assigned, out)?,
+            StmtKind::If { test, body, orelse } => {
+                expr_static_writes(test, g, env, assigned, out)?;
+                collect_static_writes(body, g, env, assigned, out)?;
+                collect_static_writes(orelse, g, env, assigned, out)?;
+            }
+            StmtKind::For { .. } | StmtKind::Try { .. } => {
+                if block_effects(std::slice::from_ref(stmt), &g.tools).max >= Effect::Reversible {
+                    return None;
+                }
+            }
+        }
+    }
+    Some(())
+}
+
+fn expr_static_writes(
+    expr: &Expr,
+    g: &Launch,
+    env: &HashMap<String, ValFut>,
+    assigned: &HashSet<String>,
+    out: &mut Vec<FpFut>,
+) -> Option<()> {
+    if let ExprKind::Call { func, args, keywords } = &expr.kind {
+        if let ExprKind::Name(name) = &func.kind {
+            if let Some(tool) = g.tools.get(name) {
+                if tool.spec.effect >= Effect::Reversible {
+                    let template = tool.spec.writes.clone();
+                    if matches!(template, Footprint::All) {
+                        out.push(fp_ready(Footprint::All));
+                    } else {
+                        let simple = |e: &Expr| -> Option<ValFut> {
+                            match &e.kind {
+                                ExprKind::Name(n) if !assigned.contains(n) => env.get(n).cloned(),
+                                ExprKind::Str(v) => Some(ready(Value::str(v.clone()))),
+                                ExprKind::Int(v) => Some(ready(Value::int(*v))),
+                                _ => None,
+                            }
+                        };
+                        let arg_futs = args.iter().map(simple).collect::<Option<Vec<_>>>()?;
+                        let mut kw_futs = Vec::new();
+                        for kw in keywords {
+                            kw_futs.push((kw.name.clone()?, simple(&kw.value)?));
+                        }
+                        out.push(fp_from(async move {
+                            match (join_values(arg_futs).await, join_kwargs(kw_futs).await) {
+                                (Ok(a), Ok(k)) => template.resolve(&a, &k),
+                                _ => Footprint::All,
+                            }
+                        }));
+                    }
+                }
+            }
+        }
+    }
+    // Writes nested inside other expressions' arguments are not tracked.
+    let mut nested_write = false;
+    visit_calls(expr, &mut |inner: &Expr| {
+        if !std::ptr::eq(inner, expr) {
+            if let ExprKind::Call { func, .. } = &inner.kind {
+                if let ExprKind::Name(n) = &func.kind {
+                    if g.tools.get(n).is_some_and(|t| t.spec.effect >= Effect::Reversible) {
+                        nested_write = true;
+                    }
+                }
+            }
+        }
+    });
+    if nested_write { None } else { Some(()) }
+}
+
+fn visit_calls(expr: &Expr, f: &mut dyn FnMut(&Expr)) {
+    f(expr);
+    match &expr.kind {
+        ExprKind::Call { func, args, keywords } => {
+            visit_calls(func, f);
+            for a in args { visit_calls(a, f); }
+            for k in keywords { visit_calls(&k.value, f); }
+        }
+        ExprKind::Attribute { value, .. } | ExprKind::Unary { operand: value, .. } => visit_calls(value, f),
+        ExprKind::List(xs) | ExprKind::Tuple(xs) => for x in xs { visit_calls(x, f) },
+        ExprKind::Dict(items) => for (k, v) in items { visit_calls(k, f); visit_calls(v, f) },
+        ExprKind::BinOp { left, right, .. } => { visit_calls(left, f); visit_calls(right, f) }
+        ExprKind::BoolOp { values, .. } => for v in values { visit_calls(v, f) },
+        ExprKind::Compare { left, comparators, .. } => { visit_calls(left, f); for c in comparators { visit_calls(c, f) } }
+        ExprKind::Subscript { value, index } => { visit_calls(value, f); visit_calls(index, f) }
+        ExprKind::Slice { lower, upper, step } => for p in [lower, upper, step].into_iter().flatten() { visit_calls(p, f) },
+        ExprKind::FString(segs) => for seg in segs { if let FSeg::Interp { expr, .. } = seg { visit_calls(expr, f) } },
+        ExprKind::IfExp { test, body, orelse } => { visit_calls(test, f); visit_calls(body, f); visit_calls(orelse, f) }
+        _ => {}
+    }
+}
+
+async fn union_fps(fps: Vec<FpFut>) -> Footprint {
+    let mut names = Vec::new();
+    for fp in fps {
+        match fp.await {
+            Footprint::All => return Footprint::All,
+            Footprint::Only(more) => names.extend(more),
+        }
+    }
+    Footprint::Only(names)
+}
+
 fn join_ok(a: ValFut, b: ValFut) -> ValFut {
     share(async move {
         a.await?;
@@ -141,7 +382,7 @@ struct Launch {
     complete_rx: watch::Receiver<bool>,
     cancel_rx: watch::Receiver<bool>,
     cancel_tx: watch::Sender<bool>,
-    last_mutation: ValFut,
+    last_mutation: MutLog,
     last_observable: ValFut,
     print_barrier: ValFut,
     prior: PriorSet,
@@ -188,7 +429,7 @@ fn checked(line: usize, col: usize, max_size: usize, value: Value) -> Result<Val
 
 #[derive(Clone)]
 struct BarrierSnap {
-    last_mutation: ValFut,
+    last_mutation: MutLog,
     last_observable: ValFut,
     print_barrier: ValFut,
     prior: PriorSet,
@@ -423,7 +664,7 @@ impl Engine {
             complete_rx,
             cancel_rx,
             cancel_tx: cancel_tx.clone(),
-            last_mutation: ready(Value::Null),
+            last_mutation: MutLog::default(),
             last_observable: ready(Value::Null),
             print_barrier: ready(Value::Null),
             prior: PriorSet::default(),
@@ -744,7 +985,7 @@ async fn driver(
         g.env.clear();
         g.roots.clear();
         g.pending_spawn.clear();
-        g.last_mutation = ready(Value::Null);
+        g.last_mutation = MutLog::default();
         g.last_observable = ready(Value::Null);
         g.print_barrier = ready(Value::Null);
     }
@@ -825,6 +1066,8 @@ fn schedule_if(
     let snap = env.clone();
     let mut written = assigned_names(body);
     written.extend(assigned_names(orelse));
+    let fixed = if effects.max >= Effect::Reversible { static_writes(&[body, orelse], g, env) } else { None };
+    let (fp_tx, fp_rx) = futures::channel::oneshot::channel::<FpFut>();
     let branch_mut = g.last_mutation.clone();
     let branch_obs = g.last_observable.clone();
     let branch_print = g.print_barrier.clone();
@@ -840,6 +1083,7 @@ fn schedule_if(
         let (roots, assigned) = {
             let mut g = arc_c.lock().expect("launch lock");
             let saved = BarrierSnap::capture(&g);
+            let base = branch_mut.clone();
             g.last_mutation = branch_mut;
             g.last_observable = branch_obs;
             g.print_barrier = branch_print;
@@ -848,6 +1092,7 @@ fn schedule_if(
             let mut child = snap;
             let roots = launch_block(&mut g, &arc_c, &branch, &mut child, false);
             let assigned = capture_assigned(&written_task, &child);
+            let _ = fp_tx.send(g.last_mutation.since(&base));
             saved.install(&mut g);
             (roots, assigned)
         };
@@ -856,7 +1101,7 @@ fn schedule_if(
         collect_assigned(assigned).await
     });
     install_placeholders(line, col, &written, &map_fut, env);
-    gate_ctrl(g, effects, &map_fut);
+    gate_ctrl(g, effects, &map_fut, ctrl_fp(fixed, fp_rx));
     map_driver(map_fut)
 }
 
@@ -918,7 +1163,7 @@ fn schedule_try(
         }
     });
     install_placeholders(line, col, &written, &map_fut, env);
-    gate_ctrl(g, effects, &map_fut);
+    gate_ctrl(g, effects, &map_fut, fp_ready(Footprint::All));
     map_driver(map_fut)
 }
 
@@ -934,7 +1179,7 @@ async fn run_caught_block(
     stmts: &[Stmt],
     mut child: HashMap<String, ValFut>,
     written: &HashSet<String>,
-    branch_mut: ValFut,
+    branch_mut: MutLog,
     branch_obs: ValFut,
     branch_print: ValFut,
     branch_prior: PriorSet,
@@ -1074,6 +1319,7 @@ fn schedule_for(
     let written_task = written.clone();
     let steps = g.steps.clone();
     let max_steps = g.limits.max_steps;
+    let (fp_tx, fp_rx) = futures::channel::oneshot::channel::<FpFut>();
     let map_fut = share_map(async move {
         // Once the budget is spent, don't even build the iterable.
         charge_steps(&steps, max_steps, 0, line, col)?;
@@ -1082,15 +1328,15 @@ fn schedule_for(
         if parallel {
             run_parallel_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, branch_prior, branch_path, &arc_c).await
         } else {
-            run_sequential_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, branch_prior, branch_path, &arc_c).await
+            run_sequential_for(line, col, &target, &body, &items, snap, &written_task, branch_mut, branch_obs, branch_print, branch_prior, branch_path, &arc_c, fp_tx).await
         }
     });
     install_placeholders(line, col, &written, &map_fut, env);
-    gate_ctrl(g, effects, &map_fut);
+    gate_ctrl(g, effects, &map_fut, ctrl_fp(None, fp_rx));
     map_driver(map_fut)
 }
 
-fn gate_ctrl(g: &mut Launch, effects: crate::analysis::Effects, map_fut: &MapFut) {
+fn gate_ctrl(g: &mut Launch, effects: crate::analysis::Effects, map_fut: &MapFut, writes: FpFut) {
     let driver = map_driver(map_fut.clone());
     if effects.has_print {
         g.print_barrier = join_ok(g.print_barrier.clone(), driver.clone());
@@ -1099,7 +1345,7 @@ fn gate_ctrl(g: &mut Launch, effects: crate::analysis::Effects, map_fut: &MapFut
         g.last_observable = join_ok(g.last_observable.clone(), driver.clone());
     }
     if effects.max >= Effect::Reversible {
-        g.last_mutation = join_ok(g.last_mutation.clone(), driver.clone());
+        g.last_mutation = g.last_mutation.push(writes, driver.clone(), false);
     }
 }
 
@@ -1161,7 +1407,7 @@ async fn run_parallel_for(
     items: &[Value],
     snap: HashMap<String, ValFut>,
     written: &HashSet<String>,
-    branch_mut: ValFut,
+    branch_mut: MutLog,
     branch_obs: ValFut,
     branch_print: ValFut,
     branch_prior: PriorSet,
@@ -1231,13 +1477,16 @@ async fn run_sequential_for(
     items: &[Value],
     snap: HashMap<String, ValFut>,
     written: &HashSet<String>,
-    branch_mut: ValFut,
+    branch_mut: MutLog,
     branch_obs: ValFut,
     branch_print: ValFut,
     branch_prior: PriorSet,
     branch_path: Vec<usize>,
     arc: &Arc<Mutex<Launch>>,
+    fp_tx: futures::channel::oneshot::Sender<FpFut>,
 ) -> Result<Arc<HashMap<String, Value>>, WeaveError> {
+    let base_mut = branch_mut.clone();
+    let mut fp_tx = Some(fp_tx);
     let mut local_mut = branch_mut;
     let mut local_obs = branch_obs;
     let mut local_print = branch_print;
@@ -1246,9 +1495,11 @@ async fn run_sequential_for(
     let pipelined = {
         let g = arc.lock().expect("launch lock");
         charge(&g, items.len(), line, col)?;
-        g.limits.pipeline_loops
-            && items.len() >= 2
-            && block_effects(body, &g.tools).max <= Effect::Read
+        // A body that writes is pipelined too: its writes still wait for every
+        // earlier observable call, a read waits for the earlier writes it
+        // overlaps, and calls behind an untaken `if` or a `break` are never
+        // issued, so only the overlap of unrelated calls changes.
+        g.limits.pipeline_loops && items.len() >= 2
     };
     if pipelined {
         // Read-only body with a loop-carried name (an accumulator, a running
@@ -1288,6 +1539,11 @@ async fn run_sequential_for(
                 (roots, assigned)
             };
             spawn_pending(arc);
+            if window + 1 == items.len().div_ceil(PIPELINE_WINDOW) {
+                if let Some(tx) = fp_tx.take() {
+                    let _ = tx.send(local_mut.since(&base_mut));
+                }
+            }
             await_roots(roots).await?;
             let map = collect_assigned(assigned).await?;
             for (k, v) in map.iter() {
@@ -1327,6 +1583,9 @@ async fn run_sequential_for(
         for (k, v) in map.iter() {
             carried.insert(k.clone(), v.clone());
         }
+    }
+    if let Some(tx) = fp_tx.take() {
+        let _ = tx.send(local_mut.since(&base_mut));
     }
     fill_from_snapshot(written, &snap, &mut carried).await?;
     let _ = (line, col);
@@ -1909,6 +2168,24 @@ fn schedule_tool(
     };
     let effect = tool.spec.effect;
     let writes = tool.spec.writes.clone();
+    let reads_template = tool.spec.reads.clone();
+    // What this call writes, for later reads to compare against.
+    let write_fp = if effect >= Effect::Reversible {
+        match writes.clone() {
+            Footprint::All => Some(fp_ready(Footprint::All)),
+            template => {
+                let (a, k) = (arg_futs.clone(), kw_futs.clone());
+                Some(fp_from(async move {
+                    match (join_values(a).await, join_kwargs(k).await) {
+                        (Ok(a), Ok(k)) => template.resolve(&a, &k),
+                        _ => Footprint::All,
+                    }
+                }))
+            }
+        }
+    } else {
+        None
+    };
     let body = tool.body.clone();
     let retries = tool.spec.effective_retries();
     let timeout = tool.spec.timeout;
@@ -1930,12 +2207,25 @@ fn schedule_tool(
     let fut = share(async move {
         let args_fut = join_values(arg_futs);
         let kwargs_fut = join_kwargs(kw_futs);
+        // A read with a declared footprint needs its arguments to know which
+        // writes it must wait for; others gate while arguments evaluate.
+        let (args_fut, kwargs_fut, read_fp): (BoxFut<Vec<Value>>, BoxFut<BTreeMap<String, Value>>, Footprint) = if effect == Effect::Read && !matches!(reads_template, Footprint::All) {
+            let args = args_fut.await;
+            let kwargs = kwargs_fut.await;
+            let fp = match (&args, &kwargs) {
+                (Ok(a), Ok(k)) => reads_template.resolve(a, k),
+                _ => Footprint::All,
+            };
+            (Box::pin(async move { args }), Box::pin(async move { kwargs }), fp)
+        } else {
+            (Box::pin(args_fut), Box::pin(kwargs_fut), Footprint::All)
+        };
         let gate = async {
             ensure_running(line, col, &cancel_rx)?;
             match effect {
                 Effect::Pure => {}
                 Effect::Read => {
-                    mutation.await?;
+                    mutation.wait(read_fp).await?;
                 }
                 Effect::Reversible => {
                     await_roots(prior.futures()).await?;
@@ -2015,7 +2305,8 @@ fn schedule_tool(
             g.last_observable = join_ok(g.last_observable.clone(), fut.clone());
         }
         Effect::Reversible | Effect::Irreversible => {
-            g.last_mutation = fut.clone();
+            let fp = write_fp.unwrap_or_else(|| fp_ready(Footprint::All));
+            g.last_mutation = g.last_mutation.push(fp, fut.clone(), true);
             g.last_observable = fut.clone();
         }
     }

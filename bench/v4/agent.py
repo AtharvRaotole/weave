@@ -17,7 +17,7 @@ import json
 import re
 import time
 
-from .world import TOOLS, World, ToolFailure, READ
+from .world import FOOTPRINTS, TOOLS, World, ToolFailure, READ
 
 SYSTEM = ("You are an operations agent with access to tools. Use them to complete the user's task; tool results are "
           "authoritative. When the task is complete, reply with only the final answer in the requested format and "
@@ -44,7 +44,7 @@ def native_tools():
     return out
 
 
-def weave_tool(world, *, pipeline_loops=True):
+def weave_tool(world, *, pipeline_loops=True, footprints=True):
     from weave import ToolError, WeaveTool, declare
 
     functions = []
@@ -65,7 +65,8 @@ def weave_tool(world, *, pipeline_loops=True):
         fn.__signature__ = inspect.Signature([inspect.Parameter(p, inspect.Parameter.POSITIONAL_OR_KEYWORD,
                                                                 annotation="str") for p in params])
         fn.__weave_returns__ = returns
-        functions.append(declare(effect=effect)(fn))
+        fp = FOOTPRINTS.get(name, {}) if footprints else {}
+        functions.append(declare(effect=effect, **fp)(fn))
     tool = WeaveTool(functions, max_wall_time_ms=60_000, max_output_chars=20_000)
     if not pipeline_loops:
         tool.engine.set_limits(pipeline_loops=False)
@@ -115,13 +116,13 @@ def run_native_calls(world, calls):
     return results
 
 
-def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_loops=True, seed=0):
+def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_loops=True, footprints=True, seed=0):
     world = World(task.data, latency_ms=latency_ms, concurrency=concurrency, seed=seed)
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": task.instruction}]
     if mode == "native":
         tools = native_tools()
     else:
-        wt = weave_tool(world, pipeline_loops=pipeline_loops)
+        wt = weave_tool(world, pipeline_loops=pipeline_loops, footprints=footprints)
         tools = [wt.chat_tool()]
     usage = {"input": 0, "output": 0, "cached": 0, "reasoning": 0}
     unknown_usage = 0
@@ -190,7 +191,7 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
     passed = status == "answered" and answer_ok and state_ok
     return {
         "task": task.id, "family": task.family, "split": task.split, "size": task.size, "mode": mode,
-        "repeat": repeat, "latency_ms": latency_ms, "pipeline_loops": pipeline_loops,
+        "repeat": repeat, "latency_ms": latency_ms, "pipeline_loops": pipeline_loops, "footprints": footprints and mode == "weave",
         "provider": client.provider, "model": client.model,
         "status": status, "error_detail": error_detail, "passed": passed, "answer_ok": answer_ok, "state_ok": state_ok,
         "answer": (answer or "")[:300], "expected_answer_hash": task.fingerprint(),

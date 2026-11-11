@@ -94,6 +94,20 @@ class Runner(unittest.TestCase):
             self.assertTrue(all(r["passed"] for r in rows))
             self.assertTrue(summary)
 
+    def test_footprints_close_the_write_loop_gap(self):
+        # The oracle's triage script reads every ticket and closes some in one
+        # loop. With declared footprints the reads of other tickets no longer
+        # wait for each close, so execution time drops to about native's.
+        task = next(t for t in SUITES["held_out"] if t.family == "triage")
+        exec_s = {}
+        for mode, fp in (("weave", True), ("weave_nofp", False), ("native", True)):
+            real = "native" if mode == "native" else "weave"
+            row = trial(task, real, OracleClient(task, real), latency_ms=100, footprints=fp)
+            self.assertTrue(row["passed"], row)
+            exec_s[mode] = row["exec_s"]
+        self.assertLess(exec_s["weave"], 0.7 * exec_s["weave_nofp"], exec_s)
+        self.assertLess(exec_s["weave"], 1.3 * exec_s["native"], exec_s)
+
 
 if __name__ == "__main__":
     unittest.main()
