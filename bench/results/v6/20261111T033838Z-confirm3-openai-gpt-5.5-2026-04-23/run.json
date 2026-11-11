@@ -1,0 +1,116 @@
+{
+  "protocol": "weave-benchmark-protocol-v4",
+  "kind": "live",
+  "started_utc": "2026-11-11T03:38:38Z",
+  "source_commit": "20ef6585e12b5b7cc61db30b0bc2b2620108c3fd",
+  "source_dirty": false,
+  "weave_version": "0.0.0",
+  "python": "3.13.5",
+  "provider": "openai",
+  "model": "gpt-5.5-2026-04-23",
+  "effort": "low",
+  "temperature": null,
+  "max_tokens": 4096,
+  "suite": "confirm3",
+  "manifest": {
+    "suite": "confirm3",
+    "tasks": [
+      {
+        "id": "fanout_sum-n20-s401",
+        "family": "fanout_sum",
+        "size": 20,
+        "fingerprint": "ab4f4ffb7dc98005"
+      },
+      {
+        "id": "fanout_sum-n12-s402",
+        "family": "fanout_sum",
+        "size": 12,
+        "fingerprint": "4fe1dc97b2653daa"
+      },
+      {
+        "id": "partial_failure-n16-s401",
+        "family": "partial_failure",
+        "size": 16,
+        "fingerprint": "98032fb666871ec9"
+      },
+      {
+        "id": "order_value-n10-s401",
+        "family": "order_value",
+        "size": 10,
+        "fingerprint": "1eefe64d2af3f673"
+      },
+      {
+        "id": "chain-n6-s401",
+        "family": "chain",
+        "size": 6,
+        "fingerprint": "55b086e632822004"
+      },
+      {
+        "id": "triage-n15-s401",
+        "family": "triage",
+        "size": 15,
+        "fingerprint": "7877bda34b40ce5b"
+      },
+      {
+        "id": "notify_gold-n12-s401",
+        "family": "notify_gold",
+        "size": 12,
+        "fingerprint": "792745b3f86f9b13"
+      },
+      {
+        "id": "notify_gold-n20-s402",
+        "family": "notify_gold",
+        "size": 20,
+        "fingerprint": "2bc05dd41ecb34a6"
+      },
+      {
+        "id": "top_customer-n8-s401",
+        "family": "top_customer",
+        "size": 8,
+        "fingerprint": "95221c0629b8d241"
+      },
+      {
+        "id": "top_customer-n15-s402",
+        "family": "top_customer",
+        "size": 15,
+        "fingerprint": "1941825cd8ee3b51"
+      },
+      {
+        "id": "triage-n10-s403",
+        "family": "triage",
+        "size": 10,
+        "fingerprint": "8800e85ce520d0c3"
+      },
+      {
+        "id": "triage-n24-s404",
+        "family": "triage",
+        "size": 24,
+        "fingerprint": "34f33845240f4961"
+      },
+      {
+        "id": "notify_gold-n16-s403",
+        "family": "notify_gold",
+        "size": 16,
+        "fingerprint": "7554b6fe093f0832"
+      }
+    ],
+    "hash": "fec37fb8e1c51615"
+  },
+  "task_subset": null,
+  "modes": [
+    "weave",
+    "native"
+  ],
+  "repeats": 1,
+  "latency_ms": [
+    200.0
+  ],
+  "concurrency_cap": 8,
+  "max_turns": 16,
+  "system_prompt": "You are an operations agent with access to tools. Use them to complete the user's task; tool results are authoritative. When the task is complete, reply with only the final answer in the requested format and no other text.",
+  "planned_trials": 26,
+  "workers": 4,
+  "min_interval_s": 0.0,
+  "token_budget": 3000000,
+  "seed": 2026
+}

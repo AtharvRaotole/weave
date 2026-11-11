@@ -1,0 +1,86 @@
+{
+  "protocol": "weave-benchmark-protocol-v4",
+  "kind": "live",
+  "started_utc": "2026-11-11T03:38:38Z",
+  "source_commit": "20ef6585e12b5b7cc61db30b0bc2b2620108c3fd",
+  "source_dirty": false,
+  "weave_version": "0.0.0",
+  "python": "3.13.5",
+  "provider": "openai",
+  "model": "gpt-5.5-2026-04-23",
+  "effort": "low",
+  "temperature": null,
+  "max_tokens": 4096,
+  "suite": "real2",
+  "manifest": {
+    "suite": "real2",
+    "tasks": [
+      {
+        "id": "pypi_major-n10-s201",
+        "family": "pypi_major",
+        "size": 10,
+        "fingerprint": "2aa022be496b20e8"
+      },
+      {
+        "id": "pypi_major-n16-s202",
+        "family": "pypi_major",
+        "size": 16,
+        "fingerprint": "4bea1f84adc7853c"
+      },
+      {
+        "id": "sqlite_triage-n12-s201",
+        "family": "sqlite_triage",
+        "size": 12,
+        "fingerprint": "22f793cee7d4c7e9"
+      },
+      {
+        "id": "sqlite_triage-n20-s202",
+        "family": "sqlite_triage",
+        "size": 20,
+        "fingerprint": "b3532cae0bc97648"
+      },
+      {
+        "id": "git_review-n8-s201",
+        "family": "git_review",
+        "size": 8,
+        "fingerprint": "1d41d933749fcab3"
+      },
+      {
+        "id": "git_review-n14-s202",
+        "family": "git_review",
+        "size": 14,
+        "fingerprint": "824d7cfb49f0603d"
+      },
+      {
+        "id": "warehouse_shortfall-n10-s201",
+        "family": "warehouse_shortfall",
+        "size": 10,
+        "fingerprint": "6e1e1a6ba506a67f"
+      },
+      {
+        "id": "warehouse_shortfall-n16-s202",
+        "family": "warehouse_shortfall",
+        "size": 16,
+        "fingerprint": "1e158c0411f436da"
+      }
+    ],
+    "hash": "4ebcd0a29bb76666"
+  },
+  "task_subset": null,
+  "modes": [
+    "weave",
+    "native"
+  ],
+  "repeats": 1,
+  "latency_ms": [
+    0.0
+  ],
+  "concurrency_cap": 8,
+  "max_turns": 16,
+  "system_prompt": "You are an operations agent with access to tools. Use them to complete the user's task; tool results are authoritative. When the task is complete, reply with only the final answer in the requested format and no other text.",
+  "planned_trials": 16,
+  "workers": 4,
+  "min_interval_s": 0.0,
+  "token_budget": 3000000,
+  "seed": 2026
+}
