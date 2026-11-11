@@ -203,6 +203,51 @@ Least-squares slopes over the scaling suite (per-trial means):
 | GPT-5.4 mini (low) | 200 ms | 7.8 / 77.9 | 0.00 / 1.00 |
 | GPT-5.4 mini (low) | 0 ms | 0.4 / 78.0 | 0.00 / 1.00 |
 
+## tau-bench retail, round 5 (`retail_test7`: 7 test-split tasks, 1 repeat; external benchmark)
+
+tau-bench (Sierra, MIT) at commit `59a200c`, unmodified: its tasks, user simulator (GPT-4.1), tools and grader. Native arm = tau-bench's `ToolCallingAgent`; Weave arm = the same loop with one `run_weave` tool. Both arms send `parallel_tool_calls: false`. Turns = agent model calls; tokens = agent + user simulator. n = 7 pairs per model: every CI below is wide, and none of these differences is significant unless its CI excludes 0 (or 1).
+
+| model | pass W / N | McNemar p | agent calls W / N | Δ agent calls [95% CI] | wall s W / N | Δ wall s [95% CI] | tokens W / N | token ratio [95% CI] | agent tokens W / N | trials not run (budget) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GPT-4.1 (temp 0) | 4/7 / 3/7 | 1.000 | 17.14 / 17.14 | +0.00 [-3.57, 3.43] | 25.2 / 22.3 | +2.97 [0.26, 5.77] | 105471 / 94693 | 1.19 [0.90, 1.55] | 97551 / 86150 | 0 |
+| GPT-5.4 mini (low) | 2/7 / 4/7 | 0.500 | 12.86 / 15.14 | -2.29 [-6.57, 1.57] | 28.1 / 31.5 | -3.35 [-11.40, 4.52] | 81112 / 83592 | 0.98 [0.63, 1.45] | 74053 / 76417 | 0 |
+
+### Per task (reward W / N, agent calls W / N, Weave scripts / tool calls inside them)
+
+| model | task | reward W / N | agent calls W / N | tool actions W / N | Weave scripts | Weave script errors |
+|---|---|---|---|---|---|---|
+| GPT-4.1 (temp 0) | 18 | 1 / 1 | 12 / 12 | 10 / 10 | 4 | 0 |
+| GPT-4.1 (temp 0) | 22 | 0 / 1 | 15 / 16 | 15 / 14 | 5 | 0 |
+| GPT-4.1 (temp 0) | 45 | 1 / 0 | 15 / 12 | 11 / 11 | 6 | 1 |
+| GPT-4.1 (temp 0) | 52 | 1 / 1 | 20 / 15 | 14 / 13 | 9 | 0 |
+| GPT-4.1 (temp 0) | 56 | 1 / 0 | 19 / 13 | 22 / 14 | 12 | 7 |
+| GPT-4.1 (temp 0) | 76 | 0 / 0 | 22 / 27 | 36 / 15 | 14 | 7 |
+| GPT-4.1 (temp 0) | 105 | 0 / 0 | 17 / 25 | 12 / 17 | 10 | 9 |
+| GPT-5.4 mini (low) | 18 | 0 / 0 | 15 / 9 | 10 / 9 | 5 | 0 |
+| GPT-5.4 mini (low) | 22 | 0 / 1 | 12 / 16 | 10 / 15 | 3 | 0 |
+| GPT-5.4 mini (low) | 45 | 1 / 1 | 11 / 12 | 10 / 10 | 5 | 0 |
+| GPT-5.4 mini (low) | 52 | 1 / 1 | 11 / 10 | 13 / 10 | 6 | 1 |
+| GPT-5.4 mini (low) | 56 | 0 / 1 | 10 / 14 | 12 / 13 | 5 | 0 |
+| GPT-5.4 mini (low) | 76 | 0 / 0 | 8 / 21 | 11 / 14 | 5 | 1 |
+| GPT-5.4 mini (low) | 105 | 0 / 0 | 23 / 24 | 16 / 15 | 8 | 0 |
+
+## `parallel_tool_calls` ablation, round 5 (`confirm5`: fresh seeds, real services, 1 repeat)
+
+Each row compares arm A with arm B on the same 10 tasks. `weave` = Weave with parallel calls off (product default), `weave_ptc` = Weave with them on, `native` = native with them on (rounds 1–4), `native_noptc` = native with them off.
+
+| model | A vs B | pass A / B | McNemar p | turns A / B | Δ turns [95% CI] | wall s A / B | Δ wall s [95% CI] | token ratio A/B [95% CI] | incomplete A / B |
+|---|---|---|---|---|---|---|---|---|---|
+| GPT-4.1 (temp 0) | P1: native off vs on | 2/10 / 6/10 | 0.125 | 15.20 / 3.40 | +11.80 [10.90, 12.70] | 12.99 / 4.62 | +8.37 [6.76, 10.48] | 3.66 [3.00, 4.52] | 0 / 0 |
+| GPT-4.1 (temp 0) | P2: Weave on vs off | 10/10 / 10/10 | 1.000 | 2.20 / 2.00 | +0.20 [0.00, 0.50] | 2.86 / 2.26 | +0.60 [-0.16, 1.47] | 1.17 [1.00, 1.47] | 0 / 0 |
+| GPT-4.1 (temp 0) | P3: Weave vs native, both off | 10/10 / 2/10 | 0.008 | 2.00 / 15.20 | -13.20 [-14.00, -12.10] | 2.26 / 12.99 | -10.73 [-12.15, -9.61] | 0.14 [0.13, 0.16] | 0 / 0 |
+| GPT-4.1 (temp 0) | P3: Weave vs native, both on | 10/10 / 6/10 | 0.125 | 2.20 / 3.40 | -1.20 [-1.90, -0.50] | 2.86 / 4.62 | -1.76 [-2.96, -0.46] | 0.59 [0.42, 0.83] | 0 / 0 |
+| GPT-4.1 (temp 0) | round-4 settings: Weave off vs native on | 10/10 / 6/10 | 0.125 | 2.00 / 3.40 | -1.40 [-2.00, -0.80] | 2.26 / 4.62 | -2.36 [-3.46, -1.28] | 0.50 [0.39, 0.66] | 0 / 0 |
+| GPT-5.4 mini (low) | P1: native off vs on | 3/10 / 8/10 | 0.125 | 15.20 / 3.50 | +11.70 [10.80, 12.50] | 16.65 / 7.43 | +9.22 [7.08, 10.88] | 3.75 [3.18, 4.38] | 0 / 0 |
+| GPT-5.4 mini (low) | P2: Weave on vs off | 10/10 / 10/10 | 1.000 | 2.00 / 2.10 | -0.10 [-0.30, 0.00] | 2.79 / 2.98 | -0.18 [-0.75, 0.34] | 0.89 [0.78, 0.97] | 0 / 0 |
+| GPT-5.4 mini (low) | P3: Weave vs native, both off | 10/10 / 3/10 | 0.016 | 2.10 / 15.20 | -13.10 [-14.00, -11.80] | 2.98 / 16.65 | -13.67 [-15.57, -11.70] | 0.14 [0.12, 0.17] | 0 / 0 |
+| GPT-5.4 mini (low) | P3: Weave vs native, both on | 10/10 / 8/10 | 0.500 | 2.00 / 3.50 | -1.50 [-2.10, -1.00] | 2.79 / 7.43 | -4.63 [-7.96, -2.30] | 0.45 [0.36, 0.58] | 0 / 0 |
+| GPT-5.4 mini (low) | round-4 settings: Weave off vs native on | 10/10 / 8/10 | 0.500 | 2.10 / 3.50 | -1.40 [-2.00, -0.80] | 2.98 / 7.43 | -4.45 [-7.67, -2.02] | 0.51 [0.39, 0.69] | 0 / 0 |
+
 ## Ablation: loop pipelining off (GPT-5.4 mini (low), 200 ms)
 
 | family | pass pipelined / off | exec s pipelined / off | wall s pipelined / off |
@@ -317,3 +362,9 @@ Rows that ended `provider_error:incomplete` before round 4 recorded 0 tokens for
 | GPT-4.1 (temp 0), dev git, one script per turn | dev_round4 | `20261111T041602Z-real_dev_git-openai-gpt-4.1-2025-04-14-diag-fixed` | `581644f` | 24 | 53,602 |
 | GPT-4.1 (temp 0), real_dev, one script per turn | dev_round4 | `20261111T041602Z-real_dev-openai-gpt-4.1-2025-04-14-dev-fixed` | `581644f` | 24 | 65,340 |
 | GPT-5.4 mini (low), dev git, one script per turn | dev_round4 | `20261111T041635Z-real_dev_git-openai-gpt-5.4-mini-2026-03-17-dev-fixed` | `12a6971` | 24 | 61,448 |
+| GPT-4.1 (temp 0) | tau_retail | `20261111T043802Z-tau-retail-test-gpt-4.1-2025-04-14` | `6b767ce` | 14 | 1,401,153 |
+| GPT-5.4 mini (low) | tau_retail | `20261111T043801Z-tau-retail-test-gpt-5.4-mini-2026-03-17` | `6b767ce` | 14 | 1,152,929 |
+| GPT-4.1 (temp 0) | confirm5 | `20261111T043759Z-confirm5-openai-gpt-4.1-2025-04-14` | `6b767ce` | 40 | 255,415 |
+| GPT-5.4 mini (low) | confirm5 | `20261111T043759Z-confirm5-openai-gpt-5.4-mini-2026-03-17` | `6b767ce` | 40 | 292,743 |
+| GPT-4.1 (temp 0), tau-bench train 0-5 | dev_round5 | `20261111T043453Z-tau-retail-train-gpt-4.1-2025-04-14-dev1` | `e9afc87` | 12 | 607,817 |
+| GPT-5.4 mini (low), tau-bench train 2 | dev_round5 | `20261111T043701Z-tau-retail-train-gpt-5.4-mini-2026-03-17-dev-mini` | `2a54dd5` | 2 | 65,083 |

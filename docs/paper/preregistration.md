@@ -266,3 +266,58 @@ Hypotheses (OpenAI only):
   0; Δ turns CI below 0; token ratio CI upper bound ≤ 1; pass rate non-inferior (H4 margin).
 - **G4.** The same four criteria for GPT-5.4 mini.
 - **A1 (accounting).** Every row whose provider returned usage has it counted; no `incomplete` row has 0 tokens.
+
+## Addendum 5: round 5 (written and committed before any run on `retail_test7` or `confirm5`)
+
+Round 5 addresses two threats: the suites were written by us, and in round 4 the arms differed in one setting
+(`parallel_tool_calls`).
+
+**External benchmark: tau-bench retail.** [tau-bench](https://github.com/sierra-research/tau-bench) (Sierra, MIT
+license), pinned at commit `59a200c6d575d595120f1cb70fea53cef0632f6b`, installed unmodified. Native arm: tau-bench's
+own `ToolCallingAgent`, unchanged (one tool call per model step; it keeps only the first call of a step). Weave arm:
+`bench/taubench/weave_agent.py`, the same loop with one `run_weave` tool whose script calls the same tau-bench tools,
+each through `env.step(Action(...))`. Tasks, wiki (system prompt), tools, user simulator (tau-bench's LLM user,
+`gpt-4.1-2025-04-14`, default sampling) and grader (`Env.calculate_reward`: database hash plus required outputs) are
+tau-bench's. Effects declared by us: lookups are `read`, `calculate`/`think` are `pure`, the rest `irreversible`.
+**Both arms send `parallel_tool_calls: false`** (one metering wrapper around litellm applies it to every agent request
+with tools), so the request settings are identical. GPT-5.4 mini gets `reasoning_effort: low` and no temperature in both
+arms; GPT-4.1 temperature 0. `max_num_steps` 30 (tau-bench's default).
+
+| subset | manifest hash | tasks |
+|---|---|---|
+| **retail_test7** | `eaf9d60846f82626` | retail test split indices 18, 22, 45, 52, 56, 76, 105 = `sorted(random.Random("weave-round5-tau-retail-test").sample(range(115), 7))` |
+
+Seven tasks, one repeat, per model and arm (28 trials). The size is set by the budget: dev runs on the train split
+cost about 50k tokens per trial (agent plus user simulator). The suite was chosen by the seed above, not by looking at
+tasks. Dev (train split tasks 0–5, GPT-4.1, not evidence): Weave 5/6, native 5/6; 10.2 against 11.0 agent calls; 52.7k
+against 48.6k tokens per trial; 15.3 s against 15.3 s. Weave's scripts made one tool call each: these tasks are paced
+by the conversation (the policy requires the user's confirmation before every write), so we expect little or no gain.
+
+Hypotheses on `retail_test7` (two-sided, descriptive; n = 7 is too small for significance, and we will say so):
+
+- **T1 (no harm).** Weave's pass count is at least native's minus 1, per model.
+- **T2 (agent calls).** Mean agent model calls per task, Weave against native, with a paired CI.
+- **T3 (tokens).** Total tokens (agent plus user simulator), geometric-mean ratio Weave/native with CI. Dev suggests a
+  ratio above 1 (Weave's tool description is longer); we report it either way.
+
+**Symmetric ablation of `parallel_tool_calls`: `confirm5`** (hash `28f7774434ab8d21`): the `confirm4` recipe with
+seeds + 100. Four arms, every (task, repeat) run in each: `weave` (off, the product default), `weave_ptc` (Weave with
+parallel calls on), `native` (on, round 1–4 setting) and `native_noptc` (native with them off). GPT-4.1 (temperature 0)
+and GPT-5.4 mini (effort low), 1 repeat (40 trials per model). Hypotheses:
+
+- **P1.** Native with parallel calls off against on: pass, turns, wall and tokens (paired CIs; descriptive).
+- **P2.** Weave with parallel calls on against off: number of `incomplete` trials and pass count (descriptive; round 4
+  predicts more runaways with them on for GPT-4.1).
+- **P3 (the round-4 result holds under equal settings).** Weave against native with both off, and with both on: Δ wall
+  CI below 0, Δ turns CI below 0, token ratio CI upper bound ≤ 1, pass non-inferior (H4 margin), per model.
+
+Runs (once each; provider errors count as failures; round-5 live spend stops at 2.5M tokens; each tau-bench model run is
+capped at 750k tokens, and trials not started because of the cap are reported as not run):
+
+| harness | model | suite | arms |
+|---|---|---|---|
+| tau-bench | gpt-4.1-2025-04-14 (t = 0) | retail_test7 | weave, native |
+| tau-bench | gpt-5.4-mini-2026-03-17 (effort low) | retail_test7 | weave, native |
+| bench/v4 | gpt-4.1-2025-04-14 (t = 0) | confirm5 | weave, weave_ptc, native, native_noptc |
+| bench/v4 | gpt-5.4-mini-2026-03-17 (effort low) | confirm5 | weave, weave_ptc, native, native_noptc |
+| bench/v4 | gemini-3.5-flash, z-ai/glm-5.3-flash | confirm5 | weave, native; one attempt each, only if a smoke request answers |

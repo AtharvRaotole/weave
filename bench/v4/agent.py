@@ -116,7 +116,8 @@ def run_native_calls(world, calls, tools=TOOLS):
     return results
 
 
-def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_loops=True, footprints=True, seed=0):
+def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_loops=True, footprints=True, seed=0,
+          parallel_tool_calls=None):
     if task.backend == "real":
         from . import real
         world = real.RealWorld(task, concurrency=concurrency)
@@ -126,13 +127,14 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
         spec, fps = TOOLS, FOOTPRINTS
     try:
         return _trial(task, mode, client, world, spec, fps, latency_ms=latency_ms, repeat=repeat,
-                      pipeline_loops=pipeline_loops, footprints=footprints)
+                      pipeline_loops=pipeline_loops, footprints=footprints, parallel_tool_calls=parallel_tool_calls)
     finally:
         if hasattr(world, "close"):
             world.close()
 
 
-def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline_loops, footprints):
+def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline_loops, footprints,
+           parallel_tool_calls=None):
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": task.instruction}]
     if mode == "native":
         tools = native_tools(spec)
@@ -142,6 +144,8 @@ def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline
         # The product's recommended request settings (WeaveTool.request_options): one script per turn.
         if hasattr(client, "parallel_tool_calls"):
             client.parallel_tool_calls = wt.request_options.get("parallel_tool_calls", True)
+    if parallel_tool_calls is not None and hasattr(client, "parallel_tool_calls"):
+        client.parallel_tool_calls = parallel_tool_calls  # round-5 ablation arms override either default
     usage = {"input": 0, "output": 0, "cached": 0, "reasoning": 0}
     unknown_usage = 0
     turns = scripts = script_errors = tool_messages = 0

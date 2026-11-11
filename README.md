@@ -32,9 +32,13 @@ model, tools and services** ([paper](docs/paper/weave.md), [tables](docs/paper/r
   **0.51×** the tokens; GPT-5.4 mini **30/30 vs 25/30**, Δ −3.8 s [−6.0, −1.7], **0.54×** the tokens.
 - **Held-out simulated APIs** (round 1, 200 ms per call): **39–52% of the tokens** and **1.6–2.0 fewer model
   turns** on GPT-5.5, GPT-5.4 mini and GPT-4.1, with equal or higher success.
-- **Losses are kept:** earlier rounds' wall-time gaps, a GPT-4.1 runaway at `max_output_tokens`, and
-  providers we could not test (Gemini quota, GLM timeouts) are in the paper. Round 4's Weave arm uses the
-  product's recommended `parallel_tool_calls: false`, declared before the run.
+- **On an external benchmark it did not help.** On [tau-bench](https://github.com/sierra-research/tau-bench)
+  retail (7 pre-registered test tasks; its tasks, simulated customer and grader unchanged), GPT-4.1 passed 4/7 vs
+  3/7 but was **3.0 s slower** per task (CI [0.3, 5.8]) with 1.19× the tokens, and GPT-5.4 mini passed **2/7 vs
+  4/7**. Those tasks wait on the customer at every step, so there is little to batch.
+- **Equal settings:** with `parallel_tool_calls` on in both arms, the real-services gain held (GPT-4.1 −1.8 s
+  [−3.0, −0.5], 0.59× tokens; GPT-5.4 mini −4.6 s, 0.45×). Every loss, including earlier rounds' and a
+  GPT-4.1 runaway at `max_output_tokens`, is in the paper.
 
 <p align="center"><img src="assets/benchmark-v7-real.png" alt="Weave/native wall time and turns on real services across rounds 2, 3 and 4" width="720"></p>
 
@@ -404,6 +408,36 @@ printed the tags instead of creating them. `WeaveTool.request_options` now asks 
   billed usage, so those tables are not re-derived; the undercount is listed in the
   [tables](docs/paper/results-tables.md).
 - Gemini (quota) and GLM (timeout) failed their smoke requests again and were not run.
+
+**Round 5 (pre-registered in [Addendum 5](docs/paper/preregistration.md)): an external benchmark, and equal
+settings.**
+
+![tau-bench retail and the equal-settings check](assets/benchmark-v8-tau.png)
+
+- **tau-bench retail** ([sierra-research/tau-bench](https://github.com/sierra-research/tau-bench), MIT, commit
+  `59a200c`, installed unmodified; [`bench/taubench/`](bench/taubench/)). The native arm is tau-bench's own
+  `ToolCallingAgent`. The Weave arm is the same loop with one `run_weave` tool that calls the same tools through
+  `env.step`. Both arms use tau-bench's GPT-4.1 user simulator and grader and send `parallel_tool_calls: false`.
+  7 test tasks, chosen by a seeded sample, 1 repeat.
+
+| model | pass W / N | agent calls W / N | Δ wall per task [95% CI] | tokens W/N [95% CI] |
+|---|---|---|---|---|
+| `gpt-4.1-2025-04-14` (temp 0) | 4/7 / 3/7 | 17.1 / 17.1 | **+3.0 s [+0.3, +5.8]** (Weave slower) | 1.19 [0.90, 1.55] |
+| `gpt-5.4-mini-2026-03-17` (low) | **2/7 / 4/7** | 12.9 / 15.1 | −3.4 s [−11.4, +4.5] | 0.98 [0.63, 1.45] |
+
+  No gain, and GPT-4.1 was slower. With n = 7 the pass differences are noise, but one goes against Weave. The tasks
+  wait for the customer at every step, and the policy requires a "yes" before every write, so there is little to batch.
+  Of the 26 Weave script errors, 10 came from scripts written before the model had seen the data: the user record
+  lists order ids, and the script indexed them as orders. Most of the rest were Python Weave does not support:
+  iterating a dict, `except Exception`, and a bare `except` that does not catch runtime errors.
+- **`parallel_tool_calls` ablation** (`confirm5`, fresh seeds, all four combinations). With parallel calls **on in both
+  arms**, Weave still won: GPT-4.1 10/10 vs 6/10, −1.8 s [−3.0, −0.5], 0.59× the tokens; GPT-5.4 mini 10/10 vs 8/10,
+  −4.6 s [−8.0, −2.3], 0.45×. Native with them off hits the 16-turn cap (2/10, 3/10), so the "both off" comparison is
+  not informative. Weave with parallel calls on passed 10/10 for both models and did not run away in 10 trials, but
+  GPT-4.1 used 1.17× the tokens.
+- **Spend:** round 5 used 3.78M tokens, against a 2.5M budget; the project total is about 10.4M, over the ~10M
+  ceiling. The runner's budget check ignored trials already in flight; it now reserves tokens for each one.
+- Gemini (HTTP 429, quota) and GLM (timeout) failed their smoke requests again.
 
 Reproduce: `make bench-mock` (offline) or `WEAVE_BENCH_LIVE=1 make bench-live MODEL=...` (spends tokens).
 The real-services suite runs offline with oracle agents: `python -m bench.v4.run --mock --suite real --latency-ms 0`.

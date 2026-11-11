@@ -196,6 +196,10 @@ class RequestOptions(unittest.TestCase):
         for mode in ("weave", "native"):
             trial(task, mode, Client(mode), latency_ms=0)
         self.assertEqual(seen, {"weave": False, "native": True})
+        seen.clear()
+        for mode, ptc in (("weave", True), ("native", False)):  # the round-5 ablation arms
+            trial(task, mode, Client(mode), latency_ms=0, parallel_tool_calls=ptc)
+        self.assertEqual(seen, {"weave": True, "native": False})
 
 
 if __name__ == "__main__":

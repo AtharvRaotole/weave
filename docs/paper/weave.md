@@ -1,7 +1,7 @@
 ---
 title: "Weave: one script instead of many tool calls. A pre-registered comparison with native parallel function calling"
 author: "Atharv Raotole"
-date: "November 2026 (draft v4)"
+date: "November 2026 (draft v5)"
 ---
 
 ## Abstract
@@ -38,8 +38,15 @@ two parallel calls of the Weave tool and then running away to the output-token l
 the harness so such billed-but-failed responses count their tokens. With the tool's recommended `parallel_tool_calls:
 false` in the Weave arm (declared before the run; native unchanged), a fresh real-services suite gave GPT-4.1 **30/30
 against 18/30**, **−2.5 s per task [−3.4, −1.6]** and **0.51×** the tokens, and GPT-5.4 mini 30/30 against 25/30,
-−3.8 s [−6.0, −1.7] and 0.54×; no Weave trial hit the limit. Code, data, all four pre-registrations and a one-command
-reproduction are in the repository.
+−3.8 s [−6.0, −1.7] and 0.54×; no Weave trial hit the limit. A fifth round tested the two biggest remaining threats. On an **external
+benchmark, tau-bench retail** (Sierra, MIT; its tasks, user simulator and grader unchanged; 7 pre-registered test
+tasks), **Weave showed no gain**: GPT-4.1 passed 4/7 against 3/7 but was 3.0 s slower per task (CI [0.3, 5.8]) and used
+1.19× the tokens; GPT-5.4 mini passed **2/7 against 4/7**. These tasks are paced by a conversation with the user, and
+Weave scripts failed when the model guessed the shape of data it had not yet seen, or used Python Weave lacks
+(iterating a dict, `except Exception`). With
+`parallel_tool_calls` set the same in both arms, our real-services result held (both on: GPT-4.1 −1.8 s [−3.0, −0.5]
+and 0.59× the tokens; GPT-5.4 mini −4.6 s and 0.45×). Round 5 also overspent its token budget (Section 7). Code, data,
+all five pre-registrations and a one-command reproduction are in the repository.
 
 ## 1. Introduction
 
@@ -539,6 +546,67 @@ both failures `incomplete`) to 24/24, 2.00 and 2 233.
 - **Other providers.** Gemini answered its smoke request with HTTP 429 (quota) and GLM timed out after 35 s
   (`bench/results/v7/smoke-best-effort.md`); per the addendum, neither was run.
 
+### 5.13 Round 5: an external benchmark, and equal settings
+
+Pre-registered in Addendum 5 (commit `6b767ce`) before any evidence run.
+
+**tau-bench retail.** [tau-bench](https://github.com/sierra-research/tau-bench) (Sierra, MIT license, commit
+`59a200c`) is a public tool-use benchmark in which an agent serves a simulated customer under a written policy, with
+tools over a retail database; the grader compares the final database with the ground truth and checks required
+outputs. We installed it unmodified. The native arm is tau-bench's own `ToolCallingAgent`. The Weave arm
+(`bench/taubench/weave_agent.py`) is the same loop with one `run_weave` tool, whose scripts call the same tau-bench tools
+through `env.step`, so the environment and grader see the same actions. The user simulator is tau-bench's (GPT-4.1,
+default sampling) in both arms, and both send `parallel_tool_calls: false`. The subset is 7 test-split tasks chosen by a
+seeded sample (18, 22, 45, 52, 56, 76, 105), one repeat, sized to the budget.
+
+| model | pass W / N | agent calls W / N | Δ agent calls [95 % CI] | wall s W / N | Δ wall s [95 % CI] | token ratio W/N [95 % CI] |
+|---|---|---|---|---|---|---|
+| GPT-4.1 (t = 0) | 4/7 / 3/7 (p = 1.0) | 17.1 / 17.1 | +0.00 [−3.57, +3.43] | 25.2 / 22.3 | **+2.97 [+0.26, +5.77]** | 1.19 [0.90, 1.55] |
+| GPT-5.4 mini (low) | **2/7 / 4/7** (p = 0.5) | 12.9 / 15.1 | −2.29 [−6.57, +1.57] | 28.1 / 31.5 | −3.35 [−11.40, +4.52] | 0.98 [0.63, 1.45] |
+
+![tau-bench and the equal-settings check](../../assets/benchmark-v8-tau.png)
+
+- **T1 (no harm): supported for GPT-4.1, not for GPT-5.4 mini** (2/7 against 4/7, below the margin of one task). With
+  seven pairs neither pass difference is significant, in either direction.
+- **T2 (agent calls): no difference.** These tasks are paced by the conversation: the policy requires the user's
+  explicit confirmation before every write, and each step needs the user's next message. Most Weave scripts made one or
+  two tool calls, which is what native does in a step.
+- **T3 (tokens): no saving.** GPT-4.1 used 1.19× (CI includes 1), GPT-5.4 mini 0.98×. Weave's tool description (the
+  rules plus every tau-bench tool with its arguments) is longer than tau-bench's JSON schemas, and it is sent on every
+  call.
+- **GPT-4.1 was slower with Weave** (+3.0 s per task, CI excludes 0), the one significant difference here, and a loss.
+- **Why scripts failed.** 26 Weave script results were errors. The largest group (10) was a model guessing a data
+  shape it had not seen: tau-bench's user record lists order ids, and the script indexed each id as if it were an order
+  (`string index must be int`). Native calling shows the model each JSON result before it writes the next call; a
+  script is written before it sees any. Even a bare `except:` around the access did not help, because Weave's `except`
+  catches only tool errors, not runtime errors, unlike Python. The rest were Python Weave does not support: iterating a
+  dict (5), `str.get` (2), `except Exception` (2), `isinstance` (1), plus missing keys and tool errors. Each cost a turn.
+  We did not fix these in this round: tuning on the evidence subset is not allowed, and the budget was spent.
+
+**Equal settings on our real-services suite (`confirm5`, fresh seeds, 1 repeat, 40 trials per model).**
+
+| model | comparison | pass A / B | turns A / B | Δ wall s [95 % CI] | token ratio [95 % CI] | incomplete A / B |
+|---|---|---|---|---|---|---|
+| GPT-4.1 | P1: native off vs on | 2/10 / 6/10 | 15.2 / 3.4 | +8.37 [+6.76, +10.48] | 3.66 [3.00, 4.52] | 0 / 0 |
+| GPT-4.1 | P2: Weave on vs off | 10/10 / 10/10 | 2.2 / 2.0 | +0.60 [−0.16, +1.47] | 1.17 [1.00, 1.47] | 0 / 0 |
+| GPT-4.1 | P3: Weave vs native, both on | 10/10 / 6/10 | 2.2 / 3.4 | −1.76 [−2.96, −0.46] | 0.59 [0.42, 0.83] | 0 / 0 |
+| GPT-4.1 | P3: Weave vs native, both off | 10/10 / 2/10 | 2.0 / 15.2 | −10.73 [−12.15, −9.61] | 0.14 [0.13, 0.16] | 0 / 0 |
+| GPT-5.4 mini | P1: native off vs on | 3/10 / 8/10 | 15.2 / 3.5 | +9.22 [+7.08, +10.88] | 3.75 [3.18, 4.38] | 0 / 0 |
+| GPT-5.4 mini | P2: Weave on vs off | 10/10 / 10/10 | 2.0 / 2.1 | −0.18 [−0.75, +0.34] | 0.89 [0.78, 0.97] | 0 / 0 |
+| GPT-5.4 mini | P3: Weave vs native, both on | 10/10 / 8/10 | 2.0 / 3.5 | −4.63 [−7.96, −2.30] | 0.45 [0.36, 0.58] | 0 / 0 |
+| GPT-5.4 mini | P3: Weave vs native, both off | 10/10 / 3/10 | 2.1 / 15.2 | −13.67 [−15.57, −11.70] | 0.14 [0.12, 0.17] | 0 / 0 |
+
+- **P1.** Native tool calling needs parallel calls: with them off it makes one call per turn, and on these 8–18-item
+  tasks it reaches the 16-turn cap (pass 2/10 and 3/10). The "both off" comparison is therefore dominated by that cap and
+  we do not use it as evidence for Weave.
+- **P2.** Weave with parallel calls on passed 10/10 for both models and did not run away in these 10 trials (round 4
+  saw the runaway in 6 of 64 first-turn samples, so 10 trials can easily miss it). GPT-4.1 used 1.17× the tokens with
+  them on.
+- **P3, both on (the equal-settings test of round 4): supported for both models.** Δ wall and Δ turns CIs are below 0,
+  token ratio CIs are below 1, and the pass rate is not lower. The round-4 result does not depend on the arms' different
+  settings.
+- **Other providers.** Gemini (HTTP 429, quota) and GLM (timeout) failed their smoke requests again; not run.
+
 ## 6. Threats to validity
 
 - **Simulated backend.** In the main suites latency is synthetic (uniform around a mean, with a concurrency cap of
@@ -552,6 +620,11 @@ both failures `incomplete`) to 24/24, 2.00 and 2 233.
 - **Footprints are host work.** The round-2 ordering gain requires the host to declare footprints correctly. A
   wrong declaration (a write that changes something its footprint does not name) can let a read see stale data. Native
   tool calling needs no such declarations.
+- **External validity (round 5).** On the one external benchmark we ran, tau-bench retail, Weave did not help: the tasks
+  are paced by a conversation and a confirmation policy, not by fan-out. The subset is 7 tasks with one repeat and a
+  sampling user simulator, so it can show only large effects; the pass difference for GPT-5.4 mini (2/7 vs 4/7) is
+  within noise but goes against Weave. Our own suites remain the evidence for fan-out and dependent-lookup workloads,
+  and they were written by us.
 - **Task count.** There are 10 held-out tasks from one generator family. The cluster bootstrap over 10 clusters is
   coarse, and the families were designed by the authors of the system under test. Two held-out families were never seen
   in development, but their shapes, fan-out and conditional writes, are the kind of workload Weave targets.
@@ -561,8 +634,8 @@ both failures `incomplete`) to 24/24, 2.00 and 2 233.
 - **Prompt.** Weave's tool description was tuned on dev, while the native arm uses plain JSON tool definitions with
   the same contracts. A stronger native prompt, for example one asking the model to batch all calls, might narrow the
   turn gap. We gave native parallel calls and return types but did not tune its prompt.
-- **Arms differ in one setting from round 4.** The Weave arm sends `parallel_tool_calls: false`, the native arm
-  `true` (Section 2.6). This is how each would be deployed, but it means round 4 is not a same-settings comparison.
+- **Arms differ in one setting in round 4.** The Weave arm sent `parallel_tool_calls: false`, the native arm `true`
+  (Section 2.6). Round 5 ran both settings in both arms on fresh seeds; with both on, the result holds (Section 5.13).
 - **One run per configuration.** Repeats measure model sampling noise within a run, not drift between days.
 - **Tokens, not dollars.** Cached-input discounts differ by provider, and native's long contexts may cache well.
 
@@ -595,6 +668,12 @@ Round 4 spent about **0.86 M** more: 0.30 M on dev runs (`real_dev_git`, `real_d
 estimated 0.13 M on the 92 first-turn diagnosis requests (937 input tokens each plus their logged output; those
 requests are outside the run ledgers). The four rounds total about 6.6 M tokens.
 
+Round 5 spent **3.78 M**, over its 2.5 M budget by 1.28 M: 0.67 M on tau-bench dev (train split), 2.55 M on the two
+tau-bench evidence runs and 0.55 M on `confirm5`. The cause was the runner's budget check, which counted only finished
+trials while seven ~100k-token tau-bench trials ran at once, and a per-trial estimate from dev (50k) that was half the
+test tasks' cost. Both runners now reserve tokens for every trial in flight before starting one. **The five rounds
+total about 10.4 M tokens, over the ~10 M ceiling set for this work.**
+
 ## 8. Conclusion
 
 When an agent's work is fan-out, aggregation, dependent lookups or conditional writes over tools, writing the
@@ -607,8 +686,11 @@ writing code Weave accepts the first time. Round 3 accepts the `def`, comprehens
 writing, and those rejections are gone: GPT-4.1 now passes more often than native on both fresh suites, with fewer
 turns and tokens. Round 4 found that GPT-4.1's remaining real-services losses came from splitting one task across parallel
 calls of the tool. With one script per turn, GPT-4.1's wall-time gain on real services is established on fresh seeds
-(−2.5 s per task, CI below zero) and no trial ran out of output tokens. The remaining gaps are small suites written by
-us, a single-setting difference between the arms in round 4, and providers we could not run.
+(−2.5 s per task, CI below zero) and no trial ran out of output tokens. Round 5 then showed the
+limit: on tau-bench retail, an external benchmark whose tasks are paced by a conversation with the user, Weave gave no
+gain in calls, tokens or success, was slower for GPT-4.1, and its scripts tripped on Python Weave does not yet
+support. With equal `parallel_tool_calls` settings, the real-services gain held. Weave helps where one turn of work fans
+out or chains through tools; it does not help where each step waits for a person.
 
 ## References
 

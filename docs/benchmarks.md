@@ -1,5 +1,21 @@
 # Benchmarks
 
+## Round 5: tau-bench retail and equal settings (2026-11-10)
+
+Pre-registered in Addendum 5. tau-bench retail (`retail_test7`, hash `eaf9d60846f82626`; 7 test tasks, 1 repeat):
+
+| model | pass W / N | agent calls W / N | Δ wall s [95% CI] | token ratio [95% CI] |
+|---|---|---|---|---|
+| GPT-4.1 (temp 0) | 4/7 / 3/7 | 17.1 / 17.1 | +2.97 [+0.26, +5.77] | 1.19 [0.90, 1.55] |
+| GPT-5.4 mini (low) | 2/7 / 4/7 | 12.9 / 15.1 | −3.35 [−11.40, +4.52] | 0.98 [0.63, 1.45] |
+
+`confirm5` ablation (hash `28f7774434ab8d21`). With `parallel_tool_calls` on in both arms, Weave against native:
+GPT-4.1 10/10 vs 6/10, Δ wall −1.76 [−2.96, −0.46], tokens 0.59 [0.42, 0.83]; GPT-5.4 mini 10/10 vs 8/10, −4.63
+[−7.96, −2.30], 0.45 [0.36, 0.58]. Native with parallel calls off: 2/10 and 3/10, at the 16-turn cap. All four
+combinations are in `docs/paper/results-tables.md`.
+
+Spend: 3.78M tokens, over the 2.5M round budget; about 10.4M over all rounds.
+
 ## Round 4: one script per turn (2026-11-10)
 
 Pre-registered in Addendum 4 (`confirm4`, hash `c3ae4a6c9fe95a31`: the `real` recipe with seeds + 200 plus two
