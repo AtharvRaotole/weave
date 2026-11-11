@@ -499,32 +499,38 @@ fn contains(container: &Value, item: &Value) -> Result<bool, String> {
 }
 
 fn cmp_ord(left: &Value, right: &Value, op: Cmp) -> Result<bool, String> {
-    let ord = match (left, right) {
-        (Value::Int(a), Value::Int(b)) => a.cmp(b),
-        (Value::Str(a), Value::Str(b)) => a.cmp(b),
-        (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
-        _ => {
-            if let (Ok(a), Ok(b)) = (as_number(left), as_number(right)) {
-                let af = to_f(a);
-                let bf = to_f(b);
-                af.partial_cmp(&bf)
-                    .ok_or_else(|| "cannot compare these numbers".to_string())?
-            } else {
-                return Err(format!(
-                    "cannot compare {} and {} with `{}`",
-                    type_name(left),
-                    type_name(right),
-                    cmp_token(op)
-                ));
-            }
-        }
-    };
+    let ord = ordering(left, right).map_err(|_| {
+        format!("cannot compare {} and {} with `{}`", type_name(left), type_name(right), cmp_token(op))
+    })?;
     Ok(match op {
         Cmp::Lt => ord.is_lt(),
         Cmp::LtE => ord.is_le(),
         Cmp::Gt => ord.is_gt(),
         Cmp::GtE => ord.is_ge(),
         _ => unreachable!(),
+    })
+}
+
+/// Python ordering: numbers, strings and bools among themselves, and lists
+/// lexicographically (so `sorted` of `[key, item]` pairs works).
+fn ordering(left: &Value, right: &Value) -> Result<std::cmp::Ordering, ()> {
+    Ok(match (left, right) {
+        (Value::Int(a), Value::Int(b)) => a.cmp(b),
+        (Value::Str(a), Value::Str(b)) => a.cmp(b),
+        (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
+        (Value::List(a), Value::List(b)) => {
+            for (x, y) in a.iter().zip(b) {
+                let o = ordering(x, y)?;
+                if o.is_ne() {
+                    return Ok(o);
+                }
+            }
+            a.len().cmp(&b.len())
+        }
+        _ => match (as_number(left), as_number(right)) {
+            (Ok(a), Ok(b)) => to_f(a).partial_cmp(&to_f(b)).ok_or(())?,
+            _ => return Err(()),
+        },
     })
 }
 

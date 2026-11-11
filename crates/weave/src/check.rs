@@ -297,11 +297,18 @@ fn check_builtin(line: usize, col: usize, name: &str, argc: usize, keywords: &[c
         ).with_hint(format!("check the argument count for `{name}`")));
     }
     if name != "print" && !keywords.is_empty() {
-        diags.push(Diagnostic::static_err(
-            line,
-            col,
-            format!("builtin `{name}` does not take keyword arguments"),
-        ));
+        let err = Diagnostic::static_err(line, col, format!("builtin `{name}` does not take keyword arguments"));
+        let by_key = keywords.iter().any(|kw| kw.name.as_deref() == Some("key"));
+        diags.push(match name {
+            "max" | "min" if by_key => err.with_hint(format!(
+                "`key=` is not supported; loop and keep the best item, e.g. `if best is None or v {} best_v: best, best_v = x, v`",
+                if name == "max" { ">" } else { "<" }
+            )),
+            "sorted" if by_key => err.with_hint(
+                "`key=` is not supported; build a list of [key, item] pairs in a loop and sort that",
+            ),
+            _ => err,
+        });
     }
     diags
 }
