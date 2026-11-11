@@ -163,3 +163,55 @@ Hypotheses:
   (CI below 0), and tokens are no higher (ratio ≤ 1). We report the wall-time difference with its CI but predict
   a gain only on the multi-round families (`sqlite_triage`, `git_review`, `warehouse_shortfall`). On
   `pypi_major` (one round of parallel calls for native) we expect no clear wall-time difference.
+
+## Addendum 3: round 3 (written and committed before any run on `confirm3` or `real2`)
+
+Since Addendum 2, one thing changed: **the Python models reach for now runs** (commit `08fcb52`,
+`crates/weave/src/parse/sugar.rs` and `crates/weave/src/anf.rs`). List, dict and set comprehensions, generator
+expressions, `key=`/`reverse=`/`default=` on `sorted`/`min`/`max`/`list.sort`, `map`/`filter`, sets (as
+duplicate-free lists), and top-level `def` helpers (inlined per call; recursion, nested `def`, `*args`, non-literal
+defaults and in-place changes to arguments are rejected with hints). All of it lowers to the statements Weave
+already had, so effects, scheduling, replay and limits are unchanged; `any`/`all` over a generator stop early, as in
+Python. The agent rules in `python/weave/agent_tool.py` now list these forms instead of forbidding `def`, `lambda`
+and comprehensions. That text is the Weave arm's tool description; the native arm is unchanged. All 46 scripts that
+the round-1 and round-2 Weave arms had rejected for these forms (or for `list.sort`) pass the static check now
+(offline re-check of the logged sources).
+
+Dev measurement used for this round: `bench/results/v6/*-real_dev-*sugar-dev` (GPT-4.1, 2 repeats): Weave 7/8,
+native 6/8; mean wall 2.58 s against 7.20 s; the one Weave failure split a PyPI task into six one-line scripts and
+added the numbers itself. Nothing below was run before this addendum was committed.
+
+| suite | hash | tasks |
+|---|---|---|
+| **confirm3** | `fec37fb8e1c51615` | the held-out recipe with seeds + 300, plus triage n10 s403, triage n24 s404, notify_gold n16 s403 |
+| **real2** | `4ebcd0a29bb76666` | the `real` recipe with seeds + 100: pypi_major n10 s201 and n16 s202 (sum of major versions from the live PyPI API), sqlite_triage n12 and n20, git_review n8 and n14 (creating real git tags), warehouse_shortfall n10 and n16 |
+
+Runs (each configuration once; same stopping and exclusion rules; round-3 live spend stops at 6M tokens):
+
+| provider | model | settings | suite | modes | repeats | latency (ms) |
+|---|---|---|---|---|---|---|
+| openai | gpt-4.1-2025-04-14 | temperature 0 | confirm3 | weave, native | 3 | 200 |
+| openai | gpt-5.4-mini-2026-03-17 | effort low | confirm3 | weave, native | 3 | 200 |
+| openai | gpt-5.5-2026-04-23 | effort low | confirm3 | weave, native | 1 | 200 |
+| openai | gpt-4.1-2025-04-14 | temperature 0 | real2 | weave, native | 3 | real |
+| openai | gpt-5.4-mini-2026-03-17 | effort low | real2 | weave, native | 3 | real |
+| openai | gpt-5.5-2026-04-23 | effort low | real2 | weave, native | 1 | real |
+| gemini | gemini-3.5-flash | free tier, 1 worker, ≥ 12 s between requests, only if the daily quota has reset | real2, then confirm3 | weave, native | 1 | real / 200 |
+| nvidia | z-ai/glm-5.3-flash | temperature 0, only if a 35 s smoke request answers | real2 | weave, native | 1 | real |
+
+Gemini and GLM stay best effort and are not pooled with OpenAI data.
+
+Hypotheses:
+
+- **S1 (the rejections are gone).** Across every OpenAI Weave trial on `confirm3` and `real2`, no script fails the
+  static check because of `def`, `lambda`, a comprehension or `list.sort`. We report every static-check failure
+  by message, including the forms that remain unsupported.
+- **S2 (the GPT-4.1 real-services loss is removed).** On `real2`, GPT-4.1: Weave is faster per task (paired mean
+  Δ wall below 0, with the 95% bootstrap CI below 0), turns are lower (CI below 0), the pass rate is non-inferior
+  (H4 margin), and tokens are no higher (ratio ≤ 1). In round 2 the wall-time difference was +0.1 s [−1.7, +2.0].
+- **S3 (PyPI).** On the `pypi_major` tasks of `real2`, GPT-4.1 Weave mean wall time is at most native's. In round 2
+  it was 7.5 s against 3.1 s. (Descriptive; with 6 pairs per arm we report the paired CI but do not require it to
+  exclude 0.)
+- **R2.** R1 (Addendum 2) holds on `real2` for GPT-5.5 and GPT-5.4 mini.
+- **C4.** H1 (turns), H3 (tokens, ratio ≤ 1) and H4 (pass rate, non-inferiority) hold on `confirm3` for each OpenAI
+  model. H2 (wall time at 200 ms) is tested for GPT-4.1 and GPT-5.4 mini.

@@ -27,8 +27,9 @@ BLUE, GREY = "#2457d6", "#a3a9b4"
 
 def load(run):
     d = RESULTS / run
-    if not d.exists():
-        d = ROOT / "bench/results/v5" / run
+    for newer in ("v5", "v6"):
+        if not d.exists():
+            d = ROOT / "bench/results" / newer / run
     rows = [json.loads(line) for line in (d / "rows.jsonl").read_text().splitlines() if line.strip()]
     return json.loads((d / "run.json").read_text()), rows
 
@@ -151,6 +152,42 @@ def echo_section(runs):
     return lines
 
 
+SUGAR_MESSAGES = ("comprehensions are not supported", "`lambda` is not supported", "`def` is not supported",
+                  "list has no method `sort`")
+
+
+def static_section(runs, suites=("confirm3", "real2")):
+    """S1: every Weave script that failed the static check on the round-3 suites, by message."""
+    import re
+    lines = ["", "## Static-check failures in Weave scripts, round 3 (S1)", "",
+             "Every Weave script on `confirm3` and `real2` that the static check rejected, counted by message "
+             "(line numbers stripped). The round-2 messages for `def`, `lambda`, comprehensions and `list.sort` "
+             "no longer exist in the engine; any count against them would refute S1.", "",
+             "| model | suite | Weave scripts | rejected by the static check | sugar rejections (round-2 messages) | messages |",
+             "|---|---|---|---|---|---|"]
+    for suite in suites:
+        for label, run in runs.get(suite, {}).items():
+            _, rows = load(run)
+            total = rejected = sugar = 0
+            msgs = {}
+            for r in rows:
+                if not r["mode"].startswith("weave"):
+                    continue
+                for sc in r["scripts_log"]:
+                    total += 1
+                    out = sc["output"]
+                    if "did not pass the static check" not in out:
+                        continue
+                    rejected += 1
+                    sugar += any(m in out for m in SUGAR_MESSAGES)
+                    for m in re.findall(r"L\d+:C\d+: ([^\n]+)", out):
+                        m = m.split(" hint:")[0].strip()
+                        msgs[m] = msgs.get(m, 0) + 1
+            listed = "; ".join(f"{k} ({v})" for k, v in sorted(msgs.items(), key=lambda kv: -kv[1])) or "none"
+            lines.append(f"| {label} | {suite} | {total} | {rejected} | {sugar} | {listed.replace('|', '/')} |")
+    return lines
+
+
 def headline_net(runs, suite):
     """Like headline, with wall time net of provider waits (free-tier pacing, retries)."""
     out = []
@@ -197,6 +234,20 @@ def write_tables(runs, head, fams, scaling, extra):
         lines += ["", "## Real services (`real` suite: SQLite, git, filesystem, local HTTP server, PyPI; no injected latency)", "",
                   "Wall time is net of provider waits (zero for OpenAI; pacing and retries for free tiers).", ""]
         lines += [x.replace(" 0 ms |", " real |") for x in headline_table(real)]
+    confirm3 = headline(runs, "confirm3")
+    if confirm3:
+        lines += ["", "## Confirm3 suite (round 3: fresh seeds, Python sugar; weave vs native)", ""] + headline_table(confirm3)
+    real2 = headline_net(runs, "real2")
+    if real2:
+        lines += ["", "## Real services, round 3 (`real2`: fresh seeds; no injected latency)", "",
+                  "Wall time is net of provider waits (zero for OpenAI).", ""]
+        lines += [x.replace(" 0 ms |", " real |") for x in headline_table(real2)]
+    partial3 = headline_net(runs, "partial3")
+    if partial3:
+        lines += ["", "## Best-effort providers, round 3 (not pooled; wall net of pacing)", "",
+                  "| model | suite | trials run | statuses |", "|---|---|---|---|"]
+        lines += [f"| {h['label']} | {h['meta']['suite']} | {h['n']} | {', '.join(h['statuses'])} |" for h in partial3]
+        lines += ["", "No (task, repeat) pair finished in both arms, so no paired comparison is reported."]
     partial = headline_net(runs, "partial2")
     if partial:
         lines += ["", "## Best-effort providers, round 2 (not pooled; wall net of pacing)", "",
@@ -208,6 +259,10 @@ def write_tables(runs, head, fams, scaling, extra):
         lines += family_table(families(runs, 200.0, "confirm2"), "## Confirm2 by family at 200 ms (mean per trial)")
     if real:
         lines += family_table(families(runs, 0.0, "real"), "## Real services by family (mean per trial)")
+    if confirm3:
+        lines += family_table(families(runs, 200.0, "confirm3"), "## Confirm3 by family at 200 ms (mean per trial)")
+    if real2:
+        lines += family_table(families(runs, 0.0, "real2"), "## Real services, round 3 (`real2`), by family (mean per trial)")
     if scaling:
         lines += ["", "## Scaling suite (mean per trial)", "",
                   "| model | latency | task | pass W / N | turns W / N | wall s W / N | tokens W / N |", "|---|---|---|---|---|---|---|"]
@@ -308,6 +363,34 @@ def charts_v5(runs, fp):
         save(fig, "benchmark-v5-real")
 
 
+def charts_v6(runs):
+    """Round 2 (`real`) vs round 3 (`real2`): Weave/native wall time and turns per OpenAI model."""
+    import matplotlib.pyplot as plt
+    before = {h["label"]: h for h in headline(runs, "real")}
+    after = {h["label"]: h for h in headline(runs, "real2")}
+    labels = [l for l in after if l in before]
+    if not labels:
+        return
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.9), sharey=True)
+    for ax, (metric, title) in zip(axes, (("wall", "wall time"), ("turns", "model turns"))):
+        for k, (data, name, color) in enumerate(((before, "round 2 (`real`)", GREY), (after, "round 3 (`real2`)", BLUE))):
+            xs = [j + (k - 0.5) * 0.38 for j in range(len(labels))]
+            ys = [data[l][metric]["ratio_gm"] for l in labels]
+            lo = [y - data[l][metric]["ratio_gm_ci95"][0] for y, l in zip(ys, labels)]
+            hi = [data[l][metric]["ratio_gm_ci95"][1] - y for y, l in zip(ys, labels)]
+            ax.bar(xs, ys, 0.36, yerr=[lo, hi], capsize=2, color=color, label=name)
+            for x, y in zip(xs, ys):
+                ax.text(x, 0.03, f"{y:.2f}", ha="center", va="bottom", fontsize=7, color="white")
+        ax.axhline(1.0, color="#333", lw=0.8, ls="--")
+        ax.set_xticks(range(len(labels)), labels, fontsize=7)
+        ax.set_title(f"Weave / native {title}", fontsize=9)
+    axes[0].set_ylabel("geo. mean ratio (below 1: Weave less)")
+    axes[0].legend(frameon=False, fontsize=7, loc="upper left")
+    fig.suptitle("Real services before and after Python sugar (fresh seeds in round 3)", fontsize=9)
+    fig.tight_layout()
+    save(fig, "benchmark-v6-real")
+
+
 def charts(head, fams, scaling):
     import matplotlib
     matplotlib.use("Agg")
@@ -381,10 +464,14 @@ def main():
     fams = families(runs)
     scaling = scaling_data(runs)
     fp_lines, fp = footprint_section(runs)
-    write_tables(runs, head, fams, scaling, ablation(runs) + fp_lines + (echo_section(runs) if fp else []))
+    extra = ablation(runs) + fp_lines + (echo_section(runs) if fp else [])
+    if "confirm3" in runs or "real2" in runs:
+        extra += static_section(runs)
+    write_tables(runs, head, fams, scaling, extra)
     try:
         charts(head, fams, scaling)
         charts_v5(runs, fp)
+        charts_v6(runs)
     except ImportError:
         print("matplotlib not installed: wrote tables only")
     print(f"wrote {TABLES.relative_to(ROOT)} and assets/benchmark-v4*.svg")

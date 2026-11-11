@@ -44,7 +44,19 @@ enum E {
     Plus(Box<E>, Box<E>),
     Minus(Box<E>, Box<E>),
     Put(usize, Box<E>),
+    /// `sum([e for _j in range(n)])`: a comprehension evaluating `e` n times.
+    SumComp(i64, Box<E>),
+    /// `h(a, b)`: the helper in [`PRELUDE`], inlined by Weave.
+    Helper(Box<E>, Box<E>),
+    /// `get(max(KEYS, key=lambda k: get(k)))`.
+    MaxKey,
+    /// `int(any(get(k) > t for k in KEYS))`, which stops at the first hit.
+    AnyGen(i64),
 }
+
+/// Every program starts with this helper: an early `return` from inside a
+/// loop, a write, and a call to another tool.
+const PRELUDE: &str = "def h(a, b):\n    if a > b:\n        return add(a, b)\n    for j in range(3):\n        if put(\"k1\", a + j) > 3:\n            return j\n    return b - a\n";
 
 #[derive(Clone, Debug)]
 enum S {
@@ -70,7 +82,7 @@ struct Gen {
 
 impl Gen {
     fn expr(&mut self, depth: u32) -> E {
-        let pick = if depth == 0 { self.rng.below(3) } else { self.rng.below(7) };
+        let pick = if depth == 0 { self.rng.below(3) } else { self.rng.below(11) };
         let key = |g: &mut Gen| g.rng.below(3) as usize;
         match pick {
             0 => E::Lit(self.rng.below(10) as i64),
@@ -79,10 +91,14 @@ impl Gen {
             3 => E::Add(Box::new(self.expr(depth - 1)), Box::new(self.expr(depth - 1))),
             4 => E::Plus(Box::new(self.expr(depth - 1)), Box::new(self.expr(depth - 1))),
             5 => E::Minus(Box::new(self.expr(depth - 1)), Box::new(self.expr(depth - 1))),
-            _ => {
+            6 => {
                 let k = key(self);
                 E::Put(k, Box::new(self.expr(depth - 1)))
             }
+            7 => E::SumComp(self.rng.below(4) as i64, Box::new(self.expr(depth - 1))),
+            8 => E::Helper(Box::new(self.expr(depth - 1)), Box::new(self.expr(depth - 1))),
+            9 => E::MaxKey,
+            _ => E::AnyGen(self.rng.below(8) as i64),
         }
     }
 
@@ -178,6 +194,10 @@ fn render_e(e: &E) -> String {
         E::Plus(a, b) => format!("({} + {})", render_e(a), render_e(b)),
         E::Minus(a, b) => format!("({} - {})", render_e(a), render_e(b)),
         E::Put(k, v) => format!("put(\"{}\", {})", KEYS[*k], render_e(v)),
+        E::SumComp(n, v) => format!("sum([{} for _j in range({n})])", render_e(v)),
+        E::Helper(a, b) => format!("h({}, {})", render_e(a), render_e(b)),
+        E::MaxKey => "get(max([\"k0\", \"k1\", \"k2\"], key=lambda k: get(k)))".to_string(),
+        E::AnyGen(t) => format!("int(any(get(k) > {t} for k in [\"k0\", \"k1\", \"k2\"]))"),
     }
 }
 
@@ -258,6 +278,39 @@ impl Oracle {
                 let old = self.store.insert(KEYS[*k].to_string(), v).unwrap_or(0);
                 self.call("put", vec![Value::str(KEYS[*k]), Value::Int(v)], old)
             }
+            E::SumComp(n, v) => (0..*n).map(|_| self.eval(v)).sum(),
+            E::Helper(a, b) => {
+                let (x, y) = (self.eval(a), self.eval(b));
+                if x > y {
+                    return self.call("add", vec![Value::Int(x), Value::Int(y)], x.wrapping_add(y));
+                }
+                for j in 0..3 {
+                    let v = x + j;
+                    let old = self.store.insert("k1".to_string(), v).unwrap_or(0);
+                    if self.call("put", vec![Value::str("k1"), Value::Int(v)], old) > 3 {
+                        return j;
+                    }
+                }
+                y - x
+            }
+            E::MaxKey => {
+                let vals: Vec<i64> = (0..3).map(|k| self.eval(&E::Get(k))).collect();
+                let mut best = 0;
+                for k in 1..3 {
+                    if vals[k] > vals[best] {
+                        best = k;
+                    }
+                }
+                self.eval(&E::Get(best))
+            }
+            E::AnyGen(t) => {
+                for k in 0..3 {
+                    if self.eval(&E::Get(k)) > *t {
+                        return 1;
+                    }
+                }
+                0
+            }
         }
     }
 
@@ -333,7 +386,7 @@ fn build(seed: u64) -> Vec<S> {
 }
 
 fn program(seed: u64) -> String {
-    let mut out = String::new();
+    let mut out = PRELUDE.to_string();
     render(&build(seed), 0, &mut out);
     out
 }
@@ -576,4 +629,15 @@ fn generator_produces_break_and_continue() {
     let breaks = programs.iter().filter(|p| p.contains("break")).count();
     let continues = programs.iter().filter(|p| p.contains("continue")).count();
     assert!(breaks >= 20 && continues >= 20, "breaks={breaks} continues={continues}");
+}
+
+#[test]
+fn generator_produces_python_sugar() {
+    // Comprehensions, helper calls, `key=` lambdas and short-circuit `any`
+    // are fuzzed through every execution mode like the rest of the program.
+    let bodies: Vec<String> = (0..300).map(|s| program(s)[PRELUDE.len()..].to_string()).collect();
+    for needle in ["sum([", "h(", "key=lambda", "any("] {
+        let hits = bodies.iter().filter(|p| p.contains(needle)).count();
+        assert!(hits >= 20, "only {hits} programs contain `{needle}`");
+    }
 }

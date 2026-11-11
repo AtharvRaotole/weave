@@ -1,0 +1,62 @@
+{
+  "protocol": "weave-benchmark-protocol-v4",
+  "kind": "live",
+  "started_utc": "2026-11-11T03:37:09Z",
+  "source_commit": "08fcb52db783ad8f5c6b1b7145aafaae63f081f5",
+  "source_dirty": false,
+  "weave_version": "0.0.0",
+  "python": "3.13.5",
+  "provider": "openai",
+  "model": "gpt-4.1-2025-04-14",
+  "effort": null,
+  "temperature": 0.0,
+  "max_tokens": 4096,
+  "suite": "real_dev",
+  "manifest": {
+    "suite": "real_dev",
+    "tasks": [
+      {
+        "id": "pypi_major-n6-s1",
+        "family": "pypi_major",
+        "size": 6,
+        "fingerprint": "ab20ad4c17e87a4a"
+      },
+      {
+        "id": "sqlite_triage-n8-s1",
+        "family": "sqlite_triage",
+        "size": 8,
+        "fingerprint": "98ab5c69466ac090"
+      },
+      {
+        "id": "git_review-n6-s1",
+        "family": "git_review",
+        "size": 6,
+        "fingerprint": "aa6515327316cebf"
+      },
+      {
+        "id": "warehouse_shortfall-n6-s1",
+        "family": "warehouse_shortfall",
+        "size": 6,
+        "fingerprint": "1664dfedb7d044c7"
+      }
+    ],
+    "hash": "7708bf0688624804"
+  },
+  "task_subset": null,
+  "modes": [
+    "weave",
+    "native"
+  ],
+  "repeats": 2,
+  "latency_ms": [
+    0.0
+  ],
+  "concurrency_cap": 8,
+  "max_turns": 16,
+  "system_prompt": "You are an operations agent with access to tools. Use them to complete the user's task; tool results are authoritative. When the task is complete, reply with only the final answer in the requested format and no other text.",
+  "planned_trials": 16,
+  "workers": 4,
+  "min_interval_s": 0.0,
+  "token_budget": 3000000,
+  "seed": 2026
+}

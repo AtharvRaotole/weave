@@ -262,8 +262,9 @@ footprints guide speculative cache invalidation; they do not parallelize writes.
 
 The language supports assignment, `if`/`elif`/`else`, `for`, `break`, `continue`,
 `try`/`except ToolError`, lists, dictionaries, f-strings, and selected builtins and
-methods. Imports, user-defined functions, classes, `while`, comprehensions, and
-`await` are rejected. This is a Python-like subset with its own value semantics.
+methods, comprehensions and generator expressions, `key=` lambdas, `map`/`filter`, sets
+(as duplicate-free lists), and top-level `def` helpers, which are inlined at each call. Imports, classes,
+`while`, recursion, and `await` are rejected with a fix hint. This is a Python-like subset with its own value semantics.
 See the [language reference](docs/language.html).
 
 ## Benchmarks
@@ -322,8 +323,29 @@ What it shows:
 | `gpt-5.4-mini-2026-03-17` (low) | 22/24 / 21/24 | 2.50 / 3.50 | −1.2 s [−2.35, −0.04] | 0.63 [0.44, 0.87] |
 | `gpt-4.1-2025-04-14` (temp 0) | 21/23 / 12/24 | 2.78 / 3.50 | +0.1 s [−1.7, +2.0] | 0.77 [0.51, 1.30] |
 
-  GPT-4.1 got no wall-time gain there: it kept writing `def` and list comprehensions, which Weave rejects, and paid a
+  GPT-4.1 got no wall-time gain there: it kept writing `def` and list comprehensions, which Weave rejected, and paid a
   turn to rewrite them. Native GPT-4.1 failed every PyPI task by adding up version numbers in its head.
+
+**Round 3 (pre-registered in [Addendum 3](docs/paper/preregistration.md), fresh seeds).** Weave now accepts
+comprehensions, generator expressions, `key=` lambdas, `map`/`filter`, sets and `def` helpers, lowered to the loops it
+already schedules (tested against CPython and in the differential fuzzer).
+
+![Real services before and after Python sugar](assets/benchmark-v6-real.png)
+
+| suite | model | pass W / N | turns W / N | Δ wall per task [95% CI] | tokens W/N [95% CI] |
+|---|---|---|---|---|---|
+| confirm3 (200 ms) | `gpt-5.5-2026-04-23` (low, 1 repeat) | 13/13 / 13/13 | 2.00 / 4.08 | −5.0 s [−8.1, −2.8] | 0.38 [0.32, 0.46] |
+| confirm3 (200 ms) | `gpt-5.4-mini-2026-03-17` (low) | 39/39 / 37/39 | 2.10 / 4.08 | −4.6 s [−6.4, −3.0] | 0.40 [0.34, 0.49] |
+| confirm3 (200 ms) | `gpt-4.1-2025-04-14` (temp 0) | 39/39 / 27/39 | 2.21 / 4.10 | −4.0 s [−8.3, −1.1] | 0.46 [0.38, 0.56] |
+| real2 | `gpt-5.5-2026-04-23` (low, 1 repeat) | 8/8 / 8/8 | 2.00 / 3.50 | −4.7 s [−6.4, −3.1] | 0.47 [0.34, 0.64] |
+| real2 | `gpt-5.4-mini-2026-03-17` (low) | 23/24 / 22/24 | 2.25 / 3.58 | −2.9 s [−5.0, −0.1] | 0.55 [0.36, 0.83] |
+| real2 | `gpt-4.1-2025-04-14` (temp 0) | 21/24 / 13/24 | 2.17 / 3.50 | −1.4 s [−5.0, +2.3] | 0.60 [0.40, 1.04] |
+
+- No Weave script was rejected for these forms; 92 of 269 used them. GPT-4.1's `pypi_major` time went from 7.5 s
+  (native 3.1 s) to 3.5 s (native 3.6 s).
+- The GPT-4.1 real-services wall-time loss is smaller but not gone: the mean is now −1.4 s per task, with a CI that
+  includes zero. Two GPT-4.1 Weave `git_review` trials stopped on the first turn at the provider's output-token limit,
+  and the pre-registered rules count them as failures.
 
 Reproduce: `make bench-mock` (offline) or `WEAVE_BENCH_LIVE=1 make bench-live MODEL=...` (spends tokens).
 The real-services suite runs offline with oracle agents: `python -m bench.v4.run --mock --suite real --latency-ms 0`.

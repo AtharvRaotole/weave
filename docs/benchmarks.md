@@ -1,5 +1,18 @@
 # Benchmarks
 
+## Round 3: the Python models write (2026-11-10)
+
+Pre-registered in Addendum 3 of [the pre-registration](paper/preregistration.md) (commit `915488e`), before any run
+on `confirm3` or `real2`. Discussion in Section 5.11 of the [paper](paper/weave.md); tables in
+[results-tables.md](paper/results-tables.md), including every static-check failure by message (S1). Rows are in
+`bench/results/v6/`.
+
+![Real services before and after Python sugar](../assets/benchmark-v6-real.png)
+
+- `confirm3` and `real2` (in `bench/v4/tasks.py` and `bench/v4/real.py`) are the round-2 recipes with fresh seeds.
+- Provider errors count as failures. Two GPT-4.1 Weave trials on `real2` stopped at `max_output_tokens` on the
+  first turn; the harness records 0 tokens for such a trial although the provider bills its output.
+
 ## Round 2: footprints, echo, real services (2026-11-10)
 
 Pre-registered in Addendum 2 of [the pre-registration](paper/preregistration.md) (commit `a887e3a`), before any run

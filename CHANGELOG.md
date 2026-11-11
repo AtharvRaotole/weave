@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Language
+- List, dict and set comprehensions and generator expressions (nested `for`/`if`), lowered to ordinary pipelined
+  loops: `[get(k) for k in keys]` issues its calls in parallel. `any`/`all` over a generator stop at the first
+  decisive item, as in Python.
+- `key=` (a one-argument `lambda`, a tool, builtin, helper, `str.lower`, or a bound method like `counts.get`),
+  `reverse=` and `default=` on `sorted`, `min`, `max` and `xs.sort()`; stable, first extreme wins, as in CPython.
+  `map(f, xs)`, `filter(f, xs)`, `xs.reverse()`.
+- Top-level `def` helpers with positional, keyword and literal-default parameters and `return` anywhere. Each call
+  is inlined with renamed locals, so effects, scheduling, replay and limits see the inlined code. Recursion, nested
+  `def`, `*args`, non-literal defaults, use before `def`, and changing an argument in place are rejected with hints.
+- Sets as duplicate-free lists: `{a, b}`, `set(xs)`, set comprehensions, `s.add(v)`.
+- `tests/audit/test_python_sugar.py`: generated programs vs CPython (batch, streamed, replayed); the Rust
+  differential fuzzer generates comprehensions, a helper with an early return and a write, `key=` lambdas and
+  short-circuit `any`.
+
 ### Runtime
 - Footprint-aware ordering: a read waits only for earlier writes whose declared footprint overlaps its own
   (`declare(reads=[...], writes=[...])`, templates such as `"ticket:{ticket_id}"`, positional or keyword). `if`/`for`

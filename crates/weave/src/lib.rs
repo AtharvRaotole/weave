@@ -5,6 +5,7 @@
 #![allow(clippy::too_many_arguments)]
 
 mod analysis;
+mod anf;
 mod ast;
 mod cancel;
 mod check;

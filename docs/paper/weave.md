@@ -1,7 +1,7 @@
 ---
 title: "Weave: one script instead of many tool calls. A pre-registered comparison with native parallel function calling"
 author: "Atharv Raotole"
-date: "November 2026 (draft v2)"
+date: "November 2026 (draft v3)"
 ---
 
 ## Abstract
@@ -27,8 +27,14 @@ overlaps it), Weave's backend time on write-in-loop tasks fell to 0.96–1.07× 
 correctness. The same round confirmed the headline on fresh seeds and ran a **real-services** suite against SQLite, git,
 the filesystem, a local HTTP server and the public PyPI API. Weave used 0.44–0.77× native's tokens there and passed at
 least as often (GPT-4.1: 21/23 vs 12/24, p = 0.004). Its turn and wall-time gains held for the two GPT-5 models and
-not for GPT-4.1, which kept writing Python that Weave does not accept (`def`, comprehensions, `lambda`). Code, data,
-both pre-registrations and a one-command reproduction are in the repository.
+not for GPT-4.1, which kept writing Python that Weave did not accept (`def`, comprehensions, `lambda`). A third
+pre-registered round adds those forms: comprehensions, generator expressions, `key=` lambdas, `map`/`filter`, sets and
+inlined `def` helpers, all lowered to the loops Weave already schedules. On fresh seeds, no Weave script was rejected
+for them (92 of 269 scripts used them), and GPT-4.1 passed 39/39 against native's 27/39 on `confirm3` (p < 0.001) and
+21/24 against 13/24 on real services, with 1.3 fewer turns and 0.60× the tokens. Its real-services wall time went
+from +0.1 s to −1.4 s per task, but that CI still includes zero, because two GPT-4.1 Weave trials ran out of output
+tokens on their first turn. Code, data, all three pre-registrations and a one-command reproduction are in the
+repository.
 
 ## 1. Introduction
 
@@ -128,6 +134,38 @@ non-overlap, read-your-write in straight-line code and in pipelined loops, failu
 This only helps hosts that declare footprints, and the benchmark tools do (`FOOTPRINTS` in `bench/v4/world.py` and
 `bench/v4/real.py`). Native function calling has no use for them. The `weave_nofp` arm is the same engine with the
 declarations removed.
+
+### 2.5 The Python models write (round 3)
+
+Rounds 1 and 2 rejected `def`, `lambda` and comprehensions with a hint, and the prompt said not to use them. GPT-4.1
+used them anyway: 46 logged Weave scripts from those rounds failed the static check for these forms or for
+`list.sort`, and each cost a turn. Round 3 accepts them. The lowering is syntactic and happens in the parser
+(`crates/weave/src/parse/sugar.rs`), so it produces only statements Weave already had:
+
+- A comprehension becomes an accumulator loop, `r = []` then `for x in xs: if c: r += [e]`. Loop variables are
+  renamed so they do not leak, and the first iterable is evaluated outside, as in Python. Dict comprehensions collect
+  `[key, value]` pairs (key first, as in Python 3.8+), so the loop stays an accumulator and its calls stay parallel.
+  `any`/`all` over a generator become a loop that breaks at the first decisive item, so later calls are never made.
+- `key=` on `sorted`/`min`/`max`/`list.sort` becomes a loop that computes the keys (in parallel, if they call tools),
+  then a builtin that sorts stably or picks the first extreme item, as CPython does. `map`/`filter` become
+  comprehensions.
+- A top-level `def` is stored as source and inlined at each call with its parameters and locals renamed. A helper's
+  free names are therefore the script's globals at the time of the call, as in Python. A helper that returns early
+  becomes a one-iteration loop; `return` sets the result and the break flag of every enclosing loop, and the existing
+  break desugaring guards the rest. Recursion, nested `def`, `*args`, non-literal defaults, use before the `def`,
+  and changing an argument in place are rejected with a hint, since Weave values are not shared between caller and
+  helper.
+- Sets are lists without duplicates in first-seen order. Length, membership, sorting and iteration count match
+  Python; printing a set does not.
+
+A placement pass (`crates/weave/src/anf.rs`) moves each lowered construct in front of the statement that uses it, in
+Python evaluation order: anything evaluated before it in the same expression is saved first, and a construct in a
+branch Python may skip (`a if c else [..]`, `x and any(..)`) becomes an `if`. Effects, dependency scheduling, replay
+and the limits therefore treat the result like code the model wrote by hand. Tests: generated programs against
+CPython in batch, streamed and replayed form (`tests/audit/test_python_sugar.py`, 625 programs in CI and 1 525 in a
+longer local run), and the Rust differential fuzzer now generates comprehensions, a helper with an early `return` and
+a write, `key=` lambdas and short-circuit `any`, which must agree across sequential, parallel, streaming, speculative
+and replayed execution (2 000 seeds locally).
 
 ## 3. Related work
 
@@ -328,6 +366,11 @@ Benchmark v4 is the *product* arm, which shows Weave's real output and errors.
 - **Gemini, round 2.** The paced `real` run (1 worker, 12 s between requests) started at 21:48 ET and finished no
   trial. The free tier allows 20 requests a day and that day's quota was already used. A complete run needs about 40–50
   requests, more than one day's free quota. The empty run directory is kept with a note.
+- **Gemini, round 3.** A smoke request answered at 22:39 ET, so the paced `real2` run (1 worker, 12 s between
+  requests) started. One trial finished (native `sqlite_triage`, passed); the other 15 ended with HTTP 429 "exceeded
+  your current quota". Not pooled; `confirm3` was not attempted.
+- **GLM, round 3.** `/v1/models` lists `z-ai/glm-5.3-flash`, but 35 s smoke requests timed out at 22:39, 22:44 and
+  22:51 ET. Not run.
 - **Anthropic.** No key was available. Not run.
 
 ### 5.10 Round 2: footprints, the echo fix, and real services
@@ -396,12 +439,59 @@ commits, and file contents. PyPI ground truth is fetched live at the start of ea
 **Dev measurements** used while building round 2 (GPT-5.4 mini, `dev` and `real_dev`) are in `bench/results/v5/` and
 are listed in the runs table, but they are not evidence.
 
+### 5.11 Round 3: the Python models write
+
+Everything here was pre-registered in Addendum 3 (commit `915488e`) before any run on its suites, with fresh seeds:
+`confirm3` is the `confirm2` recipe with seeds + 100 more (13 tasks, 200 ms), and `real2` is the `real` recipe with
+seeds + 100 (8 tasks: summing major versions from the live PyPI API, SQLite triage, creating real git tags, and the
+warehouse service). Two arms, Weave and native. The only change since round 2 is Section 2.5 and the matching line
+in Weave's tool description. One dev run preceded the addendum (GPT-4.1 on `real_dev`, 2 repeats; listed in the runs
+table, not evidence).
+
+| suite | model | pass W | pass N | turns W / N | Δ turns [95 % CI] | Δ wall s [95 % CI] | token ratio W/N [95 % CI] |
+|---|---|---|---|---|---|---|---|
+| confirm3 | GPT-5.5 (low, 1 repeat) | 13/13 | 13/13 | 2.00 / 4.08 | −2.08 [−2.77, −1.54] | −5.04 [−8.12, −2.82] | 0.38 [0.32, 0.46] |
+| confirm3 | GPT-5.4 mini (low) | 39/39 | 37/39 | 2.10 / 4.08 | −1.97 [−2.69, −1.38] | −4.58 [−6.39, −2.98] | 0.40 [0.34, 0.49] |
+| confirm3 | GPT-4.1 (t = 0) | 39/39 | 27/39 (p < 0.001) | 2.21 / 4.10 | −1.90 [−2.56, −1.28] | −3.95 [−8.28, −1.09] | 0.46 [0.38, 0.56] |
+| real2 | GPT-5.5 (low, 1 repeat) | 8/8 | 8/8 | 2.00 / 3.50 | −1.50 [−2.25, −0.75] | −4.66 [−6.37, −3.08] | 0.47 [0.34, 0.64] |
+| real2 | GPT-5.4 mini (low) | 23/24 | 22/24 | 2.25 / 3.58 | −1.33 [−2.17, −0.46] | −2.88 [−4.99, −0.07] | 0.55 [0.36, 0.83] |
+| real2 | GPT-4.1 (t = 0) | 21/24 | 13/24 (p = 0.057) | 2.17 / 3.50 | −1.33 [−2.17, −0.50] | −1.43 [−4.95, +2.31] | 0.60 [0.40, 1.04] |
+
+![Real services before and after Python sugar](../../assets/benchmark-v6-real.png)
+
+- **S1 (the rejections are gone): supported.** No Weave script on either suite failed the static check because of
+  `def`, `lambda`, a comprehension or `list.sort`. 92 of the 269 Weave scripts used at least one of these forms
+  (GPT-4.1: 29 of 97 on `confirm3`, 25 of 43 on `real2`, including 6 with a `def`), and every one was accepted. The
+  only two static rejections were a `while` loop (GPT-4.1) and a stray non-ASCII character (GPT-5.4 mini). No Weave
+  script hit a runtime error caused by the new forms; the only runtime errors were two PyPI TLS timeouts.
+- **S2 (GPT-4.1's real-services loss is removed): partly supported.** Turns (−1.33, CI below 0), pass rate (21/24 vs
+  13/24) and tokens (ratio 0.60) meet the criteria. Wall time does not: the mean moved from +0.06 s in round 2 to
+  −1.43 s, but its CI is [−4.95, +2.31]. The loss moved to `git_review` (Weave 3/6 and 9.8 s against native 6/6 and
+  3.7 s). Two of those Weave trials ended on the first turn with the provider's `max_output_tokens` stop (16 and 21 s),
+  and the pre-registered rules count them as failures. A third printed the tags it meant to create and answered
+  without creating them. Excluding the two provider-error pairs, which the rules do not allow and we report only as
+  a sensitivity check, gives −2.71 s [−5.56, −0.02]. Those two trials record 0 tokens, although the provider billed
+  up to 4 096 output tokens for each; the token ratio is therefore slightly understated.
+- **S3 (PyPI): supported.** On `pypi_major` GPT-4.1 Weave took 3.49 s against native's 3.61 s (round 2: 7.5 vs 3.1 s),
+  and passed 6/6 against 0/6. GPT-4.1 now writes the comprehension it wrote in round 2, and it runs.
+- **R2: supported** for GPT-5.5 and GPT-5.4 mini: pass rate non-inferior, turns and tokens lower, and wall time lower
+  with CIs below 0. GPT-5.4 mini's `pypi_major` times (9.2 vs 9.1 s) include PyPI TLS timeouts that hit both arms.
+- **C4: supported.** On `confirm3` every model has fewer turns, fewer tokens and lower wall time, with every CI
+  excluding 0 (or 1), and the pass rate is non-inferior. GPT-4.1's `top_customer` tasks, which failed in round 2
+  because `max(..., key=lambda ...)` was rejected, passed 6/6.
+- **By family on `real2` (GPT-4.1).** `sqlite_triage` 1.8 vs 8.5 s, `warehouse_shortfall` 2.9 vs 8.6 s (6/6 vs 1/6),
+  `pypi_major` 3.5 vs 3.6 s, `git_review` 9.8 vs 3.7 s.
+
 ## 6. Threats to validity
 
 - **Simulated backend.** In the main suites latency is synthetic (uniform around a mean, with a concurrency cap of
   8), and the tools are small and well documented. Real APIs have heavier tails, rate limits and messier schemas. The
   `real` suite (Section 5.10) uses real systems, but it is small (8 tasks), only PyPI is remote, and the families
   were written by us.
+- **Python fidelity.** The round-3 forms match CPython on everything the differential tests generate, but Weave
+  still has no shared mutable values and no set type. A helper that mutates an argument is rejected, but mutation
+  through an alias (`q = p; q.append(x)`) is not detected, and a printed set looks like a list. Helpers are inlined,
+  so heavy use costs code size; the limit is 200 inlined calls and 8 levels of helpers calling helpers.
 - **Footprints are host work.** The round-2 ordering gain requires the host to declare footprints correctly. A
   wrong declaration (a write that changes something its footprint does not name) can let a read see stale data. Native
   tool calling needs no such declarations.
@@ -439,6 +529,8 @@ tokens**:
 Round 2 spent about **1.57 M** more: 0.11 M on dev and real_dev, 0.96 M on confirm2 and 0.46 M on real. Gemini
 used none, because every request was refused.
 
+Round 3 spent about **1.20 M** more: 0.05 M on real_dev, 0.72 M on confirm3, 0.42 M on real2 and 0.01 M on Gemini.
+
 ## 8. Conclusion
 
 When an agent's work is fan-out, aggregation, dependent lookups or conditional writes over tools, writing the
@@ -447,8 +539,11 @@ parallel function calling. Success stays the same or improves. The gain comes mo
 results back through the model, rather than from runtime concurrency. Concurrency still matters for loops (without
 pipelining, the latency gain disappears). With footprint declarations, writes inside loops no longer cost extra
 backend time. On real services the token and success gains hold. The turn and latency gains depend on the model
-writing Weave's Python subset the first time: GPT-5.x does, and GPT-4.1 still reaches for `def`, comprehensions and
-`lambda`. Supporting those forms, or teaching them away, is the clearest next step.
+writing code Weave accepts the first time. Round 3 accepts the `def`, comprehensions and `lambda` that GPT-4.1 kept
+writing, and those rejections are gone: GPT-4.1 now passes more often than native on both fresh suites, with fewer
+turns and tokens. Its wall-time gain on real services is not yet established (the mean is negative but the CI
+includes zero, because of two output-token overruns). The next steps are what the remaining failures show: the model
+sometimes splits one task into many one-line scripts, or plans writes in a printout instead of making them.
 
 ## References
 

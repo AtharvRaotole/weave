@@ -17,7 +17,7 @@ use crate::ast::{
 use crate::check::{check_block, check_program};
 use crate::effect::Effect;
 use crate::error::{Diagnostic, WeaveError};
-use crate::parse::{parse_detailed, parse_program};
+use crate::parse::{parse_detailed, parse_program_with, LowerState};
 use crate::stream::complete_prefix_end;
 use crate::cancel::{CancelSource, CancelToken};
 use crate::limits::{check_value, Limits};
@@ -690,6 +690,7 @@ impl Engine {
             manifest: self.manifest(),
             line_offset: 0,
             defined: HashSet::new(),
+            lower: LowerState::default(),
             tools: Arc::new(self.tools.clone()),
             failed: None,
             finished: false,
@@ -714,6 +715,8 @@ pub struct Session {
     manifest: BTreeMap<String, String>,
     line_offset: usize,
     defined: HashSet<String>,
+    /// Helpers and fresh-name counter carried from one chunk to the next.
+    lower: LowerState,
     tools: Arc<ToolRegistry>,
     failed: Option<WeaveError>,
     finished: bool,
@@ -792,7 +795,7 @@ impl Session {
             return Ok(());
         }
         let prefix = self.buffer[..end].to_string();
-        let stmts = match parse_program(&prefix, self.line_offset) {
+        let stmts = match parse_program_with(&prefix, self.line_offset, &mut self.lower) {
             Ok(stmts) => stmts,
             Err(err) => {
                 self.failed = Some(err.clone());
@@ -826,7 +829,7 @@ impl Session {
         }
         if !self.buffer.is_empty() {
             let rest = std::mem::take(&mut self.buffer);
-            let stmts = parse_program(&rest, self.line_offset)?;
+            let stmts = parse_program_with(&rest, self.line_offset, &mut self.lower)?;
             let mut defined = self.defined.clone();
             let diags = check_block(&stmts, &self.tools, &mut defined);
             if !diags.is_empty() {
@@ -2819,6 +2822,9 @@ fn eval_builtin(name: &str, args: &[Value]) -> Result<Value, String> {
         "all" => any_all(args, false),
         "list" => as_list_value(args),
         "parse_json" => parse_json(args),
+        "__weave_by_key" => by_key(args),
+        "__weave_unique" => unique(args),
+        "__weave_dict" => dict_of_pairs(args),
         other => Err(format!("unknown builtin `{other}`")),
     }
 }
@@ -2873,6 +2879,88 @@ fn sorted_list(args: &[Value]) -> Result<Value, String> {
         }
     }
     Ok(Value::List(xs))
+}
+
+/// `sorted`/`min`/`max` with precomputed keys: `(kind, items, keys,
+/// reverse[, default])`. Stable like CPython; `min`/`max` return the first
+/// extreme item; `reverse=True` keeps equal items in their original order.
+fn by_key(args: &[Value]) -> Result<Value, String> {
+    let [Value::Str(kind), Value::List(items), Value::List(keys), rev, rest @ ..] = args else {
+        return Err("internal error: bad key= call".into());
+    };
+    if items.len() != keys.len() {
+        return Err("internal error: key= produced the wrong number of keys".into());
+    }
+    let lt = |a: &Value, b: &Value| value::compare(value::Cmp::Lt, a, b).map(|v| value::truthy(&v));
+    match kind.as_str() {
+        "sorted" => {
+            let reverse = value::truthy(rev);
+            let mut idx: Vec<usize> = (0..items.len()).collect();
+            for i in 1..idx.len() {
+                let mut j = i;
+                while j > 0 {
+                    let (cur, prev) = (&keys[idx[j]], &keys[idx[j - 1]]);
+                    let before = if reverse { lt(prev, cur)? } else { lt(cur, prev)? };
+                    if !before {
+                        break;
+                    }
+                    idx.swap(j, j - 1);
+                    j -= 1;
+                }
+            }
+            Ok(Value::List(idx.into_iter().map(|i| items[i].clone()).collect()))
+        }
+        "min" | "max" => {
+            if items.is_empty() {
+                return match rest.first() {
+                    Some(d) => Ok(d.clone()),
+                    None => Err(format!("{kind}() of an empty sequence; pass `default=`")),
+                };
+            }
+            let mut best = 0;
+            for i in 1..items.len() {
+                let better = if kind == "min" { lt(&keys[i], &keys[best])? } else { lt(&keys[best], &keys[i])? };
+                if better {
+                    best = i;
+                }
+            }
+            Ok(items[best].clone())
+        }
+        other => Err(format!("internal error: key= on `{other}`")),
+    }
+}
+
+/// A set comprehension or `set(...)`: Weave has no set type, so this is a
+/// list without duplicates, in first-seen order.
+fn unique(args: &[Value]) -> Result<Value, String> {
+    let Value::List(xs) = as_list_value(args).map_err(|e| e.replace("list()", "set()"))? else {
+        unreachable!("list() returns a list");
+    };
+    let mut out: Vec<Value> = Vec::new();
+    for x in xs {
+        if !out.contains(&x) {
+            out.push(x);
+        }
+    }
+    Ok(Value::List(out))
+}
+
+/// A dict comprehension's `[key, value]` pairs; later keys overwrite.
+fn dict_of_pairs(args: &[Value]) -> Result<Value, String> {
+    let [Value::List(pairs)] = args else {
+        return Err("internal error: bad dict comprehension".into());
+    };
+    let mut items = Vec::new();
+    for pair in pairs {
+        let Value::List(kv) = pair else {
+            return Err("internal error: bad dict comprehension pair".into());
+        };
+        let [k, v] = kv.as_slice() else {
+            return Err("internal error: bad dict comprehension pair".into());
+        };
+        value::dict_insert(&mut items, k.clone(), v.clone())?;
+    }
+    Ok(Value::Dict(items))
 }
 
 fn reversed_list(args: &[Value]) -> Result<Value, String> {

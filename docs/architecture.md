@@ -5,6 +5,8 @@ page is the map for contributors. For the user-facing guarantees, see [productio
 
 ```
 source text ──parse.rs──▶ AST (ast.rs) ──check.rs──▶ diagnostics (static errors with hints)
+     parse/sugar.rs: comprehensions, key=, map/filter, sets, def helpers → plain loops
+     anf.rs: place each lowered construct before its statement, in Python evaluation order
                                   │
                            analysis.rs: which names a loop carries, block effects
                                   │
@@ -66,3 +68,13 @@ turn concurrently.
 1. `crates/weave/tests/runtime.rs` shows the behaviour from the outside.
 2. `exec.rs::launch_block`, `schedule_for` (with `run_parallel_for` and `run_sequential_for`) and `schedule_call` are the scheduler.
 3. `check.rs` is the static check, and the place to improve error messages.
+
+## Python sugar
+
+`parse/sugar.rs` lowers the Python constructs models reach for into the statements above, so nothing downstream
+knows about them. A construct becomes a *hole*: a placeholder expression plus the statements that compute it.
+`anf.rs` then splices those statements in front of the statement holding the hole, saving earlier-evaluated
+siblings first and turning holes in skippable branches (`if`-expressions, `and`/`or`) into `if` statements. Helpers
+(`def`) are kept as source in `LowerState`, which a streamed `Session` carries across chunks, and re-lowered at each
+call with renamed locals. Early `return` reuses the break-flag desugaring. Compiler names start with `__weave_` and
+never appear in results; `parse::unhide` strips them from messages.

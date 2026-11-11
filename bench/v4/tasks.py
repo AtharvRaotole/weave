@@ -232,7 +232,14 @@ CONFIRM2 = tuple([make(t.family, t.size, t.seed + 200, "confirm2") for t in HELD
                  + [make(f, n, s, "confirm2") for f, n, s in [("triage", 10, 303), ("triage", 24, 304),
                                                                 ("notify_gold", 16, 303)]])
 
-SUITES = {"dev": DEV, "held_out": HELD_OUT, "scaling": SCALING, "confirm": CONFIRM, "confirm2": CONFIRM2}
+# CONFIRM3: round-3 confirmation (Python sugar: comprehensions, key= lambdas, def helpers), pre-registered in
+# Addendum 3 before any run. The CONFIRM2 recipe with every seed shifted by another 100.
+CONFIRM3 = tuple([make(t.family, t.size, t.seed + 300, "confirm3") for t in HELD_OUT]
+                 + [make(f, n, s, "confirm3") for f, n, s in [("triage", 10, 403), ("triage", 24, 404),
+                                                                ("notify_gold", 16, 403)]])
+
+SUITES = {"dev": DEV, "held_out": HELD_OUT, "scaling": SCALING, "confirm": CONFIRM, "confirm2": CONFIRM2,
+          "confirm3": CONFIRM3}
 
 
 def manifest(suite):

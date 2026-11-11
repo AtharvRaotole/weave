@@ -124,6 +124,9 @@ pub fn is_builtin(name: &str) -> bool {
             | "all"
             | "list"
             | "parse_json"
+            | "__weave_by_key"
+            | "__weave_unique"
+            | "__weave_dict"
     )
 }
 
