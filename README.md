@@ -383,6 +383,28 @@ already schedules (tested against CPython and in the differential fuzzer).
   includes zero. Two GPT-4.1 Weave `git_review` trials stopped on the first turn at the provider's output-token limit,
   and the pre-registered rules count them as failures.
 
+**Round 4 (pre-registered in [Addendum 4](docs/paper/preregistration.md), fresh seeds).** Two fixes. The harness now
+records the tokens a provider bills for a failed (incomplete) response, which it used to count as 0. The traces showed
+that the GPT-4.1 `git_review` failures came from splitting the work across two parallel `run_weave` calls: in 6 of 64
+dev samples the second call was followed by a runaway to the output-token limit, and in one round-3 trial the model
+printed the tags instead of creating them. `WeaveTool.request_options` now asks for one script per turn
+(`parallel_tool_calls: false`), and the tool text says why. The Weave arm uses that setting; the native arm does not.
+
+![Real services across rounds 2, 3 and 4](assets/benchmark-v7-real.png)
+
+| suite | model | pass W / N | turns W / N | Δ wall per task [95% CI] | tokens W/N [95% CI] |
+|---|---|---|---|---|---|
+| confirm4 | `gpt-5.4-mini-2026-03-17` (low) | 30/30 / 25/30 | 2.10 / 3.40 | −3.8 s [−6.0, −1.7] | 0.54 [0.41, 0.72] |
+| confirm4 | `gpt-4.1-2025-04-14` (temp 0) | 30/30 / 18/30 | 2.00 / 3.40 | −2.5 s [−3.4, −1.6] | 0.51 [0.40, 0.66] |
+
+- No Weave trial hit the output-token limit. On the four `git_review` tasks GPT-4.1 Weave passed 12/12 (native 9/12)
+  in 2.1 s against 4.0 s.
+- Still a loss: GPT-5.4 mini's `pypi_major` Weave time was 5.0 s against native's 4.1 s (6 trials per arm).
+- Rounds 2 and 3 undercounted three GPT-4.1 trials by at least 4,096 output tokens each. Their ledgers did not keep the
+  billed usage, so those tables are not re-derived; the undercount is listed in the
+  [tables](docs/paper/results-tables.md).
+- Gemini (quota) and GLM (timeout) failed their smoke requests again and were not run.
+
 Reproduce: `make bench-mock` (offline) or `WEAVE_BENCH_LIVE=1 make bench-live MODEL=...` (spends tokens).
 The real-services suite runs offline with oracle agents: `python -m bench.v4.run --mock --suite real --latency-ms 0`.
 It needs network access for PyPI.
