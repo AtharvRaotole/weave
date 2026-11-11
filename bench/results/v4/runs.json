@@ -1,0 +1,16 @@
+{
+  "held_out": {
+    "GPT-5.5 (low)": "20261111T015127Z-held_out-openai-gpt-5.5-2026-04-23",
+    "GPT-5.4 mini (low)": "20261111T015127Z-held_out-openai-gpt-5.4-mini-2026-03-17",
+    "GPT-4.1 (temp 0)": "20261111T015127Z-held_out-openai-gpt-4.1-2025-04-14"
+  },
+  "scaling": {
+    "GPT-5.4 mini (low)": "20261111T015725Z-scaling-openai-gpt-5.4-mini-2026-03-17"
+  },
+  "ablation": {
+    "GPT-5.4 mini (low)": "20261111T020037Z-held_out-openai-gpt-5.4-mini-2026-03-17-ablation"
+  },
+  "partial": {
+    "Gemini 3.5 Flash (free tier)": "20261111T015202Z-held_out-gemini-gemini-3.5-flash"
+  }
+}

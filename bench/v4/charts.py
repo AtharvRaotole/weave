@@ -106,6 +106,18 @@ def write_tables(runs, head, fams, scaling, extra):
             if w and n:
                 lines.append(f"| {label} | {lat:.0f} ms | {task} | {w['passed']}/{w['n']} / {n['passed']}/{n['n']} | "
                              f"{w['turns']:.2f} / {n['turns']:.2f} | {w['wall']:.2f} / {n['wall']:.2f} | {w['tokens']:.0f} / {n['tokens']:.0f} |")
+        lines += ["", "Least-squares slopes over the scaling suite (per-trial means):", "",
+                  "| model | latency | fan-out tokens per item W / N | chain turns per hop W / N |", "|---|---|---|---|"]
+        for label, lat in sorted({(k[0], k[1]) for k in scaling}, key=lambda x: (x[0], -x[1])):
+            def slope(fam, mode, key):
+                pts = [(v[mode]["size"], v[mode][key]) for (lab, la, t), v in scaling.items()
+                       if lab == label and la == lat and mode in v and v[mode]["family"] == fam]
+                if len(pts) < 2:
+                    return float("nan")
+                mx, my = statistics.fmean(p[0] for p in pts), statistics.fmean(p[1] for p in pts)
+                return sum((x - mx) * (y - my) for x, y in pts) / sum((x - mx) ** 2 for x, _ in pts)
+            lines.append(f"| {label} | {lat:.0f} ms | {slope('fanout_sum', 'weave', 'tokens'):.1f} / {slope('fanout_sum', 'native', 'tokens'):.1f} | "
+                         f"{slope('chain', 'weave', 'turns'):.2f} / {slope('chain', 'native', 'turns'):.2f} |")
     lines += extra
     lines += ["", "## Runs", "", "| label | suite | run directory | source commit | trials | total tokens |", "|---|---|---|---|---|---|"]
     for suite, entries in runs.items():
@@ -184,15 +196,14 @@ def charts(head, fams, scaling):
         ax.invert_yaxis()
         ax.set_xlabel("mean wall time (s)")
         ax.set_title(label, fontsize=8)
-    axes[0][0].legend(frameon=False, fontsize=7)
+    axes[0][0].legend(frameon=False, fontsize=7, loc="lower right")
+    fig.suptitle("Held-out suite by task family, 200 ms per backend call", fontsize=9)
     fig.tight_layout()
     save(fig, "benchmark-v4-families")
 
     # Figure 3: scaling.
     if scaling:
         fig, (a1, a2) = plt.subplots(1, 2, figsize=(7.2, 2.8))
-        for (label, lat, task), v in sorted(scaling.items()):
-            pass
         for mode, color in (("weave", BLUE), ("native", GREY)):
             for ax, fam, key, ylabel in ((a1, "fanout_sum", "tokens", "total tokens per trial"), (a2, "chain", "turns", "model turns per trial")):
                 pts = sorted((v[mode]["size"], v[mode][key]) for (lab, lat, t), v in scaling.items()
