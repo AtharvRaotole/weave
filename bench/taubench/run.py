@@ -171,8 +171,16 @@ def main(argv=None):
         raise SystemExit(f"refusing: tau-bench checkout is {tau_head}, expected {TAU_COMMIT}")
     install_meter({"parallel_tool_calls": args.parallel_tool_calls, "effort": args.effort})
     arms = args.arms.split(",")
-    plan = [(arm, t, r) for r in range(args.repeats) for t in tasks for arm in arms]
-    random.Random(args.seed).shuffle(plan)
+    # Tasks in a seeded random order, the arms of one task back to back (in a seeded order), so that a budget
+    # stop leaves complete pairs rather than unmatched trials.
+    rng = random.Random(args.seed)
+    units = [(t, r) for r in range(args.repeats) for t in tasks]
+    rng.shuffle(units)
+    plan = []
+    for t, r in units:
+        pair = list(arms)
+        rng.shuffle(pair)
+        plan.extend((arm, t, r) for arm in pair)
     stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     out = args.out / f"{stamp}-tau-{args.env}-{args.split}-{args.model}{args.tag}"
     out.mkdir(parents=True)
