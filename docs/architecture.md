@@ -34,7 +34,8 @@ source text ──parse.rs──▶ AST (ast.rs) ──check.rs──▶ diagnos
   it waits only for the values it reads, so independent calls overlap without the script saying so.
 - **Effects gate calls.**
   - `pure` calls wait for their arguments only.
-  - A `read` also waits for the last mutation.
+  - A `read` also waits for earlier writes whose footprint overlaps its own (all earlier writes when either side
+    declares no footprint).
   - A `reversible` write waits for every earlier observable call.
   - An `irreversible` write also waits for the whole script to finish (`complete_rx`), so a script fails before it
     sends anything.

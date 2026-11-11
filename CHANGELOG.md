@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Runtime
+- Footprint-aware ordering: a read waits only for earlier writes whose declared footprint overlaps its own
+  (`declare(reads=[...], writes=[...])`, templates such as `"ticket:{ticket_id}"`, positional or keyword). `if`/`for`
+  blocks that may write carry a footprint computed from their arguments, or from what they actually wrote. Undeclared
+  tools keep the old order.
+- Loops whose bodies write are pipelined too. Calls behind a condition or `break` are still never issued early.
+- Footprint templates accept `{index|name}` alternatives, so declarations from Python resolve for positional and
+  keyword calls.
 - Read-only `for` loops are pipelined (windows of 64 iterations), including accumulators, dict fills and
   appends; `break` and guarded calls are never issued early; replay stays exact. `Limits::with_pipeline_loops`.
 - `total += tool()` polls both sides concurrently.
@@ -23,6 +30,8 @@
 - Benchmark v4 (`bench/v4`, `make bench-mock`, `make bench-live`), pre-registered held-out results on three
   OpenAI models, scaling, ablation, confirm suite, partial Gemini run, and a protocol-v3 rerun. Paper in
   `docs/paper/`.
+- Round 2: `confirm2` and real-services (`real`: SQLite, git, filesystem, local HTTP, PyPI) suites, pre-registered in
+  Addendum 2; `weave_nofp` arm; `--min-interval-s` request pacing. Results in `bench/results/v5/`.
 
 ### Benchmarks
 - First live protocol-v3 comparison (2026-11-09): `gpt-5.5-2026-04-23`,

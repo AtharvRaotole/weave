@@ -1,0 +1,1528 @@
+{
+  "protocol": "weave-benchmark-protocol-v4",
+  "kind": "live",
+  "started_utc": "2026-11-11T02:48:24Z",
+  "source_commit": "a887e3a8a3d6b69e6a29545435a34bf32dc85a4d",
+  "source_dirty": false,
+  "weave_version": "0.0.0",
+  "python": "3.13.5",
+  "provider": "openai",
+  "model": "gpt-4.1-2025-04-14",
+  "effort": null,
+  "temperature": 0.0,
+  "max_tokens": 4096,
+  "suite": "confirm2",
+  "manifest": {
+    "suite": "confirm2",
+    "tasks": [
+      {
+        "id": "fanout_sum-n20-s301",
+        "family": "fanout_sum",
+        "size": 20,
+        "fingerprint": "44f1e6766e3f6485"
+      },
+      {
+        "id": "fanout_sum-n12-s302",
+        "family": "fanout_sum",
+        "size": 12,
+        "fingerprint": "3294ccb300fd779c"
+      },
+      {
+        "id": "partial_failure-n16-s301",
+        "family": "partial_failure",
+        "size": 16,
+        "fingerprint": "b8e60f6682b17c95"
+      },
+      {
+        "id": "order_value-n10-s301",
+        "family": "order_value",
+        "size": 10,
+        "fingerprint": "dc83f01de41ed997"
+      },
+      {
+        "id": "chain-n6-s301",
+        "family": "chain",
+        "size": 6,
+        "fingerprint": "44447d56bd363bdb"
+      },
+      {
+        "id": "triage-n15-s301",
+        "family": "triage",
+        "size": 15,
+        "fingerprint": "4edfbb2b0cd3ed21"
+      },
+      {
+        "id": "notify_gold-n12-s301",
+        "family": "notify_gold",
+        "size": 12,
+        "fingerprint": "0292f930a92f50f6"
+      },
+      {
+        "id": "notify_gold-n20-s302",
+        "family": "notify_gold",
+        "size": 20,
+        "fingerprint": "747e9d90ebea9438"
+      },
+      {
+        "id": "top_customer-n8-s301",
+        "family": "top_customer",
+        "size": 8,
+        "fingerprint": "0829123429fe05f7"
+      },
+      {
+        "id": "top_customer-n15-s302",
+        "family": "top_customer",
+        "size": 15,
+        "fingerprint": "f06c711efcde1afa"
+      },
+      {
+        "id": "triage-n10-s303",
+        "family": "triage",
+        "size": 10,
+        "fingerprint": "be8769fbf5e24130"
+      },
+      {
+        "id": "triage-n24-s304",
+        "family": "triage",
+        "size": 24,
+        "fingerprint": "98b2f3cb391d0b5a"
+      },
+      {
+        "id": "notify_gold-n16-s303",
+        "family": "notify_gold",
+        "size": 16,
+        "fingerprint": "75279f3b27c2d8d4"
+      }
+    ],
+    "hash": "436f52507b73d53f"
+  },
+  "task_subset": null,
+  "modes": [
+    "weave",
+    "native",
+    "weave_nofp"
+  ],
+  "repeats": 3,
+  "latency_ms": [
+    200.0
+  ],
+  "concurrency_cap": 8,
+  "max_turns": 16,
+  "system_prompt": "You are an operations agent with access to tools. Use them to complete the user's task; tool results are authoritative. When the task is complete, reply with only the final answer in the requested format and no other text.",
+  "planned_trials": 117,
+  "workers": 4,
+  "min_interval_s": 0.0,
+  "token_budget": 3000000,
+  "seed": 2026,
+  "finished_utc": "2026-11-11T02:50:46Z",
+  "completed_trials": 117,
+  "skipped_for_budget": 0,
+  "tokens_spent": 426211,
+  "summary": {
+    "confirm2@200.0ms": {
+      "native": {
+        "trials": 39,
+        "passed": 30,
+        "pass_rate": 0.7692307692307693,
+        "pass_wilson95": [
+          0.6166343954261704,
+          0.8735433757121625
+        ],
+        "statuses": {
+          "answered": 39
+        },
+        "answer_wrong": 9,
+        "state_wrong": 0,
+        "unexpected_write_trials": 0,
+        "mean_turns": 4.205128205128205,
+        "mean_turns_ci95": [
+          3.8205128205128207,
+          4.615384615384615
+        ],
+        "mean_wall_s": 5.992479843128911,
+        "mean_wall_s_ci95": [
+          5.294346861257509,
+          6.715561640615842
+        ],
+        "p50_wall_s": 4.875560815999052,
+        "p95_wall_s": 10.737595643000532,
+        "mean_tokens": 5792.384615384615,
+        "mean_tokens_ci95": [
+          5031.74358974359,
+          6615.846153846154
+        ],
+        "mean_input_tokens": 5388.717948717948,
+        "mean_output_tokens": 403.6666666666667,
+        "sum_tokens": {
+          "input": 210160,
+          "output": 15743,
+          "cached": 93952,
+          "reasoning": 0
+        },
+        "unknown_usage_turns": 0,
+        "mean_backend_calls": 19.358974358974358,
+        "script_error_trials": 0,
+        "retry_wait_s": 0.0
+      },
+      "weave": {
+        "trials": 39,
+        "passed": 37,
+        "pass_rate": 0.9487179487179487,
+        "pass_wilson95": [
+          0.8311406095436208,
+          0.9858223423536004
+        ],
+        "statuses": {
+          "answered": 39
+        },
+        "answer_wrong": 2,
+        "state_wrong": 0,
+        "unexpected_write_trials": 0,
+        "mean_turns": 2.358974358974359,
+        "mean_turns_ci95": [
+          2.230769230769231,
+          2.5128205128205128
+        ],
+        "mean_wall_s": 3.8013100793336307,
+        "mean_wall_s_ci95": [
+          3.4085626236159534,
+          4.175391875410591
+        ],
+        "p50_wall_s": 3.846527955000056,
+        "p95_wall_s": 6.12556029299958,
+        "mean_tokens": 2606.8205128205127,
+        "mean_tokens_ci95": [
+          2294.051282051282,
+          2956.6153846153848
+        ],
+        "mean_input_tokens": 2397.974358974359,
+        "mean_output_tokens": 208.84615384615384,
+        "sum_tokens": {
+          "input": 93521,
+          "output": 8145,
+          "cached": 11392,
+          "reasoning": 0
+        },
+        "unknown_usage_turns": 0,
+        "mean_backend_calls": 20.564102564102566,
+        "script_error_trials": 15,
+        "retry_wait_s": 0.0
+      },
+      "weave_nofp": {
+        "trials": 39,
+        "passed": 38,
+        "pass_rate": 0.9743589743589743,
+        "pass_wilson95": [
+          0.8681871352137286,
+          0.9954594139347627
+        ],
+        "statuses": {
+          "answered": 39
+        },
+        "answer_wrong": 1,
+        "state_wrong": 0,
+        "unexpected_write_trials": 0,
+        "mean_turns": 2.3333333333333335,
+        "mean_turns_ci95": [
+          2.1794871794871793,
+          2.4871794871794872
+        ],
+        "mean_wall_s": 4.520376014795031,
+        "mean_wall_s_ci95": [
+          3.949696510051674,
+          5.108151379589589
+        ],
+        "p50_wall_s": 4.498192068997014,
+        "p95_wall_s": 8.731203160001314,
+        "mean_tokens": 2529.2820512820513,
+        "mean_tokens_ci95": [
+          2281.153846153846,
+          2800.923076923077
+        ],
+        "mean_input_tokens": 2313.3846153846152,
+        "mean_output_tokens": 215.89743589743588,
+        "sum_tokens": {
+          "input": 90222,
+          "output": 8420,
+          "cached": 7936,
+          "reasoning": 0
+        },
+        "unknown_usage_turns": 0,
+        "mean_backend_calls": 21.82051282051282,
+        "script_error_trials": 14,
+        "retry_wait_s": 0.0
+      },
+      "paired": {
+        "wall_s": {
+          "pairs": 39,
+          "tasks": 13,
+          "mean_diff": -2.1911697637952807,
+          "mean_diff_ci95": [
+            -3.079034924589695,
+            -1.3655863577696437
+          ],
+          "ratio_gm": 0.6400254153421465,
+          "ratio_gm_ci95": [
+            0.5636862427211595,
+            0.7367529403520947
+          ],
+          "weave_better_tasks": 11,
+          "per_task": {
+            "chain-n6-s301": {
+              "diff": -2.8910883926667643,
+              "ratio_gm": 0.48990978574704463,
+              "n": 3,
+              "weave": 2.7726020053341927,
+              "native": 5.6636903980009565
+            },
+            "fanout_sum-n12-s302": {
+              "diff": -1.5416968233354662,
+              "ratio_gm": 0.5736086821969089,
+              "n": 3,
+              "weave": 2.0698180606668757,
+              "native": 3.6115148840023417
+            },
+            "fanout_sum-n20-s301": {
+              "diff": -2.0102602956685587,
+              "ratio_gm": 0.5535168191067009,
+              "n": 3,
+              "weave": 2.4914563053328798,
+              "native": 4.501716601001438
+            },
+            "notify_gold-n12-s301": {
+              "diff": -2.0756425479982377,
+              "ratio_gm": 0.6830201950904182,
+              "n": 3,
+              "weave": 4.477459721335133,
+              "native": 6.55310226933337
+            },
+            "notify_gold-n16-s303": {
+              "diff": -2.390962698334382,
+              "ratio_gm": 0.6752580611751927,
+              "n": 3,
+              "weave": 4.9627065896662925,
+              "native": 7.353669288000674
+            },
+            "notify_gold-n20-s302": {
+              "diff": -5.7912662476677115,
+              "ratio_gm": 0.46107910386680984,
+              "n": 3,
+              "weave": 4.97149090666547,
+              "native": 10.762757154333181
+            },
+            "order_value-n10-s301": {
+              "diff": -0.7326340976675662,
+              "ratio_gm": 0.8405646648824311,
+              "n": 3,
+              "weave": 3.863970552666918,
+              "native": 4.596604650334484
+            },
+            "partial_failure-n16-s301": {
+              "diff": -1.6583440523330257,
+              "ratio_gm": 0.5876295607796667,
+              "n": 3,
+              "weave": 2.351790961334094,
+              "native": 4.01013501366712
+            },
+            "top_customer-n15-s302": {
+              "diff": 0.34676907166673726,
+              "ratio_gm": 1.0483742889379954,
+              "n": 3,
+              "weave": 5.338373623000128,
+              "native": 4.991604551333391
+            },
+            "top_customer-n8-s301": {
+              "diff": 0.03344311866506663,
+              "ratio_gm": 0.9823218517048635,
+              "n": 3,
+              "weave": 3.664100160667052,
+              "native": 3.6306570420019852
+            },
+            "triage-n10-s303": {
+              "diff": -1.869780040000478,
+              "ratio_gm": 0.6098551702369861,
+              "n": 3,
+              "weave": 2.9254931576664,
+              "native": 4.795273197666877
+            },
+            "triage-n15-s301": {
+              "diff": -4.267091677999512,
+              "ratio_gm": 0.5008983264781756,
+              "n": 3,
+              "weave": 4.26836131500022,
+              "native": 8.535452992999732
+            },
+            "triage-n24-s304": {
+              "diff": -3.6366522459987514,
+              "ratio_gm": 0.5883032190666144,
+              "n": 3,
+              "weave": 5.259407672001544,
+              "native": 8.896059918000295
+            }
+          }
+        },
+        "total_tokens": {
+          "pairs": 39,
+          "tasks": 13,
+          "mean_diff": -3185.5641025641025,
+          "mean_diff_ci95": [
+            -4237.076923076923,
+            -2182.3076923076924
+          ],
+          "ratio_gm": 0.4616876199257444,
+          "ratio_gm_ci95": [
+            0.3990276406709771,
+            0.5389338434710773
+          ],
+          "weave_better_tasks": 13,
+          "per_task": {
+            "chain-n6-s301": {
+              "diff": -3440.6666666666665,
+              "ratio_gm": 0.35458649046628093,
+              "n": 3,
+              "weave": 1890.3333333333333,
+              "native": 5331.0
+            },
+            "fanout_sum-n12-s302": {
+              "diff": -863.6666666666666,
+              "ratio_gm": 0.6750531743352123,
+              "n": 3,
+              "weave": 1794.3333333333333,
+              "native": 2658.0
+            },
+            "fanout_sum-n20-s301": {
+              "diff": -1401.0,
+              "ratio_gm": 0.5632793017456359,
+              "n": 3,
+              "weave": 1807.0,
+              "native": 3208.0
+            },
+            "notify_gold-n12-s301": {
+              "diff": -2911.0,
+              "ratio_gm": 0.5391677390220658,
+              "n": 3,
+              "weave": 3407.0,
+              "native": 6318.0
+            },
+            "notify_gold-n16-s303": {
+              "diff": -5071.0,
+              "ratio_gm": 0.40376235899478274,
+              "n": 3,
+              "weave": 3387.3333333333335,
+              "native": 8458.333333333334
+            },
+            "notify_gold-n20-s302": {
+              "diff": -7713.666666666667,
+              "ratio_gm": 0.3080566330126349,
+              "n": 3,
+              "weave": 3436.3333333333335,
+              "native": 11150.0
+            },
+            "order_value-n10-s301": {
+              "diff": -2030.3333333333333,
+              "ratio_gm": 0.526444314525828,
+              "n": 3,
+              "weave": 2420.6666666666665,
+              "native": 4451.0
+            },
+            "partial_failure-n16-s301": {
+              "diff": -1105.0,
+              "ratio_gm": 0.6301874163319946,
+              "n": 3,
+              "weave": 1883.0,
+              "native": 2988.0
+            },
+            "top_customer-n15-s302": {
+              "diff": -4685.333333333333,
+              "ratio_gm": 0.47485008961276454,
+              "n": 3,
+              "weave": 4722.333333333333,
+              "native": 9407.666666666666
+            },
+            "top_customer-n8-s301": {
+              "diff": -1170.3333333333333,
+              "ratio_gm": 0.7028230628729434,
+              "n": 3,
+              "weave": 3211.6666666666665,
+              "native": 4382.0
+            },
+            "triage-n10-s303": {
+              "diff": -2510.0,
+              "ratio_gm": 0.42205848491825926,
+              "n": 3,
+              "weave": 1833.0,
+              "native": 4343.0
+            },
+            "triage-n15-s301": {
+              "diff": -3750.0,
+              "ratio_gm": 0.3283181085437937,
+              "n": 3,
+              "weave": 1833.0,
+              "native": 5583.0
+            },
+            "triage-n24-s304": {
+              "diff": -4760.333333333333,
+              "ratio_gm": 0.3121551881641999,
+              "n": 3,
+              "weave": 2262.6666666666665,
+              "native": 7023.0
+            }
+          }
+        },
+        "turns": {
+          "pairs": 39,
+          "tasks": 13,
+          "mean_diff": -1.8461538461538463,
+          "mean_diff_ci95": [
+            -2.5128205128205128,
+            -1.3076923076923077
+          ],
+          "ratio_gm": 0.5726006239816197,
+          "ratio_gm_ci95": [
+            0.4928905056598872,
+            0.6477334324740804
+          ],
+          "weave_better_tasks": 13,
+          "per_task": {
+            "chain-n6-s301": {
+              "diff": -5.0,
+              "ratio_gm": 0.2857142857142857,
+              "n": 3,
+              "weave": 2.0,
+              "native": 7.0
+            },
+            "fanout_sum-n12-s302": {
+              "diff": -1.0,
+              "ratio_gm": 0.6666666666666666,
+              "n": 3,
+              "weave": 2.0,
+              "native": 3.0
+            },
+            "fanout_sum-n20-s301": {
+              "diff": -1.0,
+              "ratio_gm": 0.6666666666666666,
+              "n": 3,
+              "weave": 2.0,
+              "native": 3.0
+            },
+            "notify_gold-n12-s301": {
+              "diff": -2.0,
+              "ratio_gm": 0.6,
+              "n": 3,
+              "weave": 3.0,
+              "native": 5.0
+            },
+            "notify_gold-n16-s303": {
+              "diff": -2.3333333333333335,
+              "ratio_gm": 0.564621617328617,
+              "n": 3,
+              "weave": 3.0,
+              "native": 5.333333333333333
+            },
+            "notify_gold-n20-s302": {
+              "diff": -3.0,
+              "ratio_gm": 0.5,
+              "n": 3,
+              "weave": 3.0,
+              "native": 6.0
+            },
+            "order_value-n10-s301": {
+              "diff": -1.6666666666666667,
+              "ratio_gm": 0.5723571212766659,
+              "n": 3,
+              "weave": 2.3333333333333335,
+              "native": 4.0
+            },
+            "partial_failure-n16-s301": {
+              "diff": -1.0,
+              "ratio_gm": 0.6666666666666666,
+              "n": 3,
+              "weave": 2.0,
+              "native": 3.0
+            },
+            "top_customer-n15-s302": {
+              "diff": -0.6666666666666666,
+              "ratio_gm": 0.7937005259840997,
+              "n": 3,
+              "weave": 2.6666666666666665,
+              "native": 3.3333333333333335
+            },
+            "top_customer-n8-s301": {
+              "diff": -0.6666666666666666,
+              "ratio_gm": 0.7631428283688879,
+              "n": 3,
+              "weave": 2.3333333333333335,
+              "native": 3.0
+            },
+            "triage-n10-s303": {
+              "diff": -2.0,
+              "ratio_gm": 0.5,
+              "n": 3,
+              "weave": 2.0,
+              "native": 4.0
+            },
+            "triage-n15-s301": {
+              "diff": -2.0,
+              "ratio_gm": 0.5,
+              "n": 3,
+              "weave": 2.0,
+              "native": 4.0
+            },
+            "triage-n24-s304": {
+              "diff": -1.6666666666666667,
+              "ratio_gm": 0.5723571212766659,
+              "n": 3,
+              "weave": 2.3333333333333335,
+              "native": 4.0
+            }
+          }
+        },
+        "pass_mcnemar": {
+          "weave_only": 9,
+          "native_only": 2,
+          "p": 0.0654296875
+        }
+      },
+      "by_family": {
+        "chain": {
+          "native": {
+            "trials": 3,
+            "passed": 3,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.43849391955098227,
+              1.0
+            ],
+            "statuses": {
+              "answered": 3
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 7.0,
+            "mean_turns_ci95": [
+              7.0,
+              7.0
+            ],
+            "mean_wall_s": 5.6636903980009565,
+            "mean_wall_s_ci95": [
+              5.359787405999668,
+              5.944063953000295
+            ],
+            "p50_wall_s": 5.687219835002907,
+            "p95_wall_s": 5.944063953000295,
+            "mean_tokens": 5331.0,
+            "mean_tokens_ci95": [
+              5331.0,
+              5331.0
+            ],
+            "mean_input_tokens": 5211.0,
+            "mean_output_tokens": 120.0,
+            "sum_tokens": {
+              "input": 15633,
+              "output": 360,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 6.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 3,
+            "passed": 3,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.43849391955098227,
+              1.0
+            ],
+            "statuses": {
+              "answered": 3
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.7726020053341927,
+            "mean_wall_s_ci95": [
+              2.7113079499977175,
+              2.8235658740013605
+            ],
+            "p50_wall_s": 2.7829321920035,
+            "p95_wall_s": 2.8235658740013605,
+            "mean_tokens": 1890.3333333333333,
+            "mean_tokens_ci95": [
+              1875.0,
+              1901.0
+            ],
+            "mean_input_tokens": 1783.6666666666667,
+            "mean_output_tokens": 106.66666666666667,
+            "sum_tokens": {
+              "input": 5351,
+              "output": 320,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 6.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave_nofp": {
+            "trials": 3,
+            "passed": 3,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.43849391955098227,
+              1.0
+            ],
+            "statuses": {
+              "answered": 3
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.675679134667007,
+            "mean_wall_s_ci95": [
+              2.5872532250032236,
+              2.7261150339982123
+            ],
+            "p50_wall_s": 2.713669144999585,
+            "p95_wall_s": 2.7261150339982123,
+            "mean_tokens": 1883.6666666666667,
+            "mean_tokens_ci95": [
+              1875.0,
+              1901.0
+            ],
+            "mean_input_tokens": 1780.3333333333333,
+            "mean_output_tokens": 103.33333333333333,
+            "sum_tokens": {
+              "input": 5341,
+              "output": 310,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 6.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        },
+        "fanout_sum": {
+          "native": {
+            "trials": 6,
+            "passed": 3,
+            "pass_rate": 0.5,
+            "pass_wilson95": [
+              0.18761280689940868,
+              0.8123871931005913
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 3,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 3.0,
+            "mean_turns_ci95": [
+              3.0,
+              3.0
+            ],
+            "mean_wall_s": 4.05661574250189,
+            "mean_wall_s_ci95": [
+              3.693793910668925,
+              4.428907104168199
+            ],
+            "p50_wall_s": 4.073250371002359,
+            "p95_wall_s": 4.629336531001172,
+            "mean_tokens": 2933.0,
+            "mean_tokens_ci95": [
+              2749.6666666666665,
+              3116.3333333333335
+            ],
+            "mean_input_tokens": 2621.5,
+            "mean_output_tokens": 311.5,
+            "sum_tokens": {
+              "input": 15729,
+              "output": 1869,
+              "cached": 3840,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 17.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 6,
+            "passed": 6,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.6096569663469354,
+              0.9999999999999999
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.2806371829998775,
+            "mean_wall_s_ci95": [
+              2.120683793499969,
+              2.4516661333345837
+            ],
+            "p50_wall_s": 2.262324854498729,
+            "p95_wall_s": 2.54986633000226,
+            "mean_tokens": 1800.6666666666667,
+            "mean_tokens_ci95": [
+              1790.6666666666667,
+              1806.3333333333333
+            ],
+            "mean_input_tokens": 1723.3333333333333,
+            "mean_output_tokens": 77.33333333333333,
+            "sum_tokens": {
+              "input": 10340,
+              "output": 464,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 17.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave_nofp": {
+            "trials": 6,
+            "passed": 6,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.6096569663469354,
+              0.9999999999999999
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.4748392721667187,
+            "mean_wall_s_ci95": [
+              2.2237279995000185,
+              2.7055519051658243
+            ],
+            "p50_wall_s": 2.5343038630016963,
+            "p95_wall_s": 2.829813292999461,
+            "mean_tokens": 1805.0,
+            "mean_tokens_ci95": [
+              1803.6666666666667,
+              1806.3333333333333
+            ],
+            "mean_input_tokens": 1725.5,
+            "mean_output_tokens": 79.5,
+            "sum_tokens": {
+              "input": 10353,
+              "output": 477,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 17.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        },
+        "notify_gold": {
+          "native": {
+            "trials": 9,
+            "passed": 9,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.7008472464490407,
+              1.0
+            ],
+            "statuses": {
+              "answered": 9
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 5.444444444444445,
+            "mean_turns_ci95": [
+              5.111111111111111,
+              5.777777777777778
+            ],
+            "mean_wall_s": 8.22317623722241,
+            "mean_wall_s_ci95": [
+              7.11887496688885,
+              9.492859341444678
+            ],
+            "p50_wall_s": 7.302204543000698,
+            "p95_wall_s": 11.38761341099962,
+            "mean_tokens": 8642.111111111111,
+            "mean_tokens_ci95": [
+              7305.888888888889,
+              9978.333333333334
+            ],
+            "mean_input_tokens": 8106.111111111111,
+            "mean_output_tokens": 536.0,
+            "sum_tokens": {
+              "input": 72955,
+              "output": 4824,
+              "cached": 40960,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 23.333333333333332,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 9,
+            "passed": 9,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.7008472464490407,
+              1.0
+            ],
+            "statuses": {
+              "answered": 9
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 3.0,
+            "mean_turns_ci95": [
+              3.0,
+              3.0
+            ],
+            "mean_wall_s": 4.803885739222299,
+            "mean_wall_s_ci95": [
+              4.576703830001255,
+              5.043762974331912
+            ],
+            "p50_wall_s": 4.6309920830026385,
+            "p95_wall_s": 5.417154135997407,
+            "mean_tokens": 3410.222222222222,
+            "mean_tokens_ci95": [
+              3371.777777777778,
+              3465.0
+            ],
+            "mean_input_tokens": 3092.8888888888887,
+            "mean_output_tokens": 317.3333333333333,
+            "sum_tokens": {
+              "input": 27836,
+              "output": 2856,
+              "cached": 4224,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 23.555555555555557,
+            "script_error_trials": 9,
+            "retry_wait_s": 0.0
+          },
+          "weave_nofp": {
+            "trials": 9,
+            "passed": 9,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.7008472464490407,
+              1.0
+            ],
+            "statuses": {
+              "answered": 9
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 3.0,
+            "mean_turns_ci95": [
+              3.0,
+              3.0
+            ],
+            "mean_wall_s": 4.715108626777995,
+            "mean_wall_s_ci95": [
+              4.4956222666664365,
+              4.92655996522242
+            ],
+            "p50_wall_s": 4.7678401000011945,
+            "p95_wall_s": 5.173084870999446,
+            "mean_tokens": 3417.6666666666665,
+            "mean_tokens_ci95": [
+              3381.5555555555557,
+              3465.0
+            ],
+            "mean_input_tokens": 3095.222222222222,
+            "mean_output_tokens": 322.44444444444446,
+            "sum_tokens": {
+              "input": 27857,
+              "output": 2902,
+              "cached": 6528,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 23.555555555555557,
+            "script_error_trials": 9,
+            "retry_wait_s": 0.0
+          }
+        },
+        "order_value": {
+          "native": {
+            "trials": 3,
+            "passed": 0,
+            "pass_rate": 0.0,
+            "pass_wilson95": [
+              0.0,
+              0.5615060804490177
+            ],
+            "statuses": {
+              "answered": 3
+            },
+            "answer_wrong": 3,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 4.0,
+            "mean_turns_ci95": [
+              4.0,
+              4.0
+            ],
+            "mean_wall_s": 4.596604650334484,
+            "mean_wall_s_ci95": [
+              4.516209183999308,
+              4.756290396002441
+            ],
+            "p50_wall_s": 4.517314371001703,
+            "p95_wall_s": 4.756290396002441,
+            "mean_tokens": 4451.0,
+            "mean_tokens_ci95": [
+              4451.0,
+              4451.0
+            ],
+            "mean_input_tokens": 4095.0,
+            "mean_output_tokens": 356.0,
+            "sum_tokens": {
+              "input": 12285,
+              "output": 1068,
+              "cached": 2560,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 18.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 3,
+            "passed": 3,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.43849391955098227,
+              1.0
+            ],
+            "statuses": {
+              "answered": 3
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.3333333333333335,
+            "mean_turns_ci95": [
+              2.0,
+              3.0
+            ],
+            "mean_wall_s": 3.863970552666918,
+            "mean_wall_s_ci95": [
+              3.7468712169975333,
+              3.9985124860031647
+            ],
+            "p50_wall_s": 3.846527955000056,
+            "p95_wall_s": 3.9985124860031647,
+            "mean_tokens": 2420.6666666666665,
+            "mean_tokens_ci95": [
+              1965.0,
+              3332.0
+            ],
+            "mean_input_tokens": 2220.0,
+            "mean_output_tokens": 200.66666666666666,
+            "sum_tokens": {
+              "input": 6660,
+              "output": 602,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 19.0,
+            "script_error_trials": 1,
+            "retry_wait_s": 0.0
+          },
+          "weave_nofp": {
+            "trials": 3,
+            "passed": 3,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.43849391955098227,
+              1.0
+            ],
+            "statuses": {
+              "answered": 3
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.6666666666666665,
+            "mean_turns_ci95": [
+              2.0,
+              3.0
+            ],
+            "mean_wall_s": 4.3812956616675365,
+            "mean_wall_s_ci95": [
+              3.8958267199996044,
+              4.914212242001668
+            ],
+            "p50_wall_s": 4.333848023001337,
+            "p95_wall_s": 4.914212242001668,
+            "mean_tokens": 2872.6666666666665,
+            "mean_tokens_ci95": [
+              1965.0,
+              3332.0
+            ],
+            "mean_input_tokens": 2625.3333333333335,
+            "mean_output_tokens": 247.33333333333334,
+            "sum_tokens": {
+              "input": 7876,
+              "output": 742,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 19.0,
+            "script_error_trials": 2,
+            "retry_wait_s": 0.0
+          }
+        },
+        "partial_failure": {
+          "native": {
+            "trials": 3,
+            "passed": 3,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.43849391955098227,
+              1.0
+            ],
+            "statuses": {
+              "answered": 3
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 3.0,
+            "mean_turns_ci95": [
+              3.0,
+              3.0
+            ],
+            "mean_wall_s": 4.01013501366712,
+            "mean_wall_s_ci95": [
+              3.657967466999253,
+              4.320823437999934
+            ],
+            "p50_wall_s": 4.051614136002172,
+            "p95_wall_s": 4.320823437999934,
+            "mean_tokens": 2988.0,
+            "mean_tokens_ci95": [
+              2988.0,
+              2988.0
+            ],
+            "mean_input_tokens": 2675.0,
+            "mean_output_tokens": 313.0,
+            "sum_tokens": {
+              "input": 8025,
+              "output": 939,
+              "cached": 1280,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 17.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 3,
+            "passed": 3,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.43849391955098227,
+              1.0
+            ],
+            "statuses": {
+              "answered": 3
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.351790961334094,
+            "mean_wall_s_ci95": [
+              2.292339002000517,
+              2.43759296600183
+            ],
+            "p50_wall_s": 2.325440915999934,
+            "p95_wall_s": 2.43759296600183,
+            "mean_tokens": 1883.0,
+            "mean_tokens_ci95": [
+              1883.0,
+              1883.0
+            ],
+            "mean_input_tokens": 1788.0,
+            "mean_output_tokens": 95.0,
+            "sum_tokens": {
+              "input": 5364,
+              "output": 285,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 17.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave_nofp": {
+            "trials": 3,
+            "passed": 3,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.43849391955098227,
+              1.0
+            ],
+            "statuses": {
+              "answered": 3
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.459055104000678,
+            "mean_wall_s_ci95": [
+              2.306534728999395,
+              2.586630650999723
+            ],
+            "p50_wall_s": 2.4839999320029165,
+            "p95_wall_s": 2.586630650999723,
+            "mean_tokens": 1883.0,
+            "mean_tokens_ci95": [
+              1883.0,
+              1883.0
+            ],
+            "mean_input_tokens": 1788.0,
+            "mean_output_tokens": 95.0,
+            "sum_tokens": {
+              "input": 5364,
+              "output": 285,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 17.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        },
+        "top_customer": {
+          "native": {
+            "trials": 6,
+            "passed": 3,
+            "pass_rate": 0.5,
+            "pass_wilson95": [
+              0.18761280689940868,
+              0.8123871931005913
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 3,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 3.1666666666666665,
+            "mean_turns_ci95": [
+              3.0,
+              3.5
+            ],
+            "mean_wall_s": 4.311130796667688,
+            "mean_wall_s_ci95": [
+              3.75567006950223,
+              5.030289836666877
+            ],
+            "p50_wall_s": 4.115270278001844,
+            "p95_wall_s": 5.833292302999325,
+            "mean_tokens": 6894.833333333333,
+            "mean_tokens_ci95": [
+              5016.666666666667,
+              9381.833333333334
+            ],
+            "mean_input_tokens": 6609.5,
+            "mean_output_tokens": 285.3333333333333,
+            "sum_tokens": {
+              "input": 39657,
+              "output": 1712,
+              "cached": 25088,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 13.333333333333334,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 6,
+            "passed": 4,
+            "pass_rate": 0.6666666666666666,
+            "pass_wilson95": [
+              0.29998832134152864,
+              0.9032306674407831
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 2,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.5,
+            "mean_turns_ci95": [
+              2.1666666666666665,
+              2.8333333333333335
+            ],
+            "mean_wall_s": 4.50123689183359,
+            "mean_wall_s_ci95": [
+              3.480376510333978,
+              5.522097273333202
+            ],
+            "p50_wall_s": 4.260140578000573,
+            "p95_wall_s": 6.180590948999452,
+            "mean_tokens": 3967.0,
+            "mean_tokens_ci95": [
+              2826.8333333333335,
+              5191.0
+            ],
+            "mean_input_tokens": 3500.5,
+            "mean_output_tokens": 466.5,
+            "sum_tokens": {
+              "input": 21003,
+              "output": 2799,
+              "cached": 7168,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 20.333333333333332,
+            "script_error_trials": 5,
+            "retry_wait_s": 0.0
+          },
+          "weave_nofp": {
+            "trials": 6,
+            "passed": 5,
+            "pass_rate": 0.8333333333333334,
+            "pass_wilson95": [
+              0.43649056343635395,
+              0.9699474141282697
+            ],
+            "statuses": {
+              "answered": 6
+            },
+            "answer_wrong": 1,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.3333333333333335,
+            "mean_turns_ci95": [
+              2.0,
+              2.6666666666666665
+            ],
+            "mean_wall_s": 4.727057427666902,
+            "mean_wall_s_ci95": [
+              4.068149192001026,
+              5.388723101499636
+            ],
+            "p50_wall_s": 4.634760730999915,
+            "p95_wall_s": 6.025389110000106,
+            "mean_tokens": 3439.6666666666665,
+            "mean_tokens_ci95": [
+              2856.0,
+              4046.6666666666665
+            ],
+            "mean_input_tokens": 2939.3333333333335,
+            "mean_output_tokens": 500.3333333333333,
+            "sum_tokens": {
+              "input": 17636,
+              "output": 3002,
+              "cached": 1408,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 28.5,
+            "script_error_trials": 3,
+            "retry_wait_s": 0.0
+          }
+        },
+        "triage": {
+          "native": {
+            "trials": 9,
+            "passed": 9,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.7008472464490407,
+              1.0
+            ],
+            "statuses": {
+              "answered": 9
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 4.0,
+            "mean_turns_ci95": [
+              4.0,
+              4.0
+            ],
+            "mean_wall_s": 7.408928702888968,
+            "mean_wall_s_ci95": [
+              6.097179865777838,
+              8.499604001444418
+            ],
+            "p50_wall_s": 8.354378847998305,
+            "p95_wall_s": 9.236451557000692,
+            "mean_tokens": 5649.666666666667,
+            "mean_tokens_ci95": [
+              4916.333333333333,
+              6405.222222222223
+            ],
+            "mean_input_tokens": 5097.333333333333,
+            "mean_output_tokens": 552.3333333333334,
+            "sum_tokens": {
+              "input": 45876,
+              "output": 4971,
+              "cached": 20224,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 26.666666666666668,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 9,
+            "passed": 9,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.7008472464490407,
+              1.0
+            ],
+            "statuses": {
+              "answered": 9
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.111111111111111,
+            "mean_turns_ci95": [
+              2.0,
+              2.3333333333333335
+            ],
+            "mean_wall_s": 4.151087381556055,
+            "mean_wall_s_ci95": [
+              3.517394212444439,
+              4.808795823889846
+            ],
+            "p50_wall_s": 4.260569337999186,
+            "p95_wall_s": 5.9299476760024845,
+            "mean_tokens": 1976.2222222222222,
+            "mean_tokens_ci95": [
+              1833.0,
+              2258.222222222222
+            ],
+            "mean_input_tokens": 1885.2222222222222,
+            "mean_output_tokens": 91.0,
+            "sum_tokens": {
+              "input": 16967,
+              "output": 819,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 26.666666666666668,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave_nofp": {
+            "trials": 9,
+            "passed": 9,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.7008472464490407,
+              1.0
+            ],
+            "statuses": {
+              "answered": 9
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 6.899913003999649,
+            "mean_wall_s_ci95": [
+              5.741782703000354,
+              7.978212549666043
+            ],
+            "p50_wall_s": 7.2154713820018515,
+            "p95_wall_s": 9.392873067998153,
+            "mean_tokens": 1833.0,
+            "mean_tokens_ci95": [
+              1833.0,
+              1833.0
+            ],
+            "mean_input_tokens": 1755.0,
+            "mean_output_tokens": 78.0,
+            "sum_tokens": {
+              "input": 15795,
+              "output": 702,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 26.666666666666668,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        }
+      }
+    }
+  }
+}

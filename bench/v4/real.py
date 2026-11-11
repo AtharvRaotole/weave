@@ -188,7 +188,18 @@ class RealWorld:
 
     def _pypi_answer(self, names):
         # Ground truth is fetched live at trial start, so a release during the run is the only way to drift.
-        return str(sum(int(fetch_pypi(n)["version"].split(".")[0]) for n in names))
+        # Retried: one timeout here crashed a whole run (GPT-4.1, `real`, 2026-11-10; see the paper).
+        total = 0
+        for n in names:
+            for attempt in range(4):
+                try:
+                    total += int(fetch_pypi(n)["version"].split(".")[0])
+                    break
+                except ToolFailure:
+                    if attempt == 3:
+                        raise
+                    time.sleep(2.0 * (attempt + 1))
+        return str(total)
 
     # ---- calls -------------------------------------------------------------------------------
     def call(self, name, args):
