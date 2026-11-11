@@ -93,6 +93,8 @@ def main(argv=None):
     ap.add_argument("--token-budget", type=int, default=3_000_000, help="stop scheduling after this many tokens")
     ap.add_argument("--request-timeout-s", type=float, default=180)
     ap.add_argument("--retries", type=int, default=4, help="HTTP retries per request (429/5xx/timeouts)")
+    ap.add_argument("--min-interval-s", type=float, default=0.0,
+                    help="space provider requests at least this far apart (free-tier quotas)")
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--out", type=Path, default=ROOT / "bench/results/v4")
     ap.add_argument("--allow-dirty", action="store_true", help="dev suite only")
@@ -135,7 +137,7 @@ def main(argv=None):
         "temperature": args.temperature, "max_tokens": args.max_tokens, "suite": args.suite,
         "manifest": manifest(args.suite), "task_subset": [t.id for t in tasks] if args.tasks else None,
         "modes": modes, "repeats": args.repeats, "latency_ms": latencies, "concurrency_cap": 8,
-        "max_turns": MAX_TURNS, "system_prompt": SYSTEM, "planned_trials": len(plan), "workers": args.workers,
+        "max_turns": MAX_TURNS, "system_prompt": SYSTEM, "planned_trials": len(plan), "workers": args.workers, "min_interval_s": args.min_interval_s,
         "token_budget": args.token_budget, "seed": args.seed,
     }
     (out / "run.json").write_text(json.dumps(meta, indent=2) + "\n")
@@ -149,7 +151,8 @@ def main(argv=None):
         from .providers import ChatClient
         return ChatClient(args.provider, args.model, live=True, reasoning_effort=args.effort,
                           temperature=args.temperature, max_tokens=args.max_tokens,
-                          timeout_s=args.request_timeout_s, retries=args.retries)
+                          timeout_s=args.request_timeout_s, retries=args.retries,
+                          min_interval_s=args.min_interval_s)
 
     def go(i, task, mode, rep, lat):
         with lock:
