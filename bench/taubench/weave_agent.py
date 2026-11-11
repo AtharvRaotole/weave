@@ -32,10 +32,11 @@ def _param_type(schema: Dict[str, Any]) -> str:
     return schema_type(schema)
 
 
-def make_functions(env: Env, state: Dict[str, Any]):
+def make_functions(env: Env, state: Dict[str, Any], shapes: Optional[Dict[str, str]] = None):
     """One Python function per tau-bench tool; each call is an `env.step(Action(name, kwargs))`."""
     import weave
 
+    shapes = shapes or {}
     lock = threading.Lock()
     functions = []
     for info in env.tools_info:
@@ -71,7 +72,7 @@ def make_functions(env: Env, state: Dict[str, Any]):
         fn.__signature__ = inspect.Signature([
             inspect.Parameter(p, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=_param_type(s),
                               **({} if p in required else {"default": None})) for p, s in props.items()])
-        fn.__weave_returns__ = "dict | list | str (JSON results are parsed)"
+        fn.__weave_returns__ = shapes.get(name, "dict | list | str")
         effect = "pure" if name in PURE else "read" if name in READ else "irreversible"
         functions.append(weave.declare(effect=effect)(fn))
     return functions
@@ -88,7 +89,8 @@ class WeaveAgent(Agent):
         reset = env.reset(task_index=task_index)
         info = reset.info.model_dump()
         state = {"done": False, "reward": 0.0, "info": None, "tool_calls": 0, "scripts": 0, "script_errors": 0}
-        tool = weave.WeaveTool(make_functions(env, state), max_wall_time_ms=60_000)
+        tool = weave.WeaveTool(make_functions(env, state, sample_return_shapes(env)), max_wall_time_ms=60_000,
+                               conversational=True)
         tools = [tool.chat_tool()]
         messages: List[Dict[str, Any]] = [{"role": "system", "content": self.wiki},
                                           {"role": "user", "content": reset.observation}]
@@ -124,3 +126,44 @@ class WeaveAgent(Agent):
                 break
         info["weave"] = {k: state[k] for k in ("tool_calls", "scripts", "script_errors")}
         return SolveResult(reward=reward, info=info, messages=messages, total_cost=0.0)
+
+
+def sample_return_shapes(env: Env) -> Dict[str, str]:
+    """`name -> shape` for each read tool, from one call on a copy of the environment's database.
+
+    tau-bench tools have no output schemas; a native agent sees each JSON result, a script must know the shape
+    before it runs. The sample call goes to `Tool.invoke` on a deep copy, never through `env.step`, so it is
+    not an action and cannot change the graded state. Arguments come from the first record of each table."""
+    import copy
+
+    from weave.agent_tool import shape_of
+
+    data = copy.deepcopy(env.data)
+    first = {table: next(iter(rows)) for table, rows in data.items() if isinstance(rows, dict) and rows}
+    user = data.get("users", {}).get(first.get("users"), {}) if "users" in first else {}
+    pool = {
+        "user_id": first.get("users"), "order_id": first.get("orders"), "product_id": first.get("products"),
+        "reservation_id": first.get("reservations"), "email": user.get("email"),
+        "first_name": (user.get("name") or {}).get("first_name"), "last_name": (user.get("name") or {}).get("last_name"),
+        "zip": (user.get("address") or {}).get("zip"),
+    }
+    shapes = {}
+    for info in env.tools_info:
+        f = info["function"]
+        name = f["name"]
+        if name not in READ:
+            continue
+        params = list(f["parameters"].get("properties", {}))
+        if any(pool.get(p) is None for p in params):
+            continue
+        try:
+            out = env.tools_map[name].invoke(data=copy.deepcopy(data), **{p: pool[p] for p in params})
+        except Exception:  # noqa: BLE001 - no sample, no shape
+            continue
+        if not isinstance(out, str) or out.startswith("Error"):
+            continue
+        try:
+            shapes[name] = shape_of(json.loads(out))
+        except ValueError:
+            shapes[name] = "str"
+    return shapes

@@ -47,6 +47,78 @@ RULES = (
     "what the script printed, or the error with a hint so you can fix the script."
 )
 
+# For hosts where a person replies between turns (support agents, assistants): every script is a model
+# round trip the person waits for, so a script should fetch everything the next reply needs. Writes still
+# wait for the person's explicit go-ahead, which is the host policy's job to require; these rules only
+# keep the script from jumping ahead of it.
+CONVERSATION_RULES = (
+    "A person is waiting for your reply, so make each script fetch everything that reply needs: chain dependent "
+    "lookups in one script (find an id, fetch its record, then fetch the related records you may discuss, e.g. "
+    "every order a user has) and print a compact summary of the relevant fields, not whole records. "
+    "Never call a function that changes state before the person has explicitly confirmed that exact change; "
+    "once they confirm, make the change and print its result in one script."
+)
+
+
+def shape_of(value: Any, depth: int = 0) -> str:
+    """A short Python-like type for a sample result, for `__weave_returns__`.
+
+    `shape_of({"id": "W1", "items": [{"price": 9.5}]})` is `{"id": str, "items": list[{"price": float}]}`.
+    A dict whose values all share one dict shape (records keyed by id) renders as `dict[str, {...}]`."""
+    if depth > 5:
+        return "any"
+    if value is None:
+        return "None"
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, float):
+        return "float"
+    if isinstance(value, str):
+        return "str"
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return "list"
+        if all(isinstance(v, dict) and v for v in value):
+            return f"list[{_merged_shape(list(value[:20]), depth + 1)}]"
+        shapes = list(dict.fromkeys(shape_of(v, depth + 1) for v in value[:20]))
+        return f"list[{' | '.join(shapes[:3])}]"
+    if isinstance(value, dict):
+        if not value:
+            return "dict"
+        vals = list(value.values())
+        id_keys = all(isinstance(k, str) and any(c.isdigit() for c in k) for k in value)
+        if all(isinstance(v, dict) and v for v in vals) and id_keys:
+            return f"dict[str, {_merged_shape(vals[:20], depth + 1)}]"
+        if all(isinstance(v, dict) for v in vals) and len(value) >= 2:
+            shapes = list(dict.fromkeys(shape_of(v, depth + 1) for v in vals[:20]))
+            if len(shapes) == 1:
+                return f"dict[str, {shapes[0]}]"
+        if len(value) >= 2 and all(isinstance(v, str) for v in vals) and all(isinstance(k, str) for k in value) \
+                and len(value) > 6:
+            return "dict[str, str]"
+        return "{" + ", ".join(f"{json.dumps(str(k))}: {shape_of(v, depth + 1)}" for k, v in value.items()) + "}"
+    return type(value).__name__
+
+
+def _merged_shape(dicts: list, depth: int) -> str:
+    """One record shape for sibling dicts: a key missing from some gets `?`, and a field holding str-valued dicts
+    whose keys differ between siblings (free-form options) is `dict[str, str]`."""
+    keys = list(dict.fromkeys(k for d in dicts for k in d))
+    fields = []
+    for k in keys:
+        vals = [d[k] for d in dicts if k in d]
+        if all(isinstance(v, dict) and all(isinstance(x, str) for x in v.values()) for v in vals) \
+                and len({tuple(v) for v in vals}) > 1:
+            shape = "dict[str, str]"
+        elif all(isinstance(v, dict) and v for v in vals) and len(vals) > 1:
+            shape = _merged_shape(vals, depth + 1)
+        else:
+            shape = " | ".join(list(dict.fromkeys(shape_of(v, depth + 1) for v in vals))[:3])
+        fields.append(f"{json.dumps(str(k))}: {shape}" + ("" if len(vals) == len(dicts) else "?"))
+    return "{" + ", ".join(fields) + "}"
+
 
 def echo_last_expression(source: str) -> str:
     """Print the value of a script's final bare expression, like a REPL.
@@ -171,13 +243,17 @@ class WeaveTool:
         worker_limits: Any = None,
         max_wall_time_ms: int | None = None,
         debug: bool = False,
+        conversational: bool = False,
     ):
         """`worker_pool=N` runs every function in killable worker processes
         (`Engine(worker_pool=N, isolate_all=True)`): a tool timeout or the run
         deadline kills the worker. Functions must then be module-level and
         pickleable; opt one out with `weave.declare(hard_deadline=False)`.
-        `max_wall_time_ms` bounds each script run (default 30s)."""
+        `max_wall_time_ms` bounds each script run (default 30s).
+        `conversational=True` adds `CONVERSATION_RULES` to the description, for hosts where a person
+        replies between turns."""
         self.functions = list(functions)
+        self.conversational = conversational
         self.name = name
         self.max_output_chars = max_output_chars
         if engine is not None and (worker_pool is not None or worker_limits is not None or debug):
@@ -198,7 +274,8 @@ class WeaveTool:
     @property
     def description(self) -> str:
         lines = "\n".join(tool_line(f) for f in self.functions)
-        return f"{RULES}\nFunctions callable from the script:\n{lines}"
+        rules = f"{RULES} {CONVERSATION_RULES}" if self.conversational else RULES
+        return f"{rules}\nFunctions callable from the script:\n{lines}"
 
     @property
     def request_options(self) -> dict:
