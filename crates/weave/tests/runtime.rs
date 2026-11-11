@@ -67,6 +67,21 @@ fn static_errors_are_short() {
 }
 
 #[test]
+fn namespaced_tool_calls_point_at_the_bare_name() {
+    // Seen live: GPT-4.1 wrote `functions.get_order(oid)` (its JSON tool-calling namespace).
+    let mut engine = Engine::new();
+    engine.register("fetch", ToolSpec::effect(Effect::Read).with_arity(1), |_, _| Ok(Value::Null));
+    let errors = engine.check("x = functions.fetch(\"a\")\nwhile True:\n  pass\n");
+    let text = errors.iter().map(|d| d.to_string()).collect::<Vec<_>>().join("\n");
+    assert!(text.contains("`functions.fetch` is not defined"), "{text}");
+    assert!(text.contains("call `fetch(...)` without the `functions.` prefix"), "{text}");
+    assert!(!text.contains("used before assignment"), "{text}");
+    // Methods on values are still checked as before.
+    let ok = engine.check("x = fetch(\"a\")\ny = x.get(\"k\")\n");
+    assert!(ok.is_empty(), "{ok:?}");
+}
+
+#[test]
 fn independent_reads_overlap() {
     let mut engine = Engine::new();
     let delay = Duration::from_millis(150);

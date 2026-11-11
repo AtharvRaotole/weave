@@ -252,7 +252,7 @@ impl<'a> Lowerer<'a> {
                 StmtKind::Pass
             }
             Stmt::While(_) => {
-                self.err_hint(stmt.start(), "`while` is not supported", "use `for` over a list");
+                self.err_hint(stmt.start(), "`while` is not supported", "use `for` over a list; for a loop of unknown length write `for _ in range(100):` and `break` when done");
                 StmtKind::Pass
             }
             Stmt::With(_) => {

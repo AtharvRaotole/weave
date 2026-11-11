@@ -256,7 +256,17 @@ fn check_call(
                 );
             }
         }
-        ExprKind::Attribute { value, .. } => diags.extend(check_expr(value, tools, defined)),
+        ExprKind::Attribute { value, attr } => match &value.kind {
+            // `functions.get_order(...)`: models trained on JSON tool calling often prefix a
+            // namespace. Point at the bare name instead of reporting an unassigned `functions`.
+            ExprKind::Name(ns) if !defined.contains(ns) && !is_builtin(ns) && tools.get(attr).is_some() => {
+                diags.push(
+                    Diagnostic::static_err(line, col, format!("`{ns}.{attr}` is not defined; tools are plain names"))
+                        .with_hint(format!("call `{attr}(...)` without the `{ns}.` prefix")),
+                );
+            }
+            _ => diags.extend(check_expr(value, tools, defined)),
+        },
         _ => {
             diags.push(Diagnostic::static_err(
                 line,

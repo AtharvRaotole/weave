@@ -91,6 +91,7 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=4, help="trials in flight")
     ap.add_argument("--token-budget", type=int, default=3_000_000, help="stop scheduling after this many tokens")
     ap.add_argument("--request-timeout-s", type=float, default=180)
+    ap.add_argument("--retries", type=int, default=4, help="HTTP retries per request (429/5xx/timeouts)")
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--out", type=Path, default=ROOT / "bench/results/v4")
     ap.add_argument("--allow-dirty", action="store_true", help="dev suite only")
@@ -147,7 +148,7 @@ def main(argv=None):
         from .providers import ChatClient
         return ChatClient(args.provider, args.model, live=True, reasoning_effort=args.effort,
                           temperature=args.temperature, max_tokens=args.max_tokens,
-                          timeout_s=args.request_timeout_s)
+                          timeout_s=args.request_timeout_s, retries=args.retries)
 
     def go(i, task, mode, rep, lat):
         with lock:

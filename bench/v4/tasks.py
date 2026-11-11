@@ -216,7 +216,7 @@ HELD_OUT = tuple(make(f, n, s, "held_out") for f, n, s in [
 ])
 
 # SCALING: fan-out width and chain depth sweeps (seed 7 throughout).
-SCALING = tuple([make("fanout_sum", n, 7, "scaling") for n in (5, 10, 20, 40)]
+SCALING = tuple([make("fanout_sum", n, 7, "scaling") for n in (5, 10, 20, 35, 50)]
                 + [make("chain", n, 7, "scaling") for n in (2, 4, 8)])
 
 SUITES = {"dev": DEV, "held_out": HELD_OUT, "scaling": SCALING}
