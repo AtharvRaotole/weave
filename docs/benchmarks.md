@@ -1,5 +1,19 @@
 # Benchmarks
 
+## Round 4: one script per turn (2026-11-10)
+
+Pre-registered in Addendum 4 (`confirm4`, hash `c3ae4a6c9fe95a31`: the `real` recipe with seeds + 200 plus two
+`git_review` tasks). The Weave arm sends `parallel_tool_calls: false` (`WeaveTool.request_options`); native unchanged.
+
+| model | pass W / N | turns W / N | Δ wall s [95% CI] | token ratio [95% CI] | git_review pass W / N |
+|---|---|---|---|---|---|
+| GPT-5.4 mini (low) | 30/30 / 25/30 | 2.10 / 3.40 | −3.83 [−5.98, −1.74] | 0.54 [0.41, 0.72] | 12/12 / 8/12 |
+| GPT-4.1 (temp 0) | 30/30 / 18/30 | 2.00 / 3.40 | −2.50 [−3.36, −1.64] | 0.51 [0.40, 0.66] | 12/12 / 9/12 |
+
+No trial ended `incomplete`. GPT-5.4 mini's `pypi_major` was slower with Weave (4.98 vs 4.07 s). Gemini (HTTP 429)
+and GLM (timeout) failed their smoke requests and were not run. Diagnosis: `bench/results/v7/diag-turn1/NOTES.md`;
+full tables: `docs/paper/results-tables.md`.
+
 ## Round 3: the Python models write (2026-11-10)
 
 Pre-registered in Addendum 3 of [the pre-registration](paper/preregistration.md) (commit `915488e`), before any run
