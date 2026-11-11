@@ -46,9 +46,15 @@ def _pace(interval_s):
 
 
 class ProviderError(Exception):
-    def __init__(self, kind, detail=""):
+    """A failed request. ``usage`` holds what the provider billed for it when the response said so
+    (an incomplete Responses result is billed in full); None when the provider reported nothing
+    (HTTP errors, timeouts). ``partial`` is a short excerpt of an incomplete response's output."""
+
+    def __init__(self, kind, detail="", usage=None, partial=None):
         super().__init__(f"{kind}: {detail}")
         self.kind = kind
+        self.usage = usage
+        self.partial = partial
 
 
 class ChatClient:
@@ -141,14 +147,18 @@ class ChatClient:
                 if responses:
                     rec["model"] = out.get("model")
                     rec["finish_reason"] = out.get("status")
+                    usage = normalize_responses_usage(out.get("usage"))
+                    rec["usage"] = usage
                     if out.get("status") != "completed":
-                        raise ProviderError("incomplete", str(out.get("incomplete_details")))
-                    return _from_responses(out), normalize_responses_usage(out.get("usage")), attempts
+                        raise ProviderError("incomplete", str(out.get("incomplete_details")), usage=usage,
+                                            partial=_excerpt(out))
+                    return _from_responses(out), usage, attempts
                 choice = (out.get("choices") or [{}])[0]
                 msg = choice.get("message") or {}
                 rec["finish_reason"] = choice.get("finish_reason")
                 rec["model"] = out.get("model")
-                return msg, normalize_usage(out.get("usage")), attempts
+                rec["usage"] = normalize_usage(out.get("usage"))
+                return msg, rec["usage"], attempts
             except urllib.error.HTTPError as exc:
                 rec["status"] = exc.code
                 rec["elapsed_s"] = time.monotonic() - t0
@@ -186,6 +196,21 @@ def normalize_usage(raw):
     cd = raw.get("completion_tokens_details") or {}
     return {"input": int(raw.get("prompt_tokens") or 0), "output": int(raw.get("completion_tokens") or 0),
             "cached": int(pd.get("cached_tokens") or 0), "reasoning": int(cd.get("reasoning_tokens") or 0)}
+
+
+def _excerpt(out, limit=1500):
+    """Head and tail of an incomplete response's text and tool-call arguments, for diagnosis."""
+    parts = []
+    for o in out.get("output") or []:
+        if o.get("type") == "function_call":
+            parts.append(f"[call {o.get('name')}] " + (o.get("arguments") or ""))
+        elif o.get("type") == "message":
+            parts.extend(p.get("text", "") for p in o.get("content", []) if p.get("type") == "output_text")
+    text = "\n".join(parts)
+    if len(text) <= limit:
+        return text
+    half = limit // 2
+    return text[:half] + f"\n[... {len(text) - limit} characters omitted ...]\n" + text[-half:]
 
 
 def _from_responses(out):
