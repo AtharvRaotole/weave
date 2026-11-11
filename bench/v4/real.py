@@ -445,4 +445,6 @@ REAL = tuple(FAMILIES[f](n, s, "real") for f, n, s in [
     ("warehouse_shortfall", 10, 101), ("warehouse_shortfall", 16, 102)])
 # Round 3, pre-registered in Addendum 3 before any live run: the REAL recipe with fresh seeds.
 REAL2 = tuple(FAMILIES[t.family](t.size, t.seed + 100, "real2") for t in REAL)
-REAL_SUITES = {"real_dev": REAL_DEV, "real": REAL, "real2": REAL2}
+# Round 4 dev-only suite for diagnosing git_review (tuning allowed; never an evidence suite).
+REAL_DEV_GIT = tuple(git_review(n, s, "real_dev") for n in (8, 14) for s in (901, 902, 903, 904))
+REAL_SUITES = {"real_dev": REAL_DEV, "real_dev_git": REAL_DEV_GIT, "real": REAL, "real2": REAL2}
