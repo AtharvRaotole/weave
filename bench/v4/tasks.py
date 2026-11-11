@@ -53,7 +53,9 @@ def _ids(rng, prefix, n, width=4):
     seen = set()
     while len(seen) < n:
         seen.add(f"{prefix}-{rng.randrange(10 ** (width - 1), 10 ** width)}")
-    return sorted(seen, key=lambda _: rng.random())
+    ids = sorted(seen)  # set order depends on PYTHONHASHSEED; sort before shuffling
+    rng.shuffle(ids)
+    return ids
 
 
 def fanout_sum(n, seed, split):

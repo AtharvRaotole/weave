@@ -30,6 +30,13 @@ class Suites(unittest.TestCase):
         families_dev = {t.family for t in SUITES["dev"]}
         self.assertIn("notify_gold", {t.family for t in SUITES["held_out"]} - families_dev)
 
+    def test_suites_do_not_depend_on_the_hash_seed(self):
+        import subprocess
+        code = "from bench.v4.tasks import manifest; print(*(manifest(s)['hash'] for s in ('dev', 'held_out', 'scaling')))"
+        outs = {subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True, check=True,
+                               env={**os.environ, "PYTHONHASHSEED": seed}).stdout for seed in ("1", "2", "3")}
+        self.assertEqual(len(outs), 1, outs)
+
     def test_oracles_pass_every_task_in_both_modes(self):
         for suite in SUITES.values():
             for task in suite:

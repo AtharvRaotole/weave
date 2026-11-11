@@ -26,9 +26,15 @@ Manifest hashes from `python -c "from bench.v4.tasks import manifest; print(mani
 
 | suite | hash | tasks |
 |---|---|---|
-| dev (used for tuning) | `57d0ad58ea3b4ee2` | fanout_sum n8, partial_failure n8, order_value n5, chain n4, triage n8 |
-| **held_out** | `654aa649fbbd00e1` | fanout_sum n20 s101 and n12 s102, partial_failure n16, order_value n10, chain n6, triage n15, notify_gold n12 and n20, top_customer n8 and n15 |
-| scaling | `6302bdbc79c4a8a6` | fanout_sum n = 5, 10, 20, 35, 50; chain depth 2, 4, 8 |
+| dev (used for tuning) | `f66da35bc9ee37a3` | fanout_sum n8, partial_failure n8, order_value n5, chain n4, triage n8 |
+| **held_out** | `c23fb383af6b5ef2` | fanout_sum n20 s101 and n12 s102, partial_failure n16, order_value n10, chain n6, triage n15, notify_gold n12 and n20, top_customer n8 and n15 |
+| scaling | `256f002c7ff5b742` | fanout_sum n = 5, 10, 20, 35, 50; chain depth 2, 4, 8 |
+
+Revision note: the first version of this file (commit 7285676) listed hashes that changed from process to
+process, because task ids were shuffled from a `set` whose order depends on `PYTHONHASHSEED`. The held-out guard in
+`bench/v4/run.py` refused every live run for that reason, so no held-out or scaling trial ran before this fix. The
+generator now sorts before shuffling and a test checks the hashes under three hash seeds. Dev runs made before
+the fix drew a different random dev instance in each process; they were used only for tuning.
 
 Held-out uses new seeds and sizes for every dev family and two families never run live during development:
 `notify_gold` (conditional fan-out, dedup, irreversible sends) and `top_customer` (fan-out + argmax).
