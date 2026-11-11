@@ -89,7 +89,7 @@ class WeaveAgent(Agent):
         reset = env.reset(task_index=task_index)
         info = reset.info.model_dump()
         state = {"done": False, "reward": 0.0, "info": None, "tool_calls": 0, "scripts": 0, "script_errors": 0}
-        tool = weave.WeaveTool(make_functions(env, state, sample_return_shapes(env)), max_wall_time_ms=60_000,
+        tool = weave.WeaveTool(make_functions(env, state, cached_return_shapes(env)), max_wall_time_ms=60_000,
                                conversational=True, persist_variables=True)
         tools = [tool.chat_tool()]
         messages: List[Dict[str, Any]] = [{"role": "system", "content": self.wiki},
@@ -128,6 +128,20 @@ class WeaveAgent(Agent):
         return SolveResult(reward=reward, info=info, messages=messages, total_cost=0.0)
 
 
+_SHAPES: Dict[Any, Dict[str, str]] = {}
+_SHAPES_LOCK = threading.Lock()
+
+
+def cached_return_shapes(env: Env) -> Dict[str, str]:
+    """`sample_return_shapes` once per environment type and tool set. Round 6's evidence run computed it in every
+    trial (about 2.2 s of host time per trial, inside the Weave arm's wall time); this is the fix."""
+    key = (type(env).__name__, tuple(i["function"]["name"] for i in env.tools_info))
+    with _SHAPES_LOCK:
+        if key not in _SHAPES:
+            _SHAPES[key] = sample_return_shapes(env)
+        return _SHAPES[key]
+
+
 def sample_return_shapes(env: Env, samples: int = 12) -> Dict[str, str]:
     """`name -> shape` for each read tool, from calls on a copy of the environment's database.
 
@@ -161,8 +175,8 @@ def sample_return_shapes(env: Env, samples: int = 12) -> Dict[str, str]:
                     pool[key] = firsts[table][i]
             if any(pool.get(p) is None for p in params):
                 continue
-            try:
-                out = env.tools_map[name].invoke(data=copy.deepcopy(data), **{p: pool[p] for p in params})
+            try:  # read tools do not mutate, and `data` is already a private copy
+                out = env.tools_map[name].invoke(data=data, **{p: pool[p] for p in params})
             except Exception:  # noqa: BLE001 - no sample, no shape
                 continue
             if not isinstance(out, str) or out.startswith("Error"):

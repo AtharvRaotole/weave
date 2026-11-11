@@ -124,6 +124,33 @@ model; without it, it replays a canned call so it runs offline.
 `worker_pool=N` runs every function in a killable worker process, which is what
 makes deadlines hard. Functions must then be module-level and picklable.
 
+### A support or chat assistant (a person replies between turns)
+
+```python
+from weave.agent_tool import shape_of_samples
+
+# Tell the model what each lookup returns. Without output schemas, derive it from a few real results:
+get_order.__weave_returns__ = shape_of_samples([get_order(o) for o in some_order_ids])
+
+tool = weave.WeaveTool([find_user, get_user, get_order, cancel_order],
+                       conversational=True,      # fetch everything the next reply needs in one script;
+                                                 # no state change before the person confirms it
+                       persist_variables=True)   # later scripts can reuse `order` from an earlier one
+```
+
+`conversational=True` adds two rules to the tool description: chain dependent lookups in one script (find the id,
+fetch the record, fetch its related records) and print a compact summary, and never call a function that changes
+state before the person has confirmed that exact change. Your own policy still decides what needs confirmation.
+
+`persist_variables=True` works like a notebook: each script sees the variables the earlier ones set, as snapshots
+taken when those scripts ended. They reach the engine as literal assignments, so effects, scheduling and limits are
+unchanged, and error positions still refer to the model's own script.
+
+`shape_of_samples` merges several results into one short type, e.g.
+`{"order_id": str, "items": list[{"item_id": str, "price": float, "options": dict[str, str]}]}`. Fields whose keys
+differ between records (free-form options) become `dict[str, str]` instead of one sample's keys, which misled
+GPT-4.1 in a round-6 dev run.
+
 ## Recipe 3: an MCP client, through weave-mcp
 
 `weave-mcp` exposes `weave_check`, `weave_run` and `weave_replay`, plus the

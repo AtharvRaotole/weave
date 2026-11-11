@@ -123,6 +123,12 @@ FIXTURES = [
     # arithmetic signs
     "print(7 // 2, -7 // 2, 7 // -2, -7 // -2, 7 % 3, -7 % 3, 7 % -3, -7 % -3)\n",
     "print(7.5 // 2, -7.5 // 2, 7.5 % 2, -7.5 % 2, 7.5 % -2, -6.0 % 3)\n",
+    # a branch or handler that jumps does not leave its names unassigned (round-5 tau-bench trace)
+    "out = []\nfor x in [1, None, 2]:\n    try:\n        n = x + 1\n    except:\n        continue\n    out.append(n)\nprint(out)\n",
+    "out = []\nfor x in [3, None, 4]:\n    if x is None:\n        continue\n    else:\n        y = x * 2\n    out.append(y)\nprint(out)\n",
+    "for x in [3, 0, 4]:\n    if x == 0:\n        break\n    else:\n        y = x\n    put('y', y)\nprint(get('y'))\n",
+    "v = get('a')\nif v > 1:\n    w = v\nelse:\n    raise ValueError('small')\nprint(w)\n",
+    "def f(x):\n    for i in range(3):\n        if i == x:\n            return i\n        else:\n            k = i\n        put('k', k)\n    return -1\nprint(f(1), f(9))\n",
     # error messages on the wrong shape must still be errors
     "o = 'W123'\nprint(o['items'])\n",
     "o = [{'a': 1}]\nprint(o['a'])\n",

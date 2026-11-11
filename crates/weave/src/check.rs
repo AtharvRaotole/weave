@@ -46,10 +46,19 @@ fn check_block_inner(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet
                 diags.extend(check_block_inner(orelse, tools, &mut else_defined));
                 // `if True:` (how loops with break/continue are desugared)
                 // always takes its body.
+                // A branch that ends in `break`/`continue`/`return`/`raise`
+                // never reaches the code after the `if` (the lowering guards
+                // that code with the jump flags), so only the other branch's
+                // assignments count, as in Python.
                 *defined = if matches!(test.kind, ExprKind::Bool(true)) {
                     then_defined
                 } else {
-                    then_defined.intersection(&else_defined).cloned().collect()
+                    match (diverges(body), diverges(orelse)) {
+                        (true, false) => else_defined,
+                        (false, true) => then_defined,
+                        (true, true) => then_defined.union(&else_defined).cloned().collect(),
+                        (false, false) => then_defined.intersection(&else_defined).cloned().collect(),
+                    }
                 };
             }
             StmtKind::For { target, iter, body } => {
@@ -73,12 +82,40 @@ fn check_block_inner(stmts: &[Stmt], tools: &ToolRegistry, defined: &mut HashSet
                     exc_defined.insert(name.clone());
                 }
                 diags.extend(check_block_inner(&handler.body, tools, &mut exc_defined));
-                *defined = try_defined.intersection(&exc_defined).cloned().collect();
+                *defined = if diverges(&handler.body) {
+                    try_defined
+                } else {
+                    try_defined.intersection(&exc_defined).cloned().collect()
+                };
             }
             StmtKind::Pass => {}
         }
     }
     diags
+}
+
+/// Whether every path through `stmts` ends in a jump: a lowered
+/// `break`/`continue`/helper `return` (an assignment of `True` to a hidden
+/// jump flag) or a `raise`.
+fn diverges(stmts: &[Stmt]) -> bool {
+    let Some(last) = stmts.last() else { return false };
+    match &last.kind {
+        StmtKind::Assign { targets, value } => {
+            matches!(value.kind, ExprKind::Bool(true))
+                && matches!(targets.as_slice(), [Target::Name { name, .. }]
+                    if name.starts_with(crate::parse::HIDDEN_PREFIX) && (name.contains("brk") || name.contains("cont")))
+        }
+        StmtKind::Expr(e) => matches!(&e.kind, ExprKind::Call { func, .. }
+            if matches!(&func.kind, ExprKind::Name(n) if n == "__weave_raise")),
+        StmtKind::If { test, body, orelse } => {
+            if matches!(test.kind, ExprKind::Bool(true)) {
+                diverges(body)
+            } else {
+                diverges(body) && diverges(orelse)
+            }
+        }
+        _ => false,
+    }
 }
 
 fn check_target(target: &Target, tools: &ToolRegistry, defined: &HashSet<String>, aug: bool) -> Vec<Diagnostic> {

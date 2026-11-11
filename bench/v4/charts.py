@@ -27,7 +27,7 @@ BLUE, GREY = "#2457d6", "#a3a9b4"
 
 def load(run):
     d = RESULTS / run
-    for newer in ("v5", "v6", "v7", "v8"):
+    for newer in ("v5", "v6", "v7", "v8", "v9"):
         if not d.exists():
             d = ROOT / "bench/results" / newer / run
     rows = [json.loads(line) for line in (d / "rows.jsonl").read_text().splitlines() if line.strip()]
@@ -294,16 +294,27 @@ def tau_rows(run):
     return meta, out
 
 
-def tau_section(runs):
-    """Round 5 (Addendum 5): tau-bench retail, Weave arm vs tau-bench's own ToolCallingAgent."""
-    entries = runs.get("tau_retail", {})
+def tau_pooled(runs, key):
+    """Rows of every model in `runs[key]`, tasks keyed by model so the bootstrap resamples (model, task) pairs."""
+    out = []
+    for label, run in runs.get(key, {}).items():
+        _, rows = tau_rows(run)
+        out += [dict(r, task=f"{label}:{r['task']}") for r in rows]
+    return out
+
+
+def tau_section(runs, key="tau_retail", title=None, note=None):
+    """tau-bench retail, Weave arm vs tau-bench's own ToolCallingAgent (round 5: Addendum 5; round 6: Addendum 6)."""
+    entries = runs.get(key, {})
     if not entries:
         return []
-    lines = ["", "## tau-bench retail, round 5 (`retail_test7`: 7 test-split tasks, 1 repeat; external benchmark)", "",
+    title = title or "## tau-bench retail, round 5 (`retail_test7`: 7 test-split tasks, 1 repeat; external benchmark)"
+    note = note or ("Both arms send `parallel_tool_calls: false`. Turns = agent model calls; tokens = agent + user simulator. "
+                    "n = 7 pairs per model: every CI below is wide, and none of these differences is significant unless its CI "
+                    "excludes 0 (or 1).")
+    lines = ["", title, "",
              "tau-bench (Sierra, MIT) at commit `59a200c`, unmodified: its tasks, user simulator (GPT-4.1), tools and grader. "
-             "Native arm = tau-bench's `ToolCallingAgent`; Weave arm = the same loop with one `run_weave` tool. Both arms send "
-             "`parallel_tool_calls: false`. Turns = agent model calls; tokens = agent + user simulator. n = 7 pairs per model: "
-             "every CI below is wide, and none of these differences is significant unless its CI excludes 0 (or 1).", "",
+             "Native arm = tau-bench's `ToolCallingAgent`; Weave arm = the same loop with one `run_weave` tool. " + note, "",
              "| model | pass W / N | McNemar p | agent calls W / N | Δ agent calls [95% CI] | wall s W / N | Δ wall s [95% CI] | tokens W / N | token ratio [95% CI] | agent tokens W / N | trials not run (budget) |",
              "|---|---|---|---|---|---|---|---|---|---|---|"]
     for label, run in entries.items():
@@ -318,6 +329,27 @@ def tau_section(runs):
                      f"{w['mean_wall_s']:.1f} / {n['mean_wall_s']:.1f} | {wa['mean_diff']:+.2f} {fmt_ci(wa['mean_diff_ci95'])} | "
                      f"{w['mean_tokens']:.0f} / {n['mean_tokens']:.0f} | {tk['ratio_gm']:.2f} {fmt_ci(tk['ratio_gm_ci95'])} | "
                      f"{at['weave']:.0f} / {at['native']:.0f} | {meta['planned'] - len(rows)} |")
+    if len(entries) > 1:
+        rows = tau_pooled(runs, key)
+        w, n = stats.describe(sel(rows, mode="weave")), stats.describe(sel(rows, mode="native"))
+        t, wa, tk = (stats.paired(rows, lambda r: r["turns"]), stats.paired(rows, lambda r: r["wall_s"], 1),
+                     stats.paired(rows, lambda r: r["total_tokens"], 2))
+        mc = stats.mcnemar_exact(rows)
+        at = {m: statistics.fmean(r["agent_total_tokens"] for r in rows if r["mode"] == m) for m in ("weave", "native")}
+        lines.append(f"| **pooled** | {w['passed']}/{w['trials']} / {n['passed']}/{n['trials']} | {mc['p']:.3f} | "
+                     f"{w['mean_turns']:.2f} / {n['mean_turns']:.2f} | {t['mean_diff']:+.2f} {fmt_ci(t['mean_diff_ci95'])} | "
+                     f"{w['mean_wall_s']:.1f} / {n['mean_wall_s']:.1f} | {wa['mean_diff']:+.2f} {fmt_ci(wa['mean_diff_ci95'])} | "
+                     f"{w['mean_tokens']:.0f} / {n['mean_tokens']:.0f} | {tk['ratio_gm']:.2f} {fmt_ci(tk['ratio_gm_ci95'])} | "
+                     f"{at['weave']:.0f} / {at['native']:.0f} | |")
+    lines += ["", "Weave script errors per trial (errors / scripts / tool calls inside scripts):", ""]
+    for label, run in entries.items():
+        _, rows = tau_rows(run)
+        wr = [r for r in rows if r["mode"] == "weave"]
+        if wr:
+            e = sum((r.get("weave") or {}).get("script_errors", 0) for r in wr)
+            sc = sum((r.get("weave") or {}).get("scripts", 0) for r in wr)
+            tc = sum((r.get("weave") or {}).get("tool_calls", 0) for r in wr)
+            lines.append(f"- {label}: {e / len(wr):.2f} errors per trial ({e} of {sc} scripts; {tc / max(1, sc):.2f} tool calls per script)")
     lines += ["", "### Per task (reward W / N, agent calls W / N, Weave scripts / tool calls inside them)", "",
               "| model | task | reward W / N | agent calls W / N | tool actions W / N | Weave scripts | Weave script errors |", "|---|---|---|---|---|---|---|"]
     for label, run in entries.items():
@@ -589,6 +621,41 @@ def charts_v8(runs):
     save(fig, "benchmark-v8-tau")
 
 
+def charts_v9(runs):
+    """Round 6: tau-bench retail on fresh test tasks, per model and pooled, Weave/native ratios with 95% CIs."""
+    import matplotlib.pyplot as plt
+    if "tau_retail_r6" not in runs:
+        return
+    metrics = (("turns", "agent model calls"), ("wall", "wall time"), ("tokens", "total tokens"))
+    groups = []
+    for label, run in runs["tau_retail_r6"].items():
+        _, rows = tau_rows(run)
+        groups.append((label, rows))
+    groups.append(("pooled (20 pairs)", tau_pooled(runs, "tau_retail_r6")))
+    fig, ax = plt.subplots(figsize=(7.2, 3.1))
+    width = 0.8 / len(groups)
+    colors = (GREY, "#7d93c9", BLUE)
+    for i, (label, rows) in enumerate(groups):
+        d = {"turns": stats.paired(rows, lambda r: r["turns"], 0), "wall": stats.paired(rows, lambda r: r["wall_s"], 1),
+             "tokens": stats.paired(rows, lambda r: r["total_tokens"], 2)}
+        w, n = stats.describe(sel(rows, mode="weave")), stats.describe(sel(rows, mode="native"))
+        xs = [j + (i - (len(groups) - 1) / 2) * width for j in range(len(metrics))]
+        ys = [d[m]["ratio_gm"] for m, _ in metrics]
+        lo = [y - d[m]["ratio_gm_ci95"][0] for y, (m, _) in zip(ys, metrics)]
+        hi = [d[m]["ratio_gm_ci95"][1] - y for y, (m, _) in zip(ys, metrics)]
+        ax.bar(xs, ys, width * 0.9, yerr=[lo, hi], capsize=2, color=colors[i % 3],
+               label=f"{label}: pass {w['passed']}/{w['trials']} vs {n['passed']}/{n['trials']}")
+        for x, y in zip(xs, ys):
+            ax.text(x, 0.03, f"{y:.2f}", ha="center", va="bottom", fontsize=6.5, color="white")
+    ax.axhline(1.0, color="#333", lw=0.8, ls="--")
+    ax.set_xticks(range(len(metrics)), [m for _, m in metrics], fontsize=8)
+    ax.set_ylabel("Weave / native (geo. mean)")
+    ax.legend(frameon=False, fontsize=6.5, loc="upper left")
+    ax.set_title("Round 6, tau-bench retail (10 fresh test tasks per model; below 1 favours Weave)", fontsize=8.5)
+    fig.tight_layout()
+    save(fig, "benchmark-v9-tau")
+
+
 def charts(head, fams, scaling):
     import matplotlib
     matplotlib.use("Agg")
@@ -666,7 +733,12 @@ def main():
     if "confirm3" in runs or "real2" in runs:
         extra += static_section(runs)
     extra += round4_section(runs)
-    extra = tau_section(runs) + ptc_section(runs) + extra
+    r6 = tau_section(runs, "tau_retail_r6",
+                     "## tau-bench retail, round 6 (`retail_test10r6`: 10 fresh test-split tasks, 1 repeat; Addendum 6)",
+                     "Both arms send `parallel_tool_calls: true` (OpenAI's default, as in tau-bench's own runs). The Weave arm uses "
+                     "`conversational=True`, `persist_variables=True` and sampled return shapes. Turns = agent model calls; tokens = "
+                     "agent + user simulator. n = 10 pairs per model and 20 pooled: CIs are wide.")
+    extra = r6 + tau_section(runs) + ptc_section(runs) + extra
     write_tables(runs, head, fams, scaling, extra)
     try:
         charts(head, fams, scaling)
@@ -674,6 +746,7 @@ def main():
         charts_v6(runs)
         charts_v7(runs)
         charts_v8(runs)
+        charts_v9(runs)
     except ImportError:
         print("matplotlib not installed: wrote tables only")
     print(f"wrote {TABLES.relative_to(ROOT)} and assets/benchmark-v4*.svg")
