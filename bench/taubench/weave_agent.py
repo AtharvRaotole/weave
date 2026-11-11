@@ -90,7 +90,7 @@ class WeaveAgent(Agent):
         info = reset.info.model_dump()
         state = {"done": False, "reward": 0.0, "info": None, "tool_calls": 0, "scripts": 0, "script_errors": 0}
         tool = weave.WeaveTool(make_functions(env, state, sample_return_shapes(env)), max_wall_time_ms=60_000,
-                               conversational=True)
+                               conversational=True, persist_variables=True)
         tools = [tool.chat_tool()]
         messages: List[Dict[str, Any]] = [{"role": "system", "content": self.wiki},
                                           {"role": "user", "content": reset.observation}]
@@ -128,25 +128,19 @@ class WeaveAgent(Agent):
         return SolveResult(reward=reward, info=info, messages=messages, total_cost=0.0)
 
 
-def sample_return_shapes(env: Env) -> Dict[str, str]:
-    """`name -> shape` for each read tool, from one call on a copy of the environment's database.
+def sample_return_shapes(env: Env, samples: int = 12) -> Dict[str, str]:
+    """`name -> shape` for each read tool, from calls on a copy of the environment's database.
 
     tau-bench tools have no output schemas; a native agent sees each JSON result, a script must know the shape
-    before it runs. The sample call goes to `Tool.invoke` on a deep copy, never through `env.step`, so it is
-    not an action and cannot change the graded state. Arguments come from the first record of each table."""
+    before it runs. The sample calls go to `Tool.invoke` on a deep copy, never through `env.step`, so they are
+    not actions and cannot change the graded state. Arguments come from the first `samples` records of each
+    table, and the shapes of all results are merged, so per-record keys (product options) stay generic."""
     import copy
 
-    from weave.agent_tool import shape_of
+    from weave.agent_tool import shape_of_samples
 
     data = copy.deepcopy(env.data)
-    first = {table: next(iter(rows)) for table, rows in data.items() if isinstance(rows, dict) and rows}
-    user = data.get("users", {}).get(first.get("users"), {}) if "users" in first else {}
-    pool = {
-        "user_id": first.get("users"), "order_id": first.get("orders"), "product_id": first.get("products"),
-        "reservation_id": first.get("reservations"), "email": user.get("email"),
-        "first_name": (user.get("name") or {}).get("first_name"), "last_name": (user.get("name") or {}).get("last_name"),
-        "zip": (user.get("address") or {}).get("zip"),
-    }
+    firsts = {table: list(rows)[:samples] for table, rows in data.items() if isinstance(rows, dict) and rows}
     shapes = {}
     for info in env.tools_info:
         f = info["function"]
@@ -154,16 +148,31 @@ def sample_return_shapes(env: Env) -> Dict[str, str]:
         if name not in READ:
             continue
         params = list(f["parameters"].get("properties", {}))
-        if any(pool.get(p) is None for p in params):
-            continue
-        try:
-            out = env.tools_map[name].invoke(data=copy.deepcopy(data), **{p: pool[p] for p in params})
-        except Exception:  # noqa: BLE001 - no sample, no shape
-            continue
-        if not isinstance(out, str) or out.startswith("Error"):
-            continue
-        try:
-            shapes[name] = shape_of(json.loads(out))
-        except ValueError:
-            shapes[name] = "str"
+        results = []
+        for i in range(samples):
+            pool = {}
+            if "users" in firsts and i < len(firsts["users"]):
+                uid = firsts["users"][i]
+                user = data["users"][uid]
+                pool.update(user_id=uid, email=user.get("email"), first_name=(user.get("name") or {}).get("first_name"),
+                            last_name=(user.get("name") or {}).get("last_name"), zip=(user.get("address") or {}).get("zip"))
+            for table, key in (("orders", "order_id"), ("products", "product_id"), ("reservations", "reservation_id")):
+                if table in firsts and i < len(firsts[table]):
+                    pool[key] = firsts[table][i]
+            if any(pool.get(p) is None for p in params):
+                continue
+            try:
+                out = env.tools_map[name].invoke(data=copy.deepcopy(data), **{p: pool[p] for p in params})
+            except Exception:  # noqa: BLE001 - no sample, no shape
+                continue
+            if not isinstance(out, str) or out.startswith("Error"):
+                continue
+            try:
+                results.append(json.loads(out))
+            except ValueError:
+                results.append(out)
+            if not params:
+                break
+        if results:
+            shapes[name] = shape_of_samples(results)
     return shapes

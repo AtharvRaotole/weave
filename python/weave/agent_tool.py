@@ -64,60 +64,62 @@ def shape_of(value: Any, depth: int = 0) -> str:
     """A short Python-like type for a sample result, for `__weave_returns__`.
 
     `shape_of({"id": "W1", "items": [{"price": 9.5}]})` is `{"id": str, "items": list[{"price": float}]}`.
-    A dict whose values all share one dict shape (records keyed by id) renders as `dict[str, {...}]`."""
-    if depth > 5:
+    Pass several samples with `shape_of_samples` so that fields whose keys vary between records (free-form
+    options) are not mistaken for fixed fields."""
+    return shape_of_samples([value], depth)
+
+
+def _id_like(key: Any) -> bool:
+    return isinstance(key, str) and any(c.isdigit() for c in key)
+
+
+def shape_of_samples(values: list, depth: int = 0) -> str:
+    """One shape covering every sample. Dicts keyed by ids (`{"item_123": {...}}`) become `dict[str, V]`;
+    str-valued dicts whose keys differ between samples become `dict[str, str]`; a record field missing from
+    some samples is marked `?`."""
+    if depth > 5 or not values:
         return "any"
-    if value is None:
-        return "None"
-    if isinstance(value, bool):
-        return "bool"
-    if isinstance(value, int):
-        return "int"
-    if isinstance(value, float):
-        return "float"
-    if isinstance(value, str):
-        return "str"
-    if isinstance(value, (list, tuple)):
-        if not value:
-            return "list"
-        if all(isinstance(v, dict) and v for v in value):
-            return f"list[{_merged_shape(list(value[:20]), depth + 1)}]"
-        shapes = list(dict.fromkeys(shape_of(v, depth + 1) for v in value[:20]))
-        return f"list[{' | '.join(shapes[:3])}]"
-    if isinstance(value, dict):
-        if not value:
+    if all(isinstance(v, dict) for v in values):
+        nonempty = [v for v in values if v]
+        if not nonempty:
             return "dict"
-        vals = list(value.values())
-        id_keys = all(isinstance(k, str) and any(c.isdigit() for c in k) for k in value)
-        if all(isinstance(v, dict) and v for v in vals) and id_keys:
-            return f"dict[str, {_merged_shape(vals[:20], depth + 1)}]"
-        if all(isinstance(v, dict) for v in vals) and len(value) >= 2:
-            shapes = list(dict.fromkeys(shape_of(v, depth + 1) for v in vals[:20]))
-            if len(shapes) == 1:
-                return f"dict[str, {shapes[0]}]"
-        if len(value) >= 2 and all(isinstance(v, str) for v in vals) and all(isinstance(k, str) for k in value) \
-                and len(value) > 6:
+        if all(_id_like(k) for v in nonempty for k in v) and all(isinstance(x, dict) for v in nonempty for x in v.values()):
+            return f"dict[str, {shape_of_samples([x for v in nonempty for x in v.values()][:200], depth + 1)}]"
+        keysets = {tuple(v) for v in nonempty}
+        if len(keysets) > 1 and all(isinstance(x, str) for v in nonempty for x in v.values()):
             return "dict[str, str]"
-        return "{" + ", ".join(f"{json.dumps(str(k))}: {shape_of(v, depth + 1)}" for k, v in value.items()) + "}"
-    return type(value).__name__
-
-
-def _merged_shape(dicts: list, depth: int) -> str:
-    """One record shape for sibling dicts: a key missing from some gets `?`, and a field holding str-valued dicts
-    whose keys differ between siblings (free-form options) is `dict[str, str]`."""
-    keys = list(dict.fromkeys(k for d in dicts for k in d))
-    fields = []
-    for k in keys:
-        vals = [d[k] for d in dicts if k in d]
-        if all(isinstance(v, dict) and all(isinstance(x, str) for x in v.values()) for v in vals) \
-                and len({tuple(v) for v in vals}) > 1:
-            shape = "dict[str, str]"
-        elif all(isinstance(v, dict) and v for v in vals) and len(vals) > 1:
-            shape = _merged_shape(vals, depth + 1)
+        if len(nonempty) == 1 and len(nonempty[0]) > 6 and all(isinstance(x, str) for x in nonempty[0].values()):
+            return "dict[str, str]"
+        keys = list(dict.fromkeys(k for v in nonempty for k in v))
+        fields = []
+        for k in keys:
+            vals = [v[k] for v in nonempty if k in v]
+            fields.append(f"{json.dumps(str(k))}: {shape_of_samples(vals, depth + 1)}" + ("" if len(vals) == len(nonempty) else "?"))
+        return "{" + ", ".join(fields) + "}"
+    if all(isinstance(v, (list, tuple)) for v in values):
+        items = [x for v in values for x in v][:200]
+        return f"list[{shape_of_samples(items, depth + 1)}]" if items else "list"
+    kinds: list = []
+    for v in values:
+        if v is None:
+            k = "None"
+        elif isinstance(v, bool):
+            k = "bool"
+        elif isinstance(v, int):
+            k = "int"
+        elif isinstance(v, float):
+            k = "float"
+        elif isinstance(v, str):
+            k = "str"
+        elif isinstance(v, (dict, list, tuple)):
+            k = shape_of_samples([v], depth)
         else:
-            shape = " | ".join(list(dict.fromkeys(shape_of(v, depth + 1) for v in vals))[:3])
-        fields.append(f"{json.dumps(str(k))}: {shape}" + ("" if len(vals) == len(dicts) else "?"))
-    return "{" + ", ".join(fields) + "}"
+            k = type(v).__name__
+        if k not in kinds:
+            kinds.append(k)
+    if kinds == ["int", "float"] or kinds == ["float", "int"]:
+        return "float"
+    return " | ".join(kinds[:3])
 
 
 def echo_last_expression(source: str) -> str:
@@ -229,6 +231,39 @@ def tool_line(func: Callable) -> str:
     return f"{func.__name__}({_signature(func)}){arrow}, effect {effect}. {doc}".rstrip()
 
 
+def _literal(value: Any, depth: int = 0) -> str | None:
+    """Weave source for a plain value, or None when it has no literal form."""
+    if depth > 40:
+        return None
+    if value is None or isinstance(value, bool):
+        return repr(value)
+    if isinstance(value, (int, str)):
+        return repr(value)
+    if isinstance(value, float):
+        return repr(value) if value == value and value not in (float("inf"), float("-inf")) else None
+    if isinstance(value, (list, tuple)):
+        items = [_literal(v, depth + 1) for v in value]
+        return None if None in items else "[" + ", ".join(items) + "]"
+    if isinstance(value, dict):
+        pairs = []
+        for k, v in value.items():
+            kt, vt = _literal(k, depth + 1), _literal(v, depth + 1)
+            if kt is None or vt is None:
+                return None
+            pairs.append(f"{kt}: {vt}")
+        return "{" + ", ".join(pairs) + "}"
+    return None
+
+
+def _shift_lines(text: str, prelude: str) -> str:
+    """Report positions in the model's own script, not counting the one-line prelude."""
+    import re
+
+    if not prelude:
+        return text
+    return re.sub(r"\bL(\d+):", lambda m: f"L{max(1, int(m.group(1)) - 1)}:", text)
+
+
 class WeaveTool:
     """A single function-calling tool that runs Weave scripts over `functions`."""
 
@@ -244,6 +279,7 @@ class WeaveTool:
         max_wall_time_ms: int | None = None,
         debug: bool = False,
         conversational: bool = False,
+        persist_variables: bool = False,
     ):
         """`worker_pool=N` runs every function in killable worker processes
         (`Engine(worker_pool=N, isolate_all=True)`): a tool timeout or the run
@@ -251,9 +287,15 @@ class WeaveTool:
         pickleable; opt one out with `weave.declare(hard_deadline=False)`.
         `max_wall_time_ms` bounds each script run (default 30s).
         `conversational=True` adds `CONVERSATION_RULES` to the description, for hosts where a person
-        replies between turns."""
+        replies between turns.
+        `persist_variables=True` keeps the variables of earlier scripts, like a notebook: a later script
+        can use `order` from the script before instead of fetching it again. Values are snapshots taken
+        when the earlier script ended; they reach the engine as literal assignments, so effect analysis
+        and scheduling see plain constants."""
         self.functions = list(functions)
         self.conversational = conversational
+        self.persist_variables = persist_variables
+        self.variables: dict = {}
         self.name = name
         self.max_output_chars = max_output_chars
         if engine is not None and (worker_pool is not None or worker_limits is not None or debug):
@@ -274,7 +316,13 @@ class WeaveTool:
     @property
     def description(self) -> str:
         lines = "\n".join(tool_line(f) for f in self.functions)
-        rules = f"{RULES} {CONVERSATION_RULES}" if self.conversational else RULES
+        rules = RULES
+        if self.persist_variables:
+            rules = rules.replace("(scripts do not share variables)", "(each script sees the variables earlier scripts set)")
+            rules += (" Variables persist between scripts, like a notebook: reuse values you already fetched instead "
+                      "of calling again; call again when you need fresh data after a change.")
+        if self.conversational:
+            rules = f"{rules} {CONVERSATION_RULES}"
         return f"{rules}\nFunctions callable from the script:\n{lines}"
 
     @property
@@ -315,10 +363,12 @@ class WeaveTool:
             return 'error: source must be a string'
         if not source.endswith("\n"):
             source += "\n"
-        problems = self.engine.check(source)
-        if problems:
-            return "error: the script did not pass the static check\n" + "\n".join(problems)
         source = echo_last_expression(source)
+        prelude = self._prelude(source) if self.persist_variables else ""
+        problems = self.engine.check(prelude + source)
+        if problems:
+            return "error: the script did not pass the static check\n" + "\n".join(_shift_lines(p, prelude) for p in problems)
+        source = prelude + source
         try:
             if _cancel is not None and hasattr(self.engine, "session"):
                 session = self.engine.session()
@@ -330,12 +380,39 @@ class WeaveTool:
                 session.push(source)
                 out = session.finish().stdout
             else:
-                out = self.engine.run(source).stdout
+                result = self.engine.run(source)
+                out = result.stdout
+                if self.persist_variables:
+                    self._keep(result.bindings)
         except Exception as exc:  # noqa: BLE001 - every Weave failure goes back to the model
-            return f"error: {exc}"
+            return f"error: {_shift_lines(str(exc), prelude)}"
         if len(out) > self.max_output_chars:
             out = out[: self.max_output_chars] + f"\n[truncated to {self.max_output_chars} characters]"
         return out if out.strip() else "(the script printed nothing; print the values you need)"
+
+    def _prelude(self, source: str) -> str:
+        """Literal assignments for the earlier variables this script reads, on one line."""
+        import ast
+
+        if not self.variables:
+            return ""
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return ""
+        used = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+        parts = [f"{k} = {v}" for k, v in self.variables.items() if k in used]
+        return ("; ".join(parts) + "\n") if parts else ""
+
+    def _keep(self, bindings: dict) -> None:
+        for name, value in bindings.items():
+            if name.startswith("_") or name in ("ToolError",):
+                continue
+            text = _literal(value)
+            if text is not None and len(text) <= 200_000:
+                self.variables[name] = text
+            else:
+                self.variables.pop(name, None)
 
     def run_many(self, sources: list) -> list:
         """Run the scripts of one model turn (parallel tool calls) and return
