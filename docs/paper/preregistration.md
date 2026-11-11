@@ -89,3 +89,23 @@ endpoint does not answer (it timed out on 2026-11-10 at 20:49 ET), the GLM row i
 `bench/v4/run.py` writes `summary.json` per run (per split and latency: per-mode pass rate with Wilson CI,
 bootstrap CIs of turns, wall time and tokens, paired differences and ratios, McNemar, per-family breakdowns).
 `bench/v4/charts.py` builds every figure in the paper from the committed `bench/results/v4/` data only.
+
+## Addendum (written after the held-out runs, before any run on `confirm`)
+
+The held-out runs finished at commit `8dae373` (ablation at `29f7057`, which only added `bench/v4/charts.py`).
+Their traces showed that every GPT-4.1 Weave failure (4 of 30) was the same thing: the script called
+`max(pairs, key=lambda p: p[1])`, the static check rejected `lambda` with an unhelpful hint, and the model then
+guessed. Commit `59a5465` changed only error messages and list ordering (lists now compare lexicographically, and
+`key=`/`lambda` errors name the loop to write). Those fixes are **not** evaluated on the held-out set.
+
+To test them we add a `confirm` suite: the held-out recipe with every seed shifted by 100, so none of its tasks were
+seen before (manifest hash `f0829e845bfd6e2b`).
+
+| provider | model | settings | suite | repeats | latency (ms) |
+|---|---|---|---|---|---|
+| openai | gpt-4.1-2025-04-14 | temperature 0 | confirm | 3 | 200 |
+
+- **C1.** GPT-4.1 Weave pass rate on `confirm` is at least its held-out rate (28/30), and no Weave failure is a
+  repeat of the `key=lambda` dead end.
+- **C2.** H1–H3 hold on `confirm` for GPT-4.1 (same tests as above).
+The same stopping and exclusion rules apply; this suite is run once.

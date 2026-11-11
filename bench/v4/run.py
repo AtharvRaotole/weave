@@ -106,10 +106,10 @@ def main(argv=None):
             raise SystemExit("--model is required")
         if dirty and (not args.allow_dirty or args.suite != "dev"):
             raise SystemExit("refusing: commit first so results pin a clean source commit")
-        if args.suite == "held_out":
+        if args.suite != "dev":
             prereg = ROOT / "docs/paper/preregistration.md"
-            if not prereg.exists() or manifest("held_out")["hash"] not in prereg.read_text():
-                raise SystemExit("refusing: held-out manifest hash is not in docs/paper/preregistration.md")
+            if not prereg.exists() or manifest(args.suite)["hash"] not in prereg.read_text():
+                raise SystemExit(f"refusing: {args.suite} manifest hash is not in docs/paper/preregistration.md")
     tasks = SUITES[args.suite]
     if args.tasks:
         want = args.tasks.split(",")

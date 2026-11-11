@@ -221,7 +221,11 @@ HELD_OUT = tuple(make(f, n, s, "held_out") for f, n, s in [
 SCALING = tuple([make("fanout_sum", n, 7, "scaling") for n in (5, 10, 20, 35, 50)]
                 + [make("chain", n, 7, "scaling") for n in (2, 4, 8)])
 
-SUITES = {"dev": DEV, "held_out": HELD_OUT, "scaling": SCALING}
+# CONFIRM: fresh seeds for the held-out recipe, pre-registered in the addendum of
+# docs/paper/preregistration.md after the held-out runs; evaluates fixes made from held-out traces.
+CONFIRM = tuple(make(t.family, t.size, t.seed + 100, "confirm") for t in HELD_OUT)
+
+SUITES = {"dev": DEV, "held_out": HELD_OUT, "scaling": SCALING, "confirm": CONFIRM}
 
 
 def manifest(suite):
