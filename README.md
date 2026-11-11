@@ -12,18 +12,49 @@ Python bindings, and an MCP proxy.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Status: 1.0](https://img.shields.io/badge/status-1.0-green.svg)
 
-[Quickstart](#quickstart) · [Getting started](docs/getting-started.md) · [Agent integration](#give-your-agent-one-workflow-tool) · [MCP](#connect-mcp-servers) · [Benchmarks](#benchmarks) · [Production use](docs/production.md) · [Contributing](CONTRIBUTING.md)
+[Try it](#try-it-in-one-minute) · [Quickstart](#quickstart) · [Getting started](docs/getting-started.md) · [Agent integration](#give-your-agent-one-workflow-tool) · [MCP](#connect-mcp-servers) · [Benchmarks](#benchmarks) · [Production use](docs/production.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
-**Measured result (pre-registered, held-out, [paper](docs/paper/weave.md)):** against native
-*parallel* function calling on the same model, tools and endpoint, Weave used **39–52% of the
-tokens** and **1.6–2.0 fewer model turns** per task on GPT-5.5, GPT-5.4 mini and GPT-4.1, with equal
-or higher success (30/30 vs 30/30, 30/30 vs 30/30, 28/30 vs 23/30). A second pre-registered round fixed the
-one loss: with footprint-aware ordering, loops that write now run their backend calls at native speed
-(0.96–1.07×, down from about 2×). Against real services (SQLite, git, files, HTTP, PyPI), Weave used
-44–77% of the tokens and passed as often or more, but saved turns only on the GPT-5 models.
-[Details below](#benchmarks).
+<p align="center"><img src="assets/demo.gif" alt="Terminal recording of python examples/demo.py: one Weave script makes 13 tool calls in 4 overlapping waves in 1.2 s" width="720"></p>
+
+<p align="center"><sub>A real run of <a href="examples/demo.py"><code>examples/demo.py</code></a> (offline, no API key; recording: <a href="assets/demo.cast"><code>assets/demo.cast</code></a>, animated SVG: <a href="assets/demo.svg"><code>assets/demo.svg</code></a>).</sub></p>
+
+Instead of one model turn per tool call, the model writes **one short script** (Python syntax:
+loops, comprehensions, `key=` lambdas, helpers). Weave runs its independent calls together,
+orders the writes by their declared effects, and returns only what the script printed.
+
+**Measured, pre-registered, fresh seeds, against native *parallel* function calling on the same
+model, tools and services** ([paper](docs/paper/weave.md), [tables](docs/paper/results-tables.md)):
+
+- **Real services** (SQLite, git, files, HTTP, the live PyPI API; round 4, `confirm4`, 30 trials per arm):
+  GPT-4.1 passed **30/30 vs 18/30** in **2.1 s vs 4.6 s** per task (Δ −2.5 s, 95% CI [−3.4, −1.6]) with
+  **0.51×** the tokens; GPT-5.4 mini **30/30 vs 25/30**, Δ −3.8 s [−6.0, −1.7], **0.54×** the tokens.
+- **Held-out simulated APIs** (round 1, 200 ms per call): **39–52% of the tokens** and **1.6–2.0 fewer model
+  turns** on GPT-5.5, GPT-5.4 mini and GPT-4.1, with equal or higher success.
+- **Losses are kept:** earlier rounds' wall-time gaps, a GPT-4.1 runaway at `max_output_tokens`, and
+  providers we could not test (Gemini quota, GLM timeouts) are in the paper. Round 4's Weave arm uses the
+  product's recommended `parallel_tool_calls: false`, declared before the run.
+
+<p align="center"><img src="assets/benchmark-v7-real.png" alt="Weave/native wall time and turns on real services across rounds 2, 3 and 4" width="720"></p>
+
+### Try it in one minute
+
+No API key, no network after the clone. You need Python 3.9–3.13 and [Rust](https://rustup.rs/)
+(the first build compiles Weave: 18 s on an 8-core Linux machine, 20 s from a fresh clone to `demo ok`,
+with crates already downloaded; a first download adds to that).
+
+```bash
+git clone https://github.com/AtharvRaotole/weave.git && cd weave
+python3 -m venv .venv && . .venv/bin/activate
+pip install "maturin>=1.8,<2" && maturin develop --release --locked
+python examples/demo.py        # the recording above
+python examples/quickstart.py  # register two functions, run a script, replay it from its trace
+```
+
+Every file in [`examples/`](examples/) runs offline without keys, and CI runs them on each push.
+
+## What it is
 
 Weave lets an agent express tool calls, dependencies, branches, and loops in one
 script. The runtime runs independent reads concurrently and applies ordering
@@ -171,9 +202,14 @@ def order_total(order_id):
 
 tool = weave.WeaveTool([order_total])
 tools = [tool.chat_tool()]
-# Pass `tools` to Chat Completions.
+# Pass `tools` and **tool.request_options to Chat Completions or Responses.
 # For a returned tool call: messages.append(tool.handle(call))
 ```
+
+`tool.request_options` is `{"parallel_tool_calls": False}`: Weave already runs a script's
+independent calls together, and scripts do not share variables, so one script per turn is
+better. Without it GPT-4.1 sometimes sent two scripts and then ran to `max_output_tokens`
+(see [the round-4 diagnosis](bench/results/v7/diag-turn1/NOTES.md)).
 
 Use `tool.responses_tool()` for a Responses definition, or `tool.agents_tool()`
 with the optional `openai-agents` package.
