@@ -27,7 +27,7 @@ BLUE, GREY = "#2457d6", "#a3a9b4"
 
 def load(run):
     d = RESULTS / run
-    for newer in ("v5", "v6", "v7"):
+    for newer in ("v5", "v6", "v7", "v8"):
         if not d.exists():
             d = ROOT / "bench/results" / newer / run
     rows = [json.loads(line) for line in (d / "rows.jsonl").read_text().splitlines() if line.strip()]
@@ -233,13 +233,102 @@ def round4_section(runs):
               "input (about 0.9–1.0k on a first turn).", "",
               "| suite | model | rows | recorded tokens of the failed request | billed at least |", "|---|---|---|---|---|"]
     for suite, entries in runs.items():
-        if suite in ("confirm4", "dev_round4"):
+        if suite in ("confirm4", "dev_round4", "confirm5", "tau_retail", "dev_round5"):
             continue
         for label, run in entries.items():
             _, rows = load(run)
             k = sum(r["status"] == "provider_error:incomplete" and "billed_on_error" not in r for r in rows)
             if k:
                 lines.append(f"| {suite} | {label} | {k} | 0 | {k * 4096:,} output tokens |")
+    return lines
+
+
+def relabel(rows, a, b):
+    """Rows of arm `a` as 'weave' and arm `b` as 'native', so stats.paired compares a with b."""
+    return [dict(r, mode="weave") for r in rows if r["mode"] == a] + [dict(r, mode="native") for r in rows if r["mode"] == b]
+
+
+def compare(rows, a, b, wall=lambda r: r["wall_s"] - r["retry_wait_s"]):
+    g = relabel(rows, a, b)
+    return {"a": stats.describe(sel(g, mode="weave")), "b": stats.describe(sel(g, mode="native")),
+            "turns": stats.paired(g, lambda r: r["turns"]), "wall": stats.paired(g, wall, 1),
+            "tokens": stats.paired(g, lambda r: r["total_tokens"], 2), "mcnemar": stats.mcnemar_exact(g),
+            "incomplete": {arm: sum(r["status"] == "provider_error:incomplete" for r in rows if r["mode"] == arm) for arm in (a, b)}}
+
+
+def ptc_section(runs):
+    """Round 5 (Addendum 5): symmetric parallel_tool_calls ablation on confirm5."""
+    entries = runs.get("confirm5", {})
+    if not entries:
+        return []
+    lines = ["", "## `parallel_tool_calls` ablation, round 5 (`confirm5`: fresh seeds, real services, 1 repeat)", "",
+             "Each row compares arm A with arm B on the same 10 tasks. `weave` = Weave with parallel calls off (product "
+             "default), `weave_ptc` = Weave with them on, `native` = native with them on (rounds 1–4), `native_noptc` = "
+             "native with them off.", "",
+             "| model | A vs B | pass A / B | McNemar p | turns A / B | Δ turns [95% CI] | wall s A / B | Δ wall s [95% CI] | token ratio A/B [95% CI] | incomplete A / B |",
+             "|---|---|---|---|---|---|---|---|---|---|"]
+    pairs = (("native_noptc", "native", "P1: native off vs on"), ("weave_ptc", "weave", "P2: Weave on vs off"),
+             ("weave", "native_noptc", "P3: Weave vs native, both off"), ("weave_ptc", "native", "P3: Weave vs native, both on"),
+             ("weave", "native", "round-4 settings: Weave off vs native on"))
+    for label, run in entries.items():
+        _, rows = load(run)
+        for a, b, name in pairs:
+            c = compare(rows, a, b)
+            A, B = c["a"], c["b"]
+            lines.append(f"| {label} | {name} | {A['passed']}/{A['trials']} / {B['passed']}/{B['trials']} | {c['mcnemar']['p']:.3f} | "
+                         f"{A['mean_turns']:.2f} / {B['mean_turns']:.2f} | {c['turns']['mean_diff']:+.2f} {fmt_ci(c['turns']['mean_diff_ci95'])} | "
+                         f"{A['mean_wall_s']:.2f} / {B['mean_wall_s']:.2f} | {c['wall']['mean_diff']:+.2f} {fmt_ci(c['wall']['mean_diff_ci95'])} | "
+                         f"{c['tokens']['ratio_gm']:.2f} {fmt_ci(c['tokens']['ratio_gm_ci95'])} | {c['incomplete'][a]} / {c['incomplete'][b]} |")
+    return lines
+
+
+def tau_rows(run):
+    """tau-bench rows in the shape stats.* expects."""
+    meta, rows = load(run)
+    out = []
+    for r in rows:
+        out.append(dict(r, task=r["task_index"], mode=r["arm"], turns=r["agent_calls"], retry_wait_s=0.0,
+                        answer_ok=r["passed"], state_ok=r["passed"], unexpected_writes=0, duplicate_writes=0,
+                        tokens={**{k: r["agent_tokens"][k] + r["user_tokens"][k] for k in ("input", "output", "cached", "reasoning")}},
+                        unknown_usage_turns=0, backend_calls=len(r["tool_actions"]), script_errors=(r.get("weave") or {}).get("script_errors", 0)))
+    return meta, out
+
+
+def tau_section(runs):
+    """Round 5 (Addendum 5): tau-bench retail, Weave arm vs tau-bench's own ToolCallingAgent."""
+    entries = runs.get("tau_retail", {})
+    if not entries:
+        return []
+    lines = ["", "## tau-bench retail, round 5 (`retail_test7`: 7 test-split tasks, 1 repeat; external benchmark)", "",
+             "tau-bench (Sierra, MIT) at commit `59a200c`, unmodified: its tasks, user simulator (GPT-4.1), tools and grader. "
+             "Native arm = tau-bench's `ToolCallingAgent`; Weave arm = the same loop with one `run_weave` tool. Both arms send "
+             "`parallel_tool_calls: false`. Turns = agent model calls; tokens = agent + user simulator. n = 7 pairs per model: "
+             "every CI below is wide, and none of these differences is significant unless its CI excludes 0 (or 1).", "",
+             "| model | pass W / N | McNemar p | agent calls W / N | Δ agent calls [95% CI] | wall s W / N | Δ wall s [95% CI] | tokens W / N | token ratio [95% CI] | agent tokens W / N | trials not run (budget) |",
+             "|---|---|---|---|---|---|---|---|---|---|---|"]
+    for label, run in entries.items():
+        meta, rows = tau_rows(run)
+        w, n = stats.describe(sel(rows, mode="weave")), stats.describe(sel(rows, mode="native"))
+        t, wa, tk = (stats.paired(rows, lambda r: r["turns"]), stats.paired(rows, lambda r: r["wall_s"], 1),
+                     stats.paired(rows, lambda r: r["total_tokens"], 2))
+        mc = stats.mcnemar_exact(rows)
+        at = {m: statistics.fmean(r["agent_total_tokens"] for r in rows if r["mode"] == m) for m in ("weave", "native")}
+        lines.append(f"| {label} | {w['passed']}/{w['trials']} / {n['passed']}/{n['trials']} | {mc['p']:.3f} | "
+                     f"{w['mean_turns']:.2f} / {n['mean_turns']:.2f} | {t['mean_diff']:+.2f} {fmt_ci(t['mean_diff_ci95'])} | "
+                     f"{w['mean_wall_s']:.1f} / {n['mean_wall_s']:.1f} | {wa['mean_diff']:+.2f} {fmt_ci(wa['mean_diff_ci95'])} | "
+                     f"{w['mean_tokens']:.0f} / {n['mean_tokens']:.0f} | {tk['ratio_gm']:.2f} {fmt_ci(tk['ratio_gm_ci95'])} | "
+                     f"{at['weave']:.0f} / {at['native']:.0f} | {meta['planned'] - len(rows)} |")
+    lines += ["", "### Per task (reward W / N, agent calls W / N, Weave scripts / tool calls inside them)", "",
+              "| model | task | reward W / N | agent calls W / N | tool actions W / N | Weave scripts | Weave script errors |", "|---|---|---|---|---|---|---|"]
+    for label, run in entries.items():
+        _, rows = tau_rows(run)
+        for t in sorted({r["task"] for r in rows}):
+            w = next((r for r in rows if r["task"] == t and r["mode"] == "weave"), None)
+            n = next((r for r in rows if r["task"] == t and r["mode"] == "native"), None)
+            if w and n:
+                lines.append(f"| {label} | {t} | {w['reward']:.0f} / {n['reward']:.0f} | {w['turns']} / {n['turns']} | "
+                             f"{len(w['tool_actions'])} / {len(n['tool_actions'])} | {(w.get('weave') or {}).get('scripts', 0)} | "
+                             f"{(w.get('weave') or {}).get('script_errors', 0)} |")
     return lines
 
 
@@ -462,6 +551,44 @@ def charts_v7(runs):
     save(fig, "benchmark-v7-real")
 
 
+def charts_v8(runs):
+    """tau-bench retail (external): Weave/native ratios with CIs, next to the confirm5 equal-settings comparison."""
+    import matplotlib.pyplot as plt
+    if "tau_retail" not in runs:
+        return
+    metrics = (("turns", "agent model calls"), ("wall", "wall time"), ("tokens", "total tokens"))
+    fig, axes = plt.subplots(1, 2, figsize=(7.6, 3.0), sharey=True)
+    panels = []
+    for label, run in runs["tau_retail"].items():
+        _, rows = tau_rows(run)
+        panels.append((0, label, {m: stats.paired(rows, (lambda r: r["turns"]) if m == "turns" else (lambda r: r["wall_s"]) if m == "wall"
+                                                   else (lambda r: r["total_tokens"]), i) for i, (m, _) in enumerate(metrics)}))
+    for label, run in runs.get("confirm5", {}).items():
+        _, rows = load(run)
+        c = compare(rows, "weave_ptc", "native")
+        panels.append((1, label, {"turns": c["turns"], "wall": c["wall"], "tokens": c["tokens"]}))
+    for ax_i, title in ((0, "tau-bench retail (external, n = 7 per model)"), (1, "own real-services suite, both arms parallel on (n = 10)")):
+        ax = axes[ax_i]
+        group = [p for p in panels if p[0] == ax_i]
+        width = 0.8 / max(1, len(group))
+        for i, (_, label, d) in enumerate(group):
+            xs = [j + (i - (len(group) - 1) / 2) * width for j in range(len(metrics))]
+            ys = [d[m]["ratio_gm"] for m, _ in metrics]
+            lo = [y - d[m]["ratio_gm_ci95"][0] for y, (m, _) in zip(ys, metrics)]
+            hi = [d[m]["ratio_gm_ci95"][1] - y for y, (m, _) in zip(ys, metrics)]
+            ax.bar(xs, ys, width * 0.9, yerr=[lo, hi], capsize=2, label=label, color=(GREY, BLUE)[i % 2])
+            for x, y in zip(xs, ys):
+                ax.text(x, 0.03, f"{y:.2f}", ha="center", va="bottom", fontsize=6.5, color="white")
+        ax.axhline(1.0, color="#333", lw=0.8, ls="--")
+        ax.set_xticks(range(len(metrics)), [m for _, m in metrics], fontsize=7)
+        ax.set_title(title, fontsize=8)
+        ax.legend(frameon=False, fontsize=6.5, loc="upper left")
+    axes[0].set_ylabel("Weave / native (geo. mean)")
+    fig.suptitle("Round 5: an external benchmark (no gain, mixed) and an equal-settings check (gain holds)", fontsize=9)
+    fig.tight_layout()
+    save(fig, "benchmark-v8-tau")
+
+
 def charts(head, fams, scaling):
     import matplotlib
     matplotlib.use("Agg")
@@ -539,12 +666,14 @@ def main():
     if "confirm3" in runs or "real2" in runs:
         extra += static_section(runs)
     extra += round4_section(runs)
+    extra = tau_section(runs) + ptc_section(runs) + extra
     write_tables(runs, head, fams, scaling, extra)
     try:
         charts(head, fams, scaling)
         charts_v5(runs, fp)
         charts_v6(runs)
         charts_v7(runs)
+        charts_v8(runs)
     except ImportError:
         print("matplotlib not installed: wrote tables only")
     print(f"wrote {TABLES.relative_to(ROOT)} and assets/benchmark-v4*.svg")

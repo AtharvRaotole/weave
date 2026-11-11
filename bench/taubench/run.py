@@ -141,6 +141,8 @@ def main(argv=None):
     ap.add_argument("--repeats", type=int, default=1)
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--token-budget", type=int, default=500_000)
+    ap.add_argument("--reserve-per-trial", type=int, default=200_000,
+                    help="tokens reserved for each trial in flight; a trial starts only if spent + reserved fits the budget")
     ap.add_argument("--out", type=Path, default=ROOT / "bench/results/v8")
     ap.add_argument("--tag", default="")
     ap.add_argument("--seed", type=int, default=2026)
@@ -182,11 +184,19 @@ def main(argv=None):
     rows_f, traces_f = (out / "rows.jsonl").open("a"), (out / "traces.jsonl").open("a")
     lock, spent, done = threading.Lock(), [0], [0]
 
+    in_flight = [0]
+
     def go(arm, t, r):
+        # Round 5 overspent because this check ignored trials already running (7 workers x ~100k tokens).
         with lock:
-            if spent[0] >= args.token_budget:
+            if spent[0] + (in_flight[0] + 1) * args.reserve_per_trial > args.token_budget:
                 return
-        row = one_trial(args, arm, t, r)
+            in_flight[0] += 1
+        try:
+            row = one_trial(args, arm, t, r)
+        finally:
+            with lock:
+                in_flight[0] -= 1
         messages = row.pop("messages")
         with lock:
             spent[0] += row["total_tokens"]

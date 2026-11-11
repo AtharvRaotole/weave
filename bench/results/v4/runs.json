@@ -55,5 +55,17 @@
     "GPT-4.1 (temp 0), dev git, one script per turn": "20261111T041602Z-real_dev_git-openai-gpt-4.1-2025-04-14-diag-fixed",
     "GPT-4.1 (temp 0), real_dev, one script per turn": "20261111T041602Z-real_dev-openai-gpt-4.1-2025-04-14-dev-fixed",
     "GPT-5.4 mini (low), dev git, one script per turn": "20261111T041635Z-real_dev_git-openai-gpt-5.4-mini-2026-03-17-dev-fixed"
+  },
+  "tau_retail": {
+    "GPT-4.1 (temp 0)": "20261111T043802Z-tau-retail-test-gpt-4.1-2025-04-14",
+    "GPT-5.4 mini (low)": "20261111T043801Z-tau-retail-test-gpt-5.4-mini-2026-03-17"
+  },
+  "confirm5": {
+    "GPT-4.1 (temp 0)": "20261111T043759Z-confirm5-openai-gpt-4.1-2025-04-14",
+    "GPT-5.4 mini (low)": "20261111T043759Z-confirm5-openai-gpt-5.4-mini-2026-03-17"
+  },
+  "dev_round5": {
+    "GPT-4.1 (temp 0), tau-bench train 0-5": "20261111T043453Z-tau-retail-train-gpt-4.1-2025-04-14-dev1",
+    "GPT-5.4 mini (low), tau-bench train 2": "20261111T043701Z-tau-retail-train-gpt-5.4-mini-2026-03-17-dev-mini"
   }
 }

@@ -91,6 +91,8 @@ def main(argv=None):
     ap.add_argument("--latency-ms", default="200", help="comma-separated per-call latency means")
     ap.add_argument("--workers", type=int, default=4, help="trials in flight")
     ap.add_argument("--token-budget", type=int, default=3_000_000, help="stop scheduling after this many tokens")
+    ap.add_argument("--reserve-per-trial", type=int, default=0,
+                    help="tokens reserved for each trial in flight (0: check spent tokens only)")
     ap.add_argument("--request-timeout-s", type=float, default=180)
     ap.add_argument("--retries", type=int, default=4, help="HTTP retries per request (429/5xx/timeouts)")
     ap.add_argument("--min-interval-s", type=float, default=0.0,
@@ -154,10 +156,20 @@ def main(argv=None):
                           timeout_s=args.request_timeout_s, retries=args.retries,
                           min_interval_s=args.min_interval_s)
 
+    in_flight = [0]
+
     def go(i, task, mode, rep, lat):
         with lock:
-            if spent[0] >= args.token_budget:
+            if spent[0] + (in_flight[0] + 1) * args.reserve_per_trial > args.token_budget or spent[0] >= args.token_budget:
                 return None
+            in_flight[0] += 1
+        try:
+            return _go(i, task, mode, rep, lat)
+        finally:
+            with lock:
+                in_flight[0] -= 1
+
+    def _go(i, task, mode, rep, lat):
         real_mode = "weave" if mode.startswith("weave") else "native"
         ptc = {"weave_ptc": True, "native_noptc": False}.get(mode)  # round-5 parallel_tool_calls ablation arms
         row = trial(task, real_mode, client_for(task, mode), latency_ms=lat, repeat=rep,
