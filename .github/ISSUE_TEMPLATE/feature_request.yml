@@ -1,0 +1,16 @@
+name: Feature or language request
+description: A builtin, a language construct, an integration, or a scheduling improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The workflow you could not write
+      description: The task, the script you tried (or a model wrote), and the error. Real traces help most.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should change, and how it keeps effects, replay and the static check sound.

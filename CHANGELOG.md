@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Runtime
+- Read-only `for` loops are pipelined (windows of 64 iterations), including accumulators, dict fills and
+  appends; `break` and guarded calls are never issued early; replay stays exact. `Limits::with_pipeline_loops`.
+- `total += tool()` polls both sides concurrently.
+- Fixed: `d[k] = v` inside a parallel loop dropped every key.
+- Names assigned in a loop are defined after it; an unbound name is a runtime error, not empty output.
+- Lists compare lexicographically.
+- Errors a model can repair from: value descriptions ("dict with keys 'value'"), missing-key lists, `bad call:
+  ...; call it as f(p=...)`, `functions.f` → `f`, `while`, `lambda` and `key=` hints.
+- `Engine.script_effect(source)`.
+
+### Agent tool
+- Listings show return types (`name(params) -> type, effect E`), from annotations or `__weave_returns__`.
+- `WeaveTool.handle_many` / `run_many`: the read-only scripts of one turn run concurrently.
+- A script's final bare expression is printed.
+- Rules ask for few scripts and printing only what is needed.
+
+### Benchmarks
+- Benchmark v4 (`bench/v4`, `make bench-mock`, `make bench-live`), pre-registered held-out results on three
+  OpenAI models, scaling, ablation, confirm suite, partial Gemini run, and a protocol-v3 rerun. Paper in
+  `docs/paper/`.
+
 ### Benchmarks
 - First live protocol-v3 comparison (2026-11-09): `gpt-5.5-2026-04-23`,
   `gpt-5.4-mini-2026-03-17` and `gpt-4.1-2025-04-14`, ten frozen

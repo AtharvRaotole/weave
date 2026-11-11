@@ -1,0 +1,16 @@
+name: Benchmark result or methodology issue
+description: Report a result (including a negative one), a fairness problem, or a new provider run
+labels: [benchmark]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What you ran or found
+      description: Command, commit, provider and model snapshot, and the run directory (run.json + rows.jsonl) if you have one.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options: [new result, fairness or validity concern, harness bug, new task family]

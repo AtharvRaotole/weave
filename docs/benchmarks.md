@@ -1,6 +1,48 @@
 # Benchmarks
 
-## Live results: protocol v3 (2026-11-09)
+## Benchmark v4: pre-registered, held-out (2026-11-10)
+
+The paper is [docs/paper/weave.md](paper/weave.md) ([PDF](paper/weave.pdf)). The pre-registration is
+[docs/paper/preregistration.md](paper/preregistration.md), committed at `8dae373` before any held-out trial. Every
+table is generated in [docs/paper/results-tables.md](paper/results-tables.md) by `bench/v4/charts.py` from the rows
+in `bench/results/v4/`.
+
+![Held-out ratios](../assets/benchmark-v4.png)
+
+![By family](../assets/benchmark-v4-families.png)
+
+![Scaling](../assets/benchmark-v4-scaling.png)
+
+**Harness.** `bench/v4/`:
+
+- `world.py` is a deterministic simulated backend: 9 reads and 2 writes, seeded latency of mean × U(0.5, 1.5), at most
+  8 calls in flight.
+- `tasks.py` defines 7 task families and the frozen dev, held_out, scaling and confirm suites with manifest hashes.
+- `agent.py` holds both arms, with the same system prompt, contracts and settings. Native reads in one turn run
+  concurrently.
+- `providers.py` covers OpenAI through the Responses API and Gemini, NVIDIA and Z.ai through Chat Completions. It
+  records every HTTP attempt.
+- `stats.py` provides Wilson intervals, cluster bootstrap and exact McNemar.
+- `run.py` requires both `--allow-live` and `WEAVE_BENCH_LIVE=1`, a token budget, a clean tree, and the pre-registered
+  hash for any suite other than dev.
+- `mock.py` has oracle agents for the offline mode that runs in CI.
+
+**Protocol v3 rerun after the fixes (strict mode, 2026-11-10, harness at `29f7057`).** This is the same frozen
+10-task set on the real `weave-mcp` binary, at 30 trials per mode per model. It was the diagnosis set for the fixes,
+so it is a before/after comparison, not held-out.
+
+| model | Weave first try (before → after) | Weave pass | native pass | Weave turns | native turns | Weave / native tokens |
+|---|---|---|---|---|---|---|
+| `gpt-5.5-2026-04-23` (low) | 11/30 → 30/30 | 28 → 30 | 29 → 28 | 2.97 → 2.00 | 3.27 → 3.27 | 3,034 / 4,072 |
+| `gpt-5.4-mini-2026-03-17` (low) | 26/30 → 30/30 | 28 → 30 | 28 → 28 | 2.80 → 2.03 | 3.27 → 3.30 | 3,160 / 4,375 |
+| `gpt-4.1-2025-04-14` (temp 0) | 20/30 → 26/30 | 25 → 28 | 26 → 24 | 3.23 → 2.37 | 3.30 → 3.30 | 3,592 / 3,799 |
+
+The rows are in `bench/results/protocol-v3-live/20261111T020113Z-*`. Native token counts also moved between the two
+runs (for example, GPT-5.5 went from 3,474 to 4,072) with no change to the native arm, which shows the run-to-run
+variance.
+
+
+## Live results: protocol v3 (2026-11-09, before the v4 fixes)
 
 ![Weave vs native tool calling, live protocol v3](../assets/benchmark-v3.png)
 
