@@ -35,8 +35,11 @@ pub enum StmtKind {
     Pass,
 }
 
-/// One `except` clause. Bare `except` catches every tool and runtime error.
-/// `except ToolError` catches only host-tool failures.
+/// One `except` clause. Bare `except`, `except Exception` and
+/// `except BaseException` catch every tool and runtime error. `except
+/// ToolError` catches only host-tool failures. Builtin Python classes such as
+/// `KeyError` or `(KeyError, IndexError)` catch the runtime errors of that
+/// kind (see `exec::error_kind`).
 #[derive(Clone, Debug)]
 pub struct Handler {
     #[allow(dead_code)]
@@ -44,6 +47,8 @@ pub struct Handler {
     #[allow(dead_code)]
     pub col: usize,
     pub catches_all: bool,
+    /// Exception class names when `catches_all` is false.
+    pub classes: Vec<String>,
     pub name: Option<String>,
     pub body: Vec<Stmt>,
 }

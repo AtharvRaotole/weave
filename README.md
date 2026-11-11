@@ -301,7 +301,8 @@ The host is responsible for compensating `reversible` operations. Resource
 footprints guide speculative cache invalidation; they do not parallelize writes.
 
 The language supports assignment, `if`/`elif`/`else`, `for`, `break`, `continue`,
-`try`/`except ToolError`, lists, dictionaries, f-strings, and selected builtins and
+`try`/`except` (`Exception`, `ToolError`, `KeyError`, ...), `raise`/`assert`, lists, dictionaries (iterate them
+directly), f-strings with format specs, `str.format`, `%` formatting, `isinstance`, `round`, `json.dumps`, selected builtins and
 methods, comprehensions and generator expressions, `key=` lambdas, `map`/`filter`, sets
 (as duplicate-free lists), and top-level `def` helpers, which are inlined at each call. Imports, classes,
 `while`, recursion, and `await` are rejected with a fix hint. This is a Python-like subset with its own value semantics.

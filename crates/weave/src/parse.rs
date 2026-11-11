@@ -347,14 +347,20 @@ impl<'a> Lowerer<'a, '_> {
                 self.err_hint(stmt.start(), "`match` is not supported", "use `if`");
                 StmtKind::Pass
             }
-            Stmt::Raise(_) => {
-                self.err_hint(stmt.start(), "`raise` is not supported", "return a tool error by letting the tool fail, or use `if`");
-                StmtKind::Pass
-            }
+            Stmt::Raise(r) => self.lower_raise(stmt, r),
             Stmt::Try(s) => self.lower_try(s),
-            Stmt::Assert(_) => {
-                self.err_hint(stmt.start(), "`assert` is not supported", "use `if`");
-                StmtKind::Pass
+            Stmt::Assert(a) => {
+                // `assert c, msg` is `if not c: raise AssertionError(msg)`.
+                let (line, col) = self.loc(stmt.start());
+                let test = self.expr(&a.test);
+                let msg = match &a.msg {
+                    Some(m) => self.expr(m),
+                    None => WExpr { line, col, kind: ExprKind::Str(String::new()) },
+                };
+                let class = WExpr { line, col, kind: ExprKind::Str("AssertionError".into()) };
+                let raise = WStmt { line, col, kind: StmtKind::Expr(call_expr(line, col, "__weave_raise", vec![class, msg])) };
+                let not = WExpr { line, col, kind: ExprKind::Unary { op: crate::ast::UnaryOp::Not, operand: Box::new(test) } };
+                StmtKind::If { test: not, body: vec![raise], orelse: Vec::new() }
             }
             Stmt::Import(_) | Stmt::ImportFrom(_) => {
                 self.err_hint(
@@ -398,7 +404,7 @@ impl<'a> Lowerer<'a, '_> {
             self.err_hint(
                 stmt.start(),
                 "`except*` is not supported",
-                "use `except ToolError` or a bare `except`",
+                EXCEPT_HINT,
             );
             return StmtKind::Pass;
         }
@@ -420,23 +426,40 @@ impl<'a> Lowerer<'a, '_> {
             self.err_hint(
                 stmt.start(),
                 "try needs exactly one except clause",
-                "use `except ToolError:` or a bare `except:`",
+                "catch several kinds in one clause, e.g. `except (KeyError, ToolError):` or `except Exception:`",
             );
             return StmtKind::Pass;
         }
         let ast::ExceptHandler::ExceptHandler(handler) = &stmt.handlers[0];
-        let catches_all = match handler.type_.as_deref() {
-            None => true,
-            Some(ast::Expr::Name(name)) if name.id.as_str() == "ToolError" => false,
-            Some(_) => {
-                self.err_hint(
-                    handler.range.start(),
-                    "only `except ToolError` or a bare `except` is supported",
-                    "catch tool failures with `except ToolError`",
-                );
+        let mut names: Vec<(String, TextSize)> = Vec::new();
+        match handler.type_.as_deref() {
+            None => {}
+            Some(ast::Expr::Name(name)) => names.push((name.id.as_str().to_string(), name.range.start())),
+            Some(ast::Expr::Tuple(t)) => {
+                for e in &t.elts {
+                    match e {
+                        ast::Expr::Name(name) => names.push((name.id.as_str().to_string(), name.range.start())),
+                        other => {
+                            self.err_hint(other.start(), "only exception class names can be caught", EXCEPT_HINT);
+                            return StmtKind::Pass;
+                        }
+                    }
+                }
+            }
+            Some(other) => {
+                self.err_hint(other.start(), "only exception class names can be caught", EXCEPT_HINT);
                 return StmtKind::Pass;
             }
-        };
+        }
+        for (name, at) in &names {
+            if !CATCHABLE.contains(&name.as_str()) {
+                self.err_hint(*at, format!("`except {name}` is not supported"), EXCEPT_HINT);
+                return StmtKind::Pass;
+            }
+        }
+        let catches_all = handler.type_.is_none()
+            || names.iter().any(|(n, _)| n == "Exception" || n == "BaseException");
+        let classes: Vec<String> = names.into_iter().map(|(n, _)| n).collect();
         let (line, col) = self.loc(handler.range.start());
         StmtKind::Try {
             body: self.suite(&stmt.body),
@@ -444,10 +467,48 @@ impl<'a> Lowerer<'a, '_> {
                 line,
                 col,
                 catches_all,
+                classes,
                 name: handler.name.as_ref().map(|id| self.resolve(id.id.as_str())),
                 body: self.suite(&handler.body),
             },
         }
+    }
+
+    /// `raise ValueError("msg")` stops the script with a runtime error that
+    /// `except ValueError` (or `Exception`) catches. A bare `raise` is not
+    /// supported.
+    fn lower_raise(&mut self, stmt: &Stmt, r: &ast::StmtRaise) -> StmtKind {
+        let (line, col) = self.loc(stmt.start());
+        let hint = "raise a builtin class with a message, e.g. `raise ValueError(\"order not found\")`";
+        if r.cause.is_some() {
+            self.err_hint(stmt.start(), "`raise ... from ...` is not supported", hint);
+            return StmtKind::Pass;
+        }
+        let Some(exc) = r.exc.as_deref() else {
+            self.err_hint(stmt.start(), "a bare `raise` is not supported", hint);
+            return StmtKind::Pass;
+        };
+        let (class, msg) = match exc {
+            Expr::Name(n) => (n.id.as_str().to_string(), None),
+            Expr::Call(c) if matches!(c.func.as_ref(), Expr::Name(_)) && c.arguments.keywords.is_empty() && c.arguments.args.len() <= 1 => {
+                let Expr::Name(n) = c.func.as_ref() else { unreachable!() };
+                (n.id.as_str().to_string(), c.arguments.args.first())
+            }
+            _ => {
+                self.err_hint(stmt.start(), "only `raise SomeError(message)` is supported", hint);
+                return StmtKind::Pass;
+            }
+        };
+        if !CATCHABLE.contains(&class.as_str()) && class != "AssertionError" {
+            self.err_hint(stmt.start(), format!("`raise {class}` is not supported"), hint);
+            return StmtKind::Pass;
+        }
+        let msg = match msg {
+            Some(m) => self.expr(m),
+            None => WExpr { line, col, kind: ExprKind::Str(String::new()) },
+        };
+        let class = WExpr { line, col, kind: ExprKind::Str(class) };
+        StmtKind::Expr(call_expr(line, col, "__weave_raise", vec![class, msg]))
     }
 
     fn lower_if(&mut self, stmt: &ast::StmtIf) -> StmtKind {
@@ -772,22 +833,56 @@ impl<'a> Lowerer<'a, '_> {
                                 segs.push(FSeg::Lit(lit.value.to_string()));
                             }
                             ast::InterpolatedStringElement::Interpolation(piece) => {
+                                let mut spec_text: Option<String> = None;
                                 if let Some(spec) = &piece.format_spec {
-                                    if !spec.elements.is_empty() {
-                                        self.err(
-                                            piece.start(),
-                                            "format specs are not supported; compute the value before the f-string",
-                                        );
+                                    let mut text = String::new();
+                                    for el in spec.elements.iter() {
+                                        match el {
+                                            ast::InterpolatedStringElement::Literal(lit) => text.push_str(&lit.value),
+                                            ast::InterpolatedStringElement::Interpolation(_) => {
+                                                self.err_hint(
+                                                    piece.start(),
+                                                    "nested fields in a format spec are not supported",
+                                                    "write the spec literally, e.g. `{x:.2f}`",
+                                                );
+                                            }
+                                        }
+                                    }
+                                    if !text.is_empty() {
+                                        spec_text = Some(text);
                                     }
                                 }
-                                let conversion = match piece.conversion {
+                                let mut conversion = match piece.conversion {
                                     ast::ConversionFlag::None => Conversion::None,
                                     ast::ConversionFlag::Str => Conversion::Str,
                                     ast::ConversionFlag::Repr => Conversion::Repr,
                                     ast::ConversionFlag::Ascii => Conversion::Ascii,
                                 };
+                                let mut value = self.expr(&piece.expression);
+                                if let Some(spec) = spec_text {
+                                    let (l, c) = (value.line, value.col);
+                                    let conv = match conversion {
+                                        Conversion::None => None,
+                                        Conversion::Str => Some("str"),
+                                        _ => {
+                                            self.err_hint(
+                                                piece.start(),
+                                                "`!r`/`!a` with a format spec is not supported",
+                                                "drop the conversion or the spec",
+                                            );
+                                            None
+                                        }
+                                    };
+                                    if let Some(f) = conv {
+                                        value = call_expr(l, c, f, vec![value]);
+                                    }
+                                    let spec_lit = WExpr { line: l, col: c, kind: ExprKind::Str(spec) };
+                                    value = call_expr(l, c, "__weave_format", vec![value, spec_lit]);
+                                    // Already a str; `Str` keeps `{x=:.2f}` debug output unquoted.
+                                    conversion = Conversion::Str;
+                                }
                                 segs.push(FSeg::Interp {
-                                    expr: self.expr(&piece.expression),
+                                    expr: value,
                                     conversion,
                                     debug: piece.debug_text.as_ref().map(|d| d.as_str().to_string()),
                                 });
@@ -886,6 +981,26 @@ pub fn line_col(source: &str, offset: TextSize) -> (usize, usize) {
     }
     (line, col)
 }
+
+fn call_expr(line: usize, col: usize, name: &str, args: Vec<WExpr>) -> WExpr {
+    WExpr {
+        line,
+        col,
+        kind: ExprKind::Call {
+            func: Box::new(WExpr { line, col, kind: ExprKind::Name(name.to_string()) }),
+            args,
+            keywords: Vec::new(),
+        },
+    }
+}
+
+/// Exception classes a script may name in `except`.
+pub(crate) const CATCHABLE: &[&str] = &[
+    "Exception", "BaseException", "ToolError", "KeyError", "IndexError", "LookupError", "TypeError", "ValueError",
+    "AttributeError", "ZeroDivisionError", "ArithmeticError", "RuntimeError", "AssertionError",
+];
+const EXCEPT_HINT: &str =
+    "use `except Exception:` (any error), `except ToolError:` (tool failures) or builtin classes such as `except (KeyError, IndexError):`";
 
 /// `xs.append(v)` and `xs.extend(ys)` on a plain name become `xs += [v]` and
 /// `xs += ys`. Weave values are immutable, so this is the only way these calls

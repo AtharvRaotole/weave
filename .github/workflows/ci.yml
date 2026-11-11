@@ -58,6 +58,7 @@ jobs:
           python tests/audit/test_budgets.py
           python tests/audit/test_exceptions.py
           python tests/audit/test_python_sugar.py
+          python tests/audit/test_python_idioms.py
           python tests/audit/test_replay.py
           python tests/audit/test_mcp.py
           python tests/audit/test_benchmark.py

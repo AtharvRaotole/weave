@@ -904,3 +904,34 @@ fn write_retries_require_explicit_host_idempotency_support() {
         }
     }
 }
+
+#[test]
+fn raise_stops_a_slow_condition_before_an_independent_irreversible_write() {
+    // The write does not depend on the raise's condition by dataflow; it must
+    // still never be issued, even though the read that decides is slow.
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let mut engine = Engine::new();
+    reg(&mut engine, "check", Effect::Read, calls.clone(), Duration::from_millis(80));
+    reg(&mut engine, "cancel", Effect::Irreversible, calls.clone(), Duration::ZERO);
+    let err = engine
+        .run("status = check(\"o1\")\nif status != \"ok\":\n    raise ValueError(\"order is \" + status)\ncancel(\"o1\")\n")
+        .unwrap_err();
+    assert!(err.to_string().contains("ValueError: order is out-check-o1"), "{err}");
+    assert_eq!(*calls.lock().unwrap(), vec!["check:'o1'".to_string()]);
+}
+
+#[test]
+fn except_classes_catch_only_their_kind() {
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let mut engine = Engine::new();
+    engine.register("boom", ToolSpec::effect(Effect::Read).with_arity(0), |_, _| Err("down".into()));
+    reg(&mut engine, "log", Effect::Irreversible, calls.clone(), Duration::ZERO);
+    let ok = engine
+        .run("d = {\"a\": 1}\ntry:\n    v = d[\"b\"]\nexcept KeyError:\n    v = 0\nfor k in d:\n    log(k)\n")
+        .unwrap();
+    assert_eq!(ok.bindings["v"], Value::int(0));
+    // A tool failure is not a KeyError, so it escapes and the later write never runs.
+    let err = engine.run("try:\n    boom()\nexcept KeyError:\n    pass\nlog(\"after\")\n").unwrap_err();
+    assert!(err.to_string().contains("down"), "{err}");
+    assert_eq!(*calls.lock().unwrap(), vec!["log:'a'".to_string()]);
+}

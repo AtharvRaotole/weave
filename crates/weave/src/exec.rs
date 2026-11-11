@@ -1174,7 +1174,48 @@ fn catch_error(err: &WeaveError, handler: &Handler) -> bool {
     if err.is_cancelled() || !err.is_catchable() {
         return false;
     }
-    handler.catches_all || err.is_tool()
+    if handler.catches_all {
+        return true;
+    }
+    let kind = error_kind(err);
+    handler.classes.iter().any(|class| class_matches(class, kind))
+}
+
+/// The Python exception class a Weave error corresponds to. Tool failures
+/// are `ToolError`; runtime errors are classified from their message, and
+/// anything not recognised as a lookup, arithmetic or attribute error counts
+/// as a `TypeError`/`ValueError` (both clauses catch it).
+pub(crate) fn error_kind(err: &WeaveError) -> &'static str {
+    if err.is_tool() {
+        return "ToolError";
+    }
+    let msg = err.summary();
+    if let Some(class) = crate::parse::CATCHABLE.iter().find(|c| {
+        msg.strip_prefix(**c).is_some_and(|rest| rest.is_empty() || rest.starts_with(": "))
+    }) {
+        return class;
+    }
+    if msg.starts_with("key ") && msg.contains(" is missing") {
+        "KeyError"
+    } else if msg.contains("index out of range") {
+        "IndexError"
+    } else if msg.contains("by zero") {
+        "ZeroDivisionError"
+    } else if msg.contains("has no method") || msg.contains("has no attribute") {
+        "AttributeError"
+    } else {
+        "TypeError|ValueError"
+    }
+}
+
+fn class_matches(class: &str, kind: &str) -> bool {
+    match class {
+        "Exception" | "BaseException" => true,
+        "LookupError" => matches!(kind, "KeyError" | "IndexError"),
+        "ArithmeticError" => kind == "ZeroDivisionError",
+        "TypeError" | "ValueError" => kind == "TypeError|ValueError" || kind == class,
+        other => other == kind,
+    }
 }
 
 async fn run_caught_block(
@@ -1621,10 +1662,11 @@ fn iter_items(line: usize, col: usize, value: Value) -> Result<Vec<Value>, Weave
     match value {
         Value::List(xs) => Ok(xs),
         Value::Str(s) => Ok(s.chars().map(|ch| Value::Str(ch.to_string())).collect()),
+        Value::Dict(items) => Ok(items.into_iter().map(|(k, _)| k).collect()),
         other => Err(WeaveError::runtime(
             line,
             col,
-            format!("for expects a list or str, got {}", value::type_name(&other)),
+            format!("for expects a list, dict or str, got {}", value::type_name(&other)),
         )),
     }
 }
@@ -2794,8 +2836,75 @@ fn parse_json(args: &[Value]) -> Result<Value, String> {
     convert(&json, 0)
 }
 
+/// Builtins whose first argument is iterated: a dict yields its keys and a
+/// str its characters, as in Python.
+fn iterable_arg(name: &str, args: &[Value]) -> Option<Vec<Value>> {
+    let iterated = matches!(
+        name,
+        "sum" | "sorted" | "reversed" | "enumerate" | "any" | "all" | "__weave_unique"
+    ) || (matches!(name, "min" | "max") && args.len() == 1)
+        || name == "zip";
+    if !iterated {
+        return None;
+    }
+    let convert = |v: &Value| match v {
+        Value::Dict(items) => Some(Value::List(items.iter().map(|(k, _)| k.clone()).collect())),
+        Value::Str(s) if name != "sum" => Some(Value::List(s.chars().map(|c| Value::Str(c.to_string())).collect())),
+        _ => None,
+    };
+    let positions: &[usize] = if name == "zip" { &[0, 1] } else { &[0] };
+    let mut out = args.to_vec();
+    let mut changed = false;
+    for &i in positions {
+        if let Some(new) = args.get(i).and_then(convert) {
+            out[i] = new;
+            changed = true;
+        }
+    }
+    changed.then_some(out)
+}
+
 fn eval_builtin(name: &str, args: &[Value]) -> Result<Value, String> {
+    if let Some(converted) = iterable_arg(name, args) {
+        return eval_builtin_inner(name, &converted);
+    }
+    eval_builtin_inner(name, args)
+}
+
+fn eval_builtin_inner(name: &str, args: &[Value]) -> Result<Value, String> {
     match name {
+        "round" => round_of(args),
+        "__weave_raise" => match args {
+            [Value::Str(class), msg] => {
+                let m = value::py_str(msg);
+                Err(if m.is_empty() { class.clone() } else { format!("{class}: {m}") })
+            }
+            _ => Err("internal error: bad raise".into()),
+        },
+        "__weave_isinstance" => isinstance_of(args),
+        "__weave_format" => match args {
+            [v, Value::Str(spec)] => value::format_value(v, spec).map(Value::Str),
+            _ => Err("internal error: bad format call".into()),
+        },
+        "__weave_json_dumps" => match args {
+            [v] => py_json_dumps(v, 0).map(Value::Str),
+            _ => Err("json.dumps() takes 1 argument".into()),
+        },
+        "__weave_merge" => merge_dicts(args),
+        "__weave_dict_from" => match args {
+            [Value::Dict(items)] => Ok(Value::Dict(items.clone())),
+            [Value::List(pairs)] => {
+                for p in pairs {
+                    if !matches!(p, Value::List(kv) if kv.len() == 2) {
+                        return Err(format!("dict() needs [key, value] pairs, got {}", value::describe(p)));
+                    }
+                }
+                dict_of_pairs(&[Value::List(pairs.clone())])
+            }
+            [other] => Err(format!("dict() expects a dict or a list of pairs, got {}", value::type_name(other))),
+            _ => Err("dict() takes at most 1 positional argument".into()),
+        },
+        "__weave_without" => without(args),
         "len" => value::len_of(args.first().ok_or("len() takes 1 argument")?),
         "abs" => {
             let v = args.first().ok_or("abs() takes 1 argument")?;
@@ -2826,6 +2935,180 @@ fn eval_builtin(name: &str, args: &[Value]) -> Result<Value, String> {
         "__weave_unique" => unique(args),
         "__weave_dict" => dict_of_pairs(args),
         other => Err(format!("unknown builtin `{other}`")),
+    }
+}
+
+/// `round(x)` rounds half to even and returns an int; `round(x, n)` keeps
+/// the type.
+fn round_of(args: &[Value]) -> Result<Value, String> {
+    let (x, n) = match args {
+        [x] => (x, None),
+        [x, Value::Null] => (x, None),
+        [x, Value::Int(n)] => (x, Some(*n)),
+        [_, other] => return Err(format!("round() ndigits must be int, got {}", value::type_name(other))),
+        _ => return Err("round() takes 1 or 2 arguments".into()),
+    };
+    match (x, n) {
+        (Value::Int(i), None) => Ok(Value::Int(*i)),
+        (Value::Bool(b), None) => Ok(Value::Int(*b as i64)),
+        (Value::Int(i), Some(n)) if n >= 0 => Ok(Value::Int(*i)),
+        (Value::Int(i), Some(n)) => {
+            let p = 10i64.checked_pow((-n) as u32).ok_or("round() ndigits is too small")?;
+            let q = (*i as f64 / p as f64).round_ties_even() as i64;
+            Ok(Value::Int(q.saturating_mul(p)))
+        }
+        (Value::Float(f), None) => {
+            if !f.is_finite() {
+                return Err("round(): cannot convert a non-finite float to int".into());
+            }
+            Ok(Value::Int(f.round_ties_even() as i64))
+        }
+        (Value::Float(f), Some(n)) => {
+            // CPython rounds the exact decimal value; formatting through
+            // Rust's correctly rounded `{:.n}` gives the same digits.
+            if !f.is_finite() || n > 300 {
+                return Ok(Value::Float(*f));
+            }
+            if n >= 0 {
+                let text = format!("{:.*}", n as usize, f);
+                Ok(Value::Float(text.parse::<f64>().map_err(|e| e.to_string())?))
+            } else {
+                let p = 10f64.powi((-n) as i32);
+                Ok(Value::Float((f / p).round_ties_even() * p))
+            }
+        }
+        (other, _) => Err(format!("round() expects a number, got {}", value::type_name(other))),
+    }
+}
+
+/// `json.dumps(v)` with CPython's defaults (`", "`/`": "` separators,
+/// `ensure_ascii=True`).
+fn py_json_dumps(v: &Value, depth: usize) -> Result<String, String> {
+    if depth > 64 {
+        return Err("json.dumps(): nesting is too deep".into());
+    }
+    fn quote(s: &str) -> String {
+        let mut out = String::from("\"");
+        for ch in s.chars() {
+            match ch {
+                '"' => out.push_str("\\\""),
+                '\\' => out.push_str("\\\\"),
+                '\n' => out.push_str("\\n"),
+                '\r' => out.push_str("\\r"),
+                '\t' => out.push_str("\\t"),
+                '\u{8}' => out.push_str("\\b"),
+                '\u{c}' => out.push_str("\\f"),
+                c if (c as u32) < 0x20 || (c as u32) > 0x7e => {
+                    let mut buf = [0u16; 2];
+                    for unit in c.encode_utf16(&mut buf) {
+                        out.push_str(&format!("\\u{:04x}", unit));
+                    }
+                }
+                c => out.push(c),
+            }
+        }
+        out.push('"');
+        out
+    }
+    Ok(match v {
+        Value::Null => "null".into(),
+        Value::Bool(b) => if *b { "true" } else { "false" }.into(),
+        Value::Int(i) => i.to_string(),
+        Value::Float(f) if f.is_nan() => "NaN".into(),
+        Value::Float(f) if f.is_infinite() => if *f > 0.0 { "Infinity" } else { "-Infinity" }.into(),
+        Value::Float(_) => value::py_str(v),
+        Value::Str(s) => quote(s),
+        Value::List(xs) => {
+            let parts: Result<Vec<String>, String> = xs.iter().map(|x| py_json_dumps(x, depth + 1)).collect();
+            format!("[{}]", parts?.join(", "))
+        }
+        Value::Dict(items) => {
+            let mut parts = Vec::new();
+            for (k, val) in items {
+                let key = match k {
+                    Value::Str(s) => quote(s),
+                    Value::Null => "\"null\"".into(),
+                    Value::Bool(_) | Value::Int(_) | Value::Float(_) => quote(&py_json_dumps(k, depth + 1)?),
+                    other => return Err(format!("json.dumps(): keys must be str, int, float or bool, not {}", value::type_name(other))),
+                };
+                parts.push(format!("{key}: {}", py_json_dumps(val, depth + 1)?));
+            }
+            format!("{{{}}}", parts.join(", "))
+        }
+    })
+}
+
+/// `isinstance(x, T)` lowered to `__weave_isinstance(x, ["T", ...])`.
+fn isinstance_of(args: &[Value]) -> Result<Value, String> {
+    let [v, Value::List(names)] = args else {
+        return Err("internal error: bad isinstance call".into());
+    };
+    let ty = value::type_name(v);
+    Ok(Value::Bool(names.iter().any(|n| match n.as_str().unwrap_or("") {
+        "int" => matches!(v, Value::Int(_) | Value::Bool(_)),
+        "float" => matches!(v, Value::Float(_)),
+        "str" => matches!(v, Value::Str(_)),
+        "bool" => matches!(v, Value::Bool(_)),
+        "list" | "tuple" | "set" => matches!(v, Value::List(_)),
+        "dict" => matches!(v, Value::Dict(_)),
+        "NoneType" => matches!(v, Value::Null),
+        other => other == ty,
+    })))
+}
+
+/// `d.update(other)` on a name: a new dict with `other`'s keys written in.
+fn merge_dicts(args: &[Value]) -> Result<Value, String> {
+    let [Value::Dict(base), extra] = args else {
+        return Err(match args.first() {
+            Some(other) => format!("update() needs a dict, got {}", value::type_name(other)),
+            None => "internal error: bad update call".into(),
+        });
+    };
+    let Value::Dict(extra) = extra else {
+        return Err(format!("update() expects a dict, got {}", value::type_name(extra)));
+    };
+    let mut out = base.clone();
+    for (k, v) in extra {
+        match out.iter_mut().find(|(ok, _)| ok == k) {
+            Some(slot) => slot.1 = v.clone(),
+            None => out.push((k.clone(), v.clone())),
+        }
+    }
+    Ok(Value::Dict(out))
+}
+
+/// `d.pop(k[, default])` / `xs.pop([i])` as a statement: the container
+/// without that entry.
+fn without(args: &[Value]) -> Result<Value, String> {
+    match args {
+        [Value::Dict(items), k, rest @ ..] => {
+            if !items.iter().any(|(ik, _)| ik == k) && rest.is_empty() {
+                return Err(format!("key {} is missing; the dict has keys {}", value::py_repr(k), {
+                    let d = value::describe(&Value::Dict(items.clone()));
+                    d.strip_prefix("dict with keys ").map(str::to_string).unwrap_or_else(|| "none".into())
+                }));
+            }
+            Ok(Value::Dict(items.iter().filter(|(ik, _)| ik != k).cloned().collect()))
+        }
+        [Value::List(xs), rest @ ..] => {
+            if xs.is_empty() {
+                return Err("pop from an empty list (index out of range)".into());
+            }
+            let i = match rest.first() {
+                None | Some(Value::Null) => xs.len() as i64 - 1,
+                Some(v) => v.as_int().ok_or("pop() index must be int")?,
+            };
+            let len = xs.len() as i64;
+            let j = if i < 0 { i + len } else { i };
+            if j < 0 || j >= len {
+                return Err(format!("pop index {i} is out of range for a list of {len} items (index out of range)"));
+            }
+            let mut out = xs.clone();
+            out.remove(j as usize);
+            Ok(Value::List(out))
+        }
+        [other, ..] => Err(format!("{} has no method `pop`", value::describe(other))),
+        [] => Err("internal error: bad pop call".into()),
     }
 }
 
@@ -3200,6 +3483,7 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
             }
             Ok(Value::Str(parts.join(s)))
         }
+        (Value::Str(s), "format") => value::str_format(s, args).map(Value::Str),
         (Value::Dict(items), "get") => {
             if args.is_empty() || args.len() > 2 {
                 return Err("get() takes 1 or 2 arguments".into());

@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Language (round 6)
+- Iterating a dict yields its keys (`for k in d`, `sorted(d)`, `min(d)`, `enumerate(d)`, comprehensions); strings
+  iterate as characters in those builtins too.
+- `except Exception`, `except BaseException`, builtin classes (`KeyError`, `IndexError`, `LookupError`, `TypeError`,
+  `ValueError`, `AttributeError`, `ZeroDivisionError`, `ArithmeticError`, `RuntimeError`, `AssertionError`) and tuples
+  of them. Each catches only its kind; `except Exception` also catches tool failures.
+- `raise SomeError(msg)` and `assert cond, msg`; an irreversible call after a raise is never issued.
+- `isinstance(x, T)` over builtin types, `round` (half to even), `dict(...)`, `tuple(...)`, `json.dumps`/`json.loads`
+  without an import.
+- f-string format specs (`{x:.2f}`, `{n:,}`, `{s:>8}`, `{p:.1%}`), `str.format` with positional fields, printf-style
+  `%` formatting.
+- `d.update(...)`, `d.pop(k[, default])` and `xs.pop([i])` as statements.
+- Indexing a str or list with a key names the value it actually got (it was `string index must be int`).
+- Fixes found by the new CPython differential suite (`tests/audit/test_python_idioms.py`, 58 fixtures + 600
+  generated programs, batch/stream/replay): `//` and `%` now follow Python's sign rules for negative operands (they
+  used Euclidean division), and floats print in scientific notation below 1e-4 and from 1e16, as `repr` does.
+
 ### Benchmarks (round 5)
 - `bench/taubench/`: a Weave arm for tau-bench (sierra-research/tau-bench, MIT, pinned `59a200c`) next to its own
   `ToolCallingAgent`, with a metering wrapper that applies the same request settings to both arms.

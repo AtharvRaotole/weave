@@ -130,6 +130,14 @@ fn format_float(f: f64) -> String {
             "inf".to_string()
         };
     }
+    // CPython's repr: shortest round-trip digits, scientific notation when
+    // the decimal exponent is below -4 or at least 16.
+    let sci = format!("{f:e}");
+    let (mant, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
+    let exp: i32 = exp.parse().unwrap_or(0);
+    if f != 0.0 && !(-4..16).contains(&exp) {
+        return format!("{mant}e{}{:02}", if exp < 0 { '-' } else { '+' }, exp.abs());
+    }
     let s = format!("{f}");
     if s.contains(['.', 'e', 'E']) {
         s
@@ -334,7 +342,11 @@ pub fn floor_div(a: &Value, b: &Value) -> Result<Value, String> {
             if y == 0 {
                 return Err("division by zero".into());
             }
-            Ok(Value::Int(x.div_euclid(y)))
+            if x == i64::MIN && y == -1 {
+                return Err("integer overflow in //".into());
+            }
+            let q = x / y;
+            Ok(Value::Int(if x % y != 0 && ((x < 0) != (y < 0)) { q - 1 } else { q }))
         }
         (x, y) => {
             let y = to_f(y);
@@ -354,25 +366,144 @@ pub fn modulo(a: &Value, b: &Value) -> Result<Value, String> {
                 if y == 0 {
                     return Err("division by zero".into());
                 }
-                Ok(Value::Int(x.rem_euclid(y)))
+                let r = x.wrapping_rem(y);
+                Ok(Value::Int(if r != 0 && ((r < 0) != (y < 0)) { r + y } else { r }))
             }
             (x, y) => {
                 let y = to_f(y);
                 if y == 0.0 {
                     return Err("division by zero".into());
                 }
-                Ok(Value::Float(to_f(x).rem_euclid(y)))
+                let x = to_f(x);
+                let r = x % y;
+                Ok(Value::Float(if r != 0.0 && ((r < 0.0) != (y < 0.0)) { r + y } else if r == 0.0 { 0.0f64.copysign(y) } else { r }))
             }
         },
     }
 }
 
 fn format_percent(fmt: &str, value: &Value) -> Result<String, String> {
-    // Only `%s` is supported, matching the common f-string alternative agents write.
-    if fmt == "%s" {
-        return Ok(py_str(value));
+    // printf-style: `%[flags][width][.precision]type` with flags `-+ 0` and
+    // types `s r d i f F e E x X o %`. A list on the right supplies one value
+    // per conversion (Weave has no tuples), unless there is exactly one.
+    let chars: Vec<char> = fmt.chars().collect();
+    let mut specs: Vec<(String, char)> = Vec::new();
+    let mut pieces: Vec<Option<String>> = Vec::new();
+    let mut lit = String::new();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] != '%' {
+            lit.push(chars[i]);
+            i += 1;
+            continue;
+        }
+        i += 1;
+        if i < chars.len() && chars[i] == '%' {
+            lit.push('%');
+            i += 1;
+            continue;
+        }
+        if i < chars.len() && chars[i] == '(' {
+            return Err("`%(name)s` formatting is not supported; use an f-string".into());
+        }
+        let mut flags = String::new();
+        while i < chars.len() && "-+ 0#".contains(chars[i]) {
+            flags.push(chars[i]);
+            i += 1;
+        }
+        let mut width = String::new();
+        while i < chars.len() && chars[i].is_ascii_digit() {
+            width.push(chars[i]);
+            i += 1;
+        }
+        let mut prec = String::new();
+        if i < chars.len() && chars[i] == '.' {
+            prec.push('.');
+            i += 1;
+            while i < chars.len() && chars[i].is_ascii_digit() {
+                prec.push(chars[i]);
+                i += 1;
+            }
+            if prec == "." {
+                prec.push('0');
+            }
+        }
+        let Some(&ty) = chars.get(i) else {
+            return Err("incomplete format: a `%` at the end".into());
+        };
+        i += 1;
+        if !"srdifFeExXo".contains(ty) || flags.contains('#') || width.contains('*') {
+            return Err(format!("`%{flags}{width}{prec}{ty}` formatting is not supported; use an f-string"));
+        }
+        pieces.push(Some(std::mem::take(&mut lit)));
+        let mut spec = String::new();
+        if flags.contains('-') {
+            spec.push('<');
+        } else if ty == 's' || ty == 'r' {
+            spec.push('>');
+        }
+        if flags.contains('+') {
+            spec.push('+');
+        } else if flags.contains(' ') {
+            spec.push(' ');
+        }
+        if flags.contains('0') && !flags.contains('-') && ty != 's' && ty != 'r' {
+            spec.push('0');
+        }
+        specs.push((format!("{spec}{width}{prec}"), ty));
+        pieces.push(None);
     }
-    Err("only `%s` string formatting is supported; use an f-string".into())
+    pieces.push(Some(lit));
+    let values: Vec<Value> = match (specs.len(), value) {
+        (1, v) => vec![v.clone()],
+        (_, Value::List(xs)) => xs.clone(),
+        (0, _) => return Err("not all arguments converted during string formatting".into()),
+        (_, v) => vec![v.clone()],
+    };
+    if values.len() != specs.len() {
+        return Err(format!(
+            "format string has {} conversions but got {} values",
+            specs.len(),
+            values.len()
+        ));
+    }
+    let mut out = String::new();
+    let mut k = 0;
+    for piece in pieces {
+        match piece {
+            Some(text) => out.push_str(&text),
+            None => {
+                let (spec, ty) = &specs[k];
+                let v = &values[k];
+                k += 1;
+                let text = match ty {
+                    's' => format_value(&Value::Str(py_str(v)), spec)?,
+                    'r' => format_value(&Value::Str(py_repr(v)), spec)?,
+                    'd' | 'i' => {
+                        let n = match v {
+                            Value::Int(n) => *n,
+                            Value::Bool(b) => *b as i64,
+                            Value::Float(f) if f.is_finite() => f.trunc() as i64,
+                            other => return Err(format!("%d format: a number is required, not {}", type_name(other))),
+                        };
+                        let spec = spec.split('.').next().unwrap_or("").to_string();
+                        format_value(&Value::Int(n), &format!("{spec}d"))?
+                    }
+                    t => {
+                        let v = match (t, v) {
+                            ('x' | 'X' | 'o', Value::Float(_)) => return Err(format!("%{t} format: an int is required, not float")),
+                            ('x' | 'X' | 'o', _) => v.clone(),
+                            (_, Value::Int(n)) => Value::Float(*n as f64),
+                            _ => v.clone(),
+                        };
+                        format_value(&v, &format!("{spec}{t}"))?
+                    }
+                };
+                out.push_str(&text);
+            }
+        }
+    }
+    Ok(out)
 }
 
 pub fn pow(a: &Value, b: &Value) -> Result<Value, String> {
@@ -557,16 +688,29 @@ pub fn len_of(value: &Value) -> Result<Value, String> {
 pub fn get_item(container: &Value, index: &Value) -> Result<Value, String> {
     match container {
         Value::List(xs) => {
-            let i = index
-                .as_int()
-                .ok_or("list index must be int")?;
-            let idx = normalize_index(i, xs.len())?;
+            let i = index.as_int().ok_or_else(|| {
+                let first = xs.first().map(|x| format!("; the first item is a {}", describe(x))).unwrap_or_default();
+                format!(
+                    "cannot look up {} in a list of {} items{first}; loop over the list or index it with an int",
+                    py_repr(index),
+                    xs.len()
+                )
+            })?;
+            let idx = normalize_index(i, xs.len()).map_err(|_| format!("list index {i} is out of range for a list of {} items (index out of range)", xs.len()))?;
             Ok(xs[idx].clone())
         }
         Value::Str(s) => {
             let chars: Vec<char> = s.chars().collect();
-            let i = index.as_int().ok_or("string index must be int")?;
-            let idx = normalize_index(i, chars.len())?;
+            let i = index.as_int().ok_or_else(|| {
+                let preview: String = s.chars().take(60).collect();
+                let more = if s.chars().count() > 60 { "..." } else { "" };
+                format!(
+                    "cannot look up {} in a str: this value is the str {}{more}, not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+                    py_repr(index),
+                    py_repr(&Value::Str(preview))
+                )
+            })?;
+            let idx = normalize_index(i, chars.len()).map_err(|_| format!("string index {i} is out of range for a str of {} characters (index out of range)", chars.len()))?;
             Ok(Value::Str(chars[idx].to_string()))
         }
         Value::Dict(xs) => dict_get(xs, index)
@@ -575,7 +719,7 @@ pub fn get_item(container: &Value, index: &Value) -> Result<Value, String> {
                 d if d.starts_with("dict with keys") => format!("key {} is missing; the dict has keys {}", py_repr(index), &d[15..]),
                 _ => format!("key {} is missing; the dict is empty", py_repr(index)),
             }),
-        other => Err(format!("cannot index {}", type_name(other))),
+        other => Err(format!("cannot look up {} in {}; only lists, dicts and strs can be indexed", py_repr(index), type_name(other))),
     }
 }
 
@@ -780,3 +924,261 @@ impl<'de> Deserialize<'de> for Value {
     }
 }
 
+
+
+/// `format(value, spec)` for the format-spec mini-language subset Weave
+/// supports: `[[fill]align][sign][0][width][,|_][.precision][type]` with type
+/// one of `s d f F % e E x X o b` or none. Matches CPython on that subset.
+pub fn format_value(value: &Value, spec: &str) -> Result<String, String> {
+    if spec.is_empty() {
+        return Ok(py_str(value));
+    }
+    if let Value::Bool(b) = value {
+        // bool formats as int under any non-empty spec, like CPython.
+        return format_value(&Value::Int(*b as i64), spec);
+    }
+    let bad = || format!("unsupported format spec {:?}", spec);
+    let chars: Vec<char> = spec.chars().collect();
+    let mut i = 0;
+    let mut fill = ' ';
+    let mut align: Option<char> = None;
+    if chars.len() >= 2 && "<>^=".contains(chars[1]) {
+        fill = chars[0];
+        align = Some(chars[1]);
+        i = 2;
+    } else if !chars.is_empty() && "<>^=".contains(chars[0]) {
+        align = Some(chars[0]);
+        i = 1;
+    }
+    let mut sign = '-';
+    if i < chars.len() && "+- ".contains(chars[i]) {
+        sign = chars[i];
+        i += 1;
+    }
+    if i < chars.len() && chars[i] == '#' {
+        return Err(bad());
+    }
+    if i < chars.len() && chars[i] == '0' {
+        if align.is_none() {
+            fill = '0';
+            align = Some('=');
+        }
+        i += 1;
+    }
+    let mut width = 0usize;
+    while i < chars.len() && chars[i].is_ascii_digit() {
+        width = width * 10 + chars[i].to_digit(10).unwrap() as usize;
+        i += 1;
+    }
+    let mut group: Option<char> = None;
+    if i < chars.len() && (chars[i] == ',' || chars[i] == '_') {
+        group = Some(chars[i]);
+        i += 1;
+    }
+    let mut precision: Option<usize> = None;
+    if i < chars.len() && chars[i] == '.' {
+        i += 1;
+        let start = i;
+        let mut p = 0usize;
+        while i < chars.len() && chars[i].is_ascii_digit() {
+            p = p * 10 + chars[i].to_digit(10).unwrap() as usize;
+            i += 1;
+        }
+        if i == start {
+            return Err(bad());
+        }
+        precision = Some(p);
+    }
+    let mut ty: Option<char> = None;
+    if i < chars.len() {
+        ty = Some(chars[i]);
+        i += 1;
+    }
+    if i != chars.len() || width > 1000 || precision.unwrap_or(0) > 100 {
+        return Err(bad());
+    }
+    let as_f64 = |v: &Value| -> Result<f64, String> {
+        match v {
+            Value::Int(n) => Ok(*n as f64),
+            Value::Float(f) => Ok(*f),
+            Value::Bool(b) => Ok(if *b { 1.0 } else { 0.0 }),
+            other => Err(format!("format spec {:?} needs a number, got {}", spec, type_name(other))),
+        }
+    };
+    let group_digits = |digits: &str, sep: char| -> String {
+        let mut out = String::new();
+        let n = digits.len();
+        for (k, ch) in digits.chars().enumerate() {
+            if k > 0 && (n - k).is_multiple_of(3) {
+                out.push(sep);
+            }
+            out.push(ch);
+        }
+        out
+    };
+    // (sign prefix, body)
+    let (neg, body, numeric) = match (ty, value) {
+        (Some('s'), Value::Str(s)) | (None, Value::Str(s)) => {
+            if group.is_some() || sign != '-' || align == Some('=') {
+                return Err(bad());
+            }
+            let s: String = match precision {
+                Some(p) => s.chars().take(p).collect(),
+                None => s.clone(),
+            };
+            (false, s, false)
+        }
+        (Some('s'), _) => return Err(format!("format spec {:?} needs a str, got {}", spec, type_name(value))),
+        (Some('d' | 'x' | 'X' | 'o' | 'b'), Value::Int(_) | Value::Bool(_)) | (None, Value::Int(_)) if precision.is_none() => {
+            let n = match value {
+                Value::Int(n) => *n,
+                Value::Bool(b) => *b as i64,
+                _ => unreachable!(),
+            };
+            let mag = n.unsigned_abs();
+            let digits = match ty {
+                Some('x') => format!("{mag:x}"),
+                Some('X') => format!("{mag:X}"),
+                Some('o') => format!("{mag:o}"),
+                Some('b') => format!("{mag:b}"),
+                _ => mag.to_string(),
+            };
+            let digits = match group {
+                Some(sep) => group_digits(&digits, sep),
+                None => digits,
+            };
+            (n < 0, digits, true)
+        }
+        (Some('d' | 'x' | 'X' | 'o' | 'b'), other) => {
+            return Err(format!("format spec {:?} needs an int, got {}", spec, type_name(other)))
+        }
+        (Some('f' | 'F' | '%' | 'e' | 'E'), _) | (None, Value::Float(_)) => {
+            let mut f = as_f64(value)?;
+            let t = ty.unwrap_or('g');
+            if t == 'g' {
+                // No type on a float: Python's repr, or `.Ng` when a precision is given.
+                if precision.is_some() {
+                    return Err(format!("format spec {:?}: use an explicit type such as `.2f`", spec));
+                }
+                (f.is_sign_negative(), py_str(&Value::Float(f.abs())), true)
+            } else {
+                if t == '%' {
+                    f *= 100.0;
+                }
+                let p = precision.unwrap_or(6);
+                let neg = f < 0.0 || (f == 0.0 && f.is_sign_negative());
+                let a = f.abs();
+                let mut text = if a.is_nan() {
+                    "nan".to_string()
+                } else if a.is_infinite() {
+                    "inf".to_string()
+                } else if t == 'e' || t == 'E' {
+                    let raw = format!("{a:.p$e}");
+                    let (mant, exp) = raw.split_once('e').unwrap_or((&raw, "0"));
+                    let e: i32 = exp.parse().unwrap_or(0);
+                    format!("{mant}e{}{:02}", if e < 0 { '-' } else { '+' }, e.abs())
+                } else {
+                    format!("{a:.p$}")
+                };
+                if let Some(sep) = group {
+                    let (int_part, frac) = match text.find('.') {
+                        Some(k) => (text[..k].to_string(), text[k..].to_string()),
+                        None => (text.clone(), String::new()),
+                    };
+                    if int_part.chars().all(|c| c.is_ascii_digit()) {
+                        text = format!("{}{frac}", group_digits(&int_part, sep));
+                    }
+                }
+                if t == 'F' || t == 'E' {
+                    text = text.to_uppercase();
+                }
+                if t == '%' {
+                    text.push('%');
+                }
+                (neg, text, true)
+            }
+        }
+        _ => return Err(format!("format spec {:?} is not supported for {}", spec, type_name(value))),
+    };
+    let sign_text = if neg {
+        "-"
+    } else if numeric && sign == '+' {
+        "+"
+    } else if numeric && sign == ' ' {
+        " "
+    } else {
+        ""
+    };
+    let len = sign_text.chars().count() + body.chars().count();
+    if width <= len {
+        return Ok(format!("{sign_text}{body}"));
+    }
+    let pad = width - len;
+    let fill_s = |n: usize| std::iter::repeat_n(fill, n).collect::<String>();
+    let align = align.unwrap_or(if numeric { '>' } else { '<' });
+    Ok(match align {
+        '<' => format!("{sign_text}{body}{}", fill_s(pad)),
+        '>' => format!("{}{sign_text}{body}", fill_s(pad)),
+        '^' => format!("{}{sign_text}{body}{}", fill_s(pad / 2), fill_s(pad - pad / 2)),
+        _ => format!("{sign_text}{}{body}", fill_s(pad)),
+    })
+}
+
+/// `"...".format(*args)` with `{}`, `{0}`, `{!r}` and `{:spec}` fields.
+pub fn str_format(template: &str, args: &[Value]) -> Result<String, String> {
+    let mut out = String::new();
+    let mut chars = template.chars().peekable();
+    let mut auto = 0usize;
+    while let Some(ch) = chars.next() {
+        match ch {
+            '{' if chars.peek() == Some(&'{') => {
+                chars.next();
+                out.push('{');
+            }
+            '}' if chars.peek() == Some(&'}') => {
+                chars.next();
+                out.push('}');
+            }
+            '}' => return Err("format(): single '}' in the template".into()),
+            '{' => {
+                let mut field = String::new();
+                loop {
+                    match chars.next() {
+                        Some('}') => break,
+                        Some('{') => return Err("format(): nested fields are not supported".into()),
+                        Some(c) => field.push(c),
+                        None => return Err("format(): unclosed '{' in the template".into()),
+                    }
+                }
+                let (head, spec) = match field.split_once(':') {
+                    Some((h, s)) => (h.to_string(), s.to_string()),
+                    None => (field.clone(), String::new()),
+                };
+                let (name, conv) = match head.split_once('!') {
+                    Some((n, c)) => (n.to_string(), Some(c.to_string())),
+                    None => (head, None),
+                };
+                let idx = if name.is_empty() {
+                    auto += 1;
+                    auto - 1
+                } else {
+                    name.parse::<usize>().map_err(|_| {
+                        format!("format(): named field {{{name}}} is not supported; use an f-string")
+                    })?
+                };
+                let v = args
+                    .get(idx)
+                    .ok_or_else(|| format!("format(): field {idx} has no argument (got {})", args.len()))?;
+                let v = match conv.as_deref() {
+                    None => v.clone(),
+                    Some("s") => Value::Str(py_str(v)),
+                    Some("r") => Value::Str(py_repr(v)),
+                    Some(c) => return Err(format!("format(): unknown conversion !{c}")),
+                };
+                out.push_str(&format_value(&v, &spec)?);
+            }
+            c => out.push(c),
+        }
+    }
+    Ok(out)
+}

@@ -256,6 +256,7 @@ fn check_call(
                 ));
             } else {
                 let hint = match suggest(name, tools) {
+                    _ if name == "type" => "compare types with `isinstance(x, dict)` (or `int`, `str`, `list`, ...)".into(),
                     Some(suggestion) => format!("did you mean `{suggestion}`?"),
                     None => "register the tool on the engine before running the script".into(),
                 };
@@ -295,6 +296,7 @@ fn check_builtin(line: usize, col: usize, name: &str, argc: usize, keywords: &[c
         "min" | "max" => argc == 1 || argc == 2,
         "zip" => argc == 2,
         "range" => (1..=3).contains(&argc),
+        "round" => argc == 1 || argc == 2,
         _ => true,
     };
     if !ok {
