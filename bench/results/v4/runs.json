@@ -71,5 +71,9 @@
   "tau_retail_r6": {
     "GPT-4.1 (temp 0)": "20261111T160009Z-tau-retail-test-gpt-4.1-2025-04-14",
     "GPT-5.4 mini (low)": "20261111T160009Z-tau-retail-test-gpt-5.4-mini-2026-03-17"
+  },
+  "tau_retail_r7": {
+    "GPT-4.1 (temp 0)": "20261112T145100Z-tau-retail-test-gpt-4.1-2025-04-14",
+    "GPT-5.4 mini (low)": "20261112T145102Z-tau-retail-test-gpt-5.4-mini-2026-03-17"
   }
 }

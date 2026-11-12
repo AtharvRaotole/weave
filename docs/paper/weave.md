@@ -1,7 +1,7 @@
 ---
 title: "Weave: one script instead of many tool calls. A pre-registered comparison with native parallel function calling"
 author: "Atharv Raotole"
-date: "November 2026 (draft v6)"
+date: "November 2026 (draft v7)"
 ---
 
 ## Abstract
@@ -54,8 +54,10 @@ tasks per model, with `parallel_tool_calls` on in both arms, **Weave used fewer 
 task, CI [−4.5, −0.5]; GPT-4.1 −4.4 [−7.5, −1.5])** and passed 14/20 against 13/20, with script errors down from 3.4
 to 0.2 per GPT-4.1 trial. Tokens and wall time did not improve significantly (pooled 0.93× and +2.1 s, both CIs span no
 change), and **GPT-5.4 mini was slower with Weave (+4.8 s per task, CI [+0.5, +9.5])**, about 2.5 s of it host
-overhead in our adapter that we found and removed after the run. Code, data, all six pre-registrations and a
-one-command reproduction are in the repository.
+overhead in our adapter that we found and removed after the run. A seventh, pre-registered round reran
+tau-bench on 12 more fresh tasks per model with that overhead removed. The host-time gap closed (pooled −0.02 s), but
+**the call saving did not replicate significantly** (GPT-4.1 −1.6, CI [−3.8, +0.6]). Weave passed 17/24 against
+14/24 (p = 0.45) and was, without significance, slower (+2.2 s) and costlier at list prices (1.08×). Code, data, all seven pre-registrations and a one-command reproduction are in the repository.
 
 ## 1. Introduction
 
@@ -678,6 +680,64 @@ effects that clear zero are fewer agent calls (GPT-4.1 and pooled) and GPT-5.4 m
 not yet win on tau-bench. It now matches native's success with fewer model calls for GPT-4.1, and it is slower for
 GPT-5.4 mini.
 
+### 5.15 Round 7: a larger rerun with the overhead removed
+
+Pre-registered in Addendum 7 (commit `bc935fc`) before any evidence trial. The 12 test tasks (`retail_test12r7`:
+0, 2, 7, 9, 50, 54, 70, 72, 73, 83, 94, 101) are seeded and disjoint from rounds 5 and 6. The Weave arm is round 6's,
+except that return shapes are cached per environment. The agent, prompt and tool description are unchanged, there
+were no dev runs, and both arms send `parallel_tool_calls: true`. All 48 trials ran.
+
+| model | pass W / N (McNemar p) | agent calls W / N | Δ agent calls [95 % CI] | Δ wall s [95 % CI] | token ratio [95 % CI] | $ ratio [95 % CI] | Δ host s [95 % CI] |
+|---|---|---|---|---|---|---|---|
+| GPT-4.1 (t = 0) | 9/12 / 7/12 (0.63) | 11.7 / 13.3 | −1.58 [−3.83, +0.58] | +2.13 [−1.25, +5.40] | 1.06 [0.87, 1.29] | 1.05 [0.89, 1.24] | +0.08 [−0.00, +0.17] |
+| GPT-5.4 mini (low) | 8/12 / 7/12 (1.0) | 12.5 / 12.9 | −0.42 [−2.17, +1.58] | +2.32 [−2.56, +8.11] | 1.15 [0.98, 1.36] | 1.11 [0.92, 1.34] | −0.12 [−0.48, +0.16] |
+| pooled (24 pairs) | 17/24 / 14/24 (0.45) | 12.1 / 13.1 | −1.00 [−2.42, +0.46] | +2.22 [−0.75, +5.55] | 1.10 [0.97, 1.26] | 1.08 [0.95, 1.23] | −0.02 [−0.21, +0.13] |
+
+![Round 7 on tau-bench](../../assets/benchmark-v10-tau.png)
+
+**Cost at OpenAI list prices.** Per 1M tokens:
+
+- GPT-4.1: $2.00 uncached input, $0.50 cached input, $8.00 output;
+- GPT-5.4 mini: $0.75, $0.075 and $4.50;
+- the user simulator is priced as GPT-4.1, and reasoning tokens count as output.
+
+The round cost **$2.35**: GPT-4.1 $0.85 Weave and $0.80 native, GPT-5.4 mini $0.37 and $0.33. Per trial:
+
+| model, arm | input | of which cached | output |
+|---|---|---|---|
+| GPT-4.1, Weave | 70.7k | 54.8k | 1,486 |
+| GPT-4.1, native | 66.4k | 49.7k | 1,040 |
+| GPT-5.4 mini, Weave | 76.6k | 63.1k | 1,974 |
+| GPT-5.4 mini, native | 66.9k | 52.8k | 1,513 |
+
+Weave writes more output tokens per trial (scripts) and, this round, read slightly more input. Round 6, priced the same
+way, cost $1.91. There Weave cost 0.77× for GPT-4.1 (CI [0.59, 1.00]) and 1.04× for GPT-5.4 mini. Tokens are 3.44M
+for the round (1.68M GPT-4.1, 1.76M GPT-5.4 mini).
+
+- **V1 (no harm): supported.** Weave passed 9/12 against 7/12 and 8/12 against 7/12.
+- **V2 (agent calls): not replicated.** Both point estimates favour Weave, but no CI excludes 0. GPT-4.1's scripts made
+  2.02 tool calls each (2.35 in round 6).
+- **V3 (wall time): no significant difference, but not a win.** GPT-5.4 mini's CI now includes 0, as predicted. Both
+  point estimates are Weave slower, by about 2 s per task.
+- **V4 (tokens) and V5 (cost): no significant difference.** Point estimates are 1.06–1.15× tokens and 1.05–1.11×
+  dollars, Weave higher.
+- **V6 (host time): supported.** The adapter's overhead is gone: the Weave-minus-native host time is within ±0.2 s.
+  What remains of the wall-time gap is model time. In an exploratory comparison, metered model time was +2.1 s for
+  GPT-4.1 and +2.4 s for GPT-5.4 mini, neither significant.
+- **V7 (script errors).** 0.33 per trial for GPT-4.1 (0.20 in round 6) and 0.25 for GPT-5.4 mini (0.30).
+
+**Rounds 6 and 7 together** (exploratory, 22 tasks per model; round 6's Weave wall time includes the uncached
+sampling):
+
+| | pass W / N | Δ agent calls [95 % CI] | Δ wall s [95 % CI] | token ratio [95 % CI] |
+|---|---|---|---|---|
+| GPT-4.1 | 15/22 / 14/22 | −2.86 [−4.77, −1.05] | +0.89 [−2.25, +4.19] | 0.92 [0.78, 1.11] |
+| GPT-5.4 mini | 16/22 / 13/22 | −0.45 [−1.68, +0.95] | +3.43 [−0.10, +7.21] | **1.13 [1.01, 1.28]** (more tokens with Weave) |
+
+So on conversational tau-bench tasks, Weave saves GPT-4.1 a few model calls. That saving does not show up in time or
+cost, and with GPT-5.4 mini Weave uses more tokens. Success is the same within noise, with every point estimate
+favouring Weave. We report this as a draw with a call saving, not a win.
+
 ## 6. Threats to validity
 
 - **Simulated backend.** In the main suites latency is synthetic (uniform around a mean, with a concurrency cap of
@@ -693,9 +753,10 @@ GPT-5.4 mini.
 - **Footprints are host work.** The round-2 ordering gain requires the host to declare footprints correctly. A
   wrong declaration (a write that changes something its footprint does not name) can let a read see stale data. Native
   tool calling needs no such declarations.
-- **External validity (rounds 5 and 6).** On the one external benchmark we ran, tau-bench retail, Weave gave no gain in
+- **External validity (rounds 5–7).** On the one external benchmark we ran, tau-bench retail, Weave gave no gain in
   round 5. In round 6, after changes tuned on its train split, it used fewer model calls (GPT-4.1) with no gain in
-  tokens or time, and it was slower for GPT-5.4 mini. The tasks are paced by a conversation and a confirmation policy,
+  tokens or time, and it was slower for GPT-5.4 mini. Round 7's 12 fresh tasks per model did not replicate the call
+  saving significantly, and showed no significant difference on any measure. The tasks are paced by a conversation and a confirmation policy,
   not by fan-out. Round 6's adapter sampled return shapes inside the measured wall time; that cost is included. The subset is 7 tasks with one repeat and a
   sampling user simulator, so it can show only large effects; the pass difference for GPT-5.4 mini (2/7 vs 4/7) is
   within noise but goes against Weave. Our own suites remain the evidence for fan-out and dependent-lookup workloads,
@@ -751,7 +812,10 @@ total about 10.4 M tokens, over the ~10 M ceiling set for this work.**
 
 Round 6 ran under a separate 5.0 M cap and spent **3.90 M**: 1.01 M on tau-bench train-split dev runs and 2.89 M on
 the two `retail_test10r6` evidence runs (1.41 M GPT-4.1, 1.48 M GPT-5.4 mini). The in-flight guard stopped dev run A
-early, after 7 of 12 trials. No evidence trial was skipped. The six rounds total about 14.3 M tokens.
+early, after 7 of 12 trials. No evidence trial was skipped.
+
+Round 7 ran under a 4.0 M cap with no dev runs. It spent **3.44 M** (1,675,035 GPT-4.1, 1,764,088 GPT-5.4 mini), or
+$2.35 at list prices, and all 48 pre-registered trials ran. The seven rounds total about 17.7 M tokens.
 
 ## 8. Conclusion
 
@@ -771,8 +835,10 @@ gain in calls, tokens or success, was slower for GPT-4.1, and its scripts trippe
 support. With equal `parallel_tool_calls` settings, the real-services gain held. Round 6 added the missing Python and
 conversation-oriented tool options. On fresh tau-bench tasks, GPT-4.1 then needed 4.4 fewer model calls per task and
 made far fewer script errors, at equal success. Tokens and time did not improve significantly, and GPT-5.4 mini was
-slower. Weave helps most where one turn of work fans out or chains through tools. Where each step waits for a person,
-it can save model calls, but in our measurements that has not yet made tasks faster.
+slower. Round 7 removed our adapter's overhead and reran on 12 more fresh tasks per model. Every difference was
+within noise, and the point estimates were Weave slightly slower and costlier with a slightly higher pass rate. Weave
+helps most where one turn of work fans out or chains through tools. Where each step waits for a person, it can save
+model calls, but in our measurements that has not made tasks faster or cheaper.
 
 ## References
 
