@@ -143,7 +143,7 @@ def main(argv=None):
     ap.add_argument("--token-budget", type=int, default=500_000)
     ap.add_argument("--reserve-per-trial", type=int, default=200_000,
                     help="tokens reserved for each trial in flight; a trial starts only if spent + reserved fits the budget")
-    ap.add_argument("--out", type=Path, default=ROOT / "bench/results/v8")
+    ap.add_argument("--out", type=Path, default=ROOT / "bench/results/v10")
     ap.add_argument("--tag", default="")
     ap.add_argument("--seed", type=int, default=2026)
     args = ap.parse_args(argv)
@@ -192,21 +192,32 @@ def main(argv=None):
     rows_f, traces_f = (out / "rows.jsonl").open("a"), (out / "traces.jsonl").open("a")
     lock, spent, done = threading.Lock(), [0], [0]
 
-    in_flight = [0]
+    in_flight, skipped = [0], []
+
+    room = threading.Condition(lock)
 
     def go(arm, t, r):
         # Round 5 overspent because this check ignored trials already running (7 workers x ~100k tokens).
-        with lock:
-            if spent[0] + (in_flight[0] + 1) * args.reserve_per_trial > args.token_budget:
-                return
+        # Round 7: a trial that does not fit waits for running trials to finish (and report their real spend)
+        # instead of being skipped while a later trial starts; it is skipped only when nothing is running.
+        with room:
+            while spent[0] + (in_flight[0] + 1) * args.reserve_per_trial > args.token_budget:
+                if in_flight[0] == 0:
+                    skipped.append((arm, t, r))
+                    return
+                room.wait()
             in_flight[0] += 1
         try:
             row = one_trial(args, arm, t, r)
-        finally:
-            with lock:
+        except BaseException:
+            with room:
                 in_flight[0] -= 1
+                room.notify_all()
+            raise
         messages = row.pop("messages")
-        with lock:
+        with room:
+            in_flight[0] -= 1
+            room.notify_all()
             spent[0] += row["total_tokens"]
             done[0] += 1
             rows_f.write(json.dumps(row, sort_keys=True, default=str) + "\n")
@@ -222,7 +233,10 @@ def main(argv=None):
             f.result()
     rows_f.close()
     traces_f.close()
-    print("results:", out)
+    if skipped:
+        meta["not_run_budget"] = [{"arm": a, "task_index": t, "repeat": r} for a, t, r in skipped]
+        (out / "run.json").write_text(json.dumps(meta, indent=2) + "\n")
+    print(f"results: {out} (spent {spent[0]} tokens; {len(skipped)} trials not run for budget)")
 
 
 if __name__ == "__main__":

@@ -213,6 +213,14 @@ tau-bench (Sierra, MIT) at commit `59a200c`, unmodified: its tasks, user simulat
 | GPT-5.4 mini (low) | 8/10 / 6/10 | 0.500 | 12.80 / 13.30 | -0.50 [-2.20, 1.30] | 36.9 / 32.2 | +4.76 [0.47, 9.52] | 76571 / 70966 | 1.11 [0.95, 1.32] | 71597 / 65524 | 0 |
 | **pooled** | 14/20 / 13/20 | 1.000 | 11.70 / 14.15 | -2.45 [-4.45, -0.50] | 32.2 / 30.1 | +2.08 [-1.73, 6.05] | 69102 / 75167 | 0.93 [0.78, 1.11] | 64151 / 69349 | |
 
+Cost at OpenAI list prices ($ per 1M tokens: GPT-4.1 2.00 input / 0.50 cached input / 8.00 output; GPT-5.4 mini 0.75 / 0.075 / 4.50; the user simulator is GPT-4.1 in every run), and host time (wall time minus metered model time):
+
+| model | $ per task W / N | $ ratio W/N [95% CI] | $ total W / N | input (cached) per trial W / N | output per trial W / N | host s W / N | Δ host s [95% CI] |
+|---|---|---|---|---|---|---|---|
+| GPT-4.1 (temp 0) | 0.0565 / 0.0742 | 0.77 [0.59, 1.00] | 0.56 / 0.74 | 60214 (50214) / 78217 (60954) | 1419 / 1152 | 1.84 / -0.88 | +2.72 [2.38, 3.12] |
+| GPT-5.4 mini (low) | 0.0301 / 0.0293 | 1.04 [0.89, 1.21] | 0.30 / 0.29 | 74523 (61402) / 69348 (54477) | 2048 / 1618 | 2.54 / -0.83 | +3.37 [2.79, 4.00] |
+| **pooled** | 0.0433 / 0.0518 | 0.89 [0.75, 1.05] | 0.87 / 1.04 | 67368 (55808) / 73782 (57715) | 1734 / 1385 | 2.19 / -0.86 | +3.04 [2.68, 3.43] |
+
 Weave script errors per trial (errors / scripts / tool calls inside scripts):
 
 - GPT-4.1 (temp 0): 0.20 errors per trial (2 of 51 scripts; 2.35 tool calls per script)
@@ -252,6 +260,14 @@ tau-bench (Sierra, MIT) at commit `59a200c`, unmodified: its tasks, user simulat
 | GPT-4.1 (temp 0) | 4/7 / 3/7 | 1.000 | 17.14 / 17.14 | +0.00 [-3.57, 3.43] | 25.2 / 22.3 | +2.97 [0.26, 5.77] | 105471 / 94693 | 1.19 [0.90, 1.55] | 97551 / 86150 | 0 |
 | GPT-5.4 mini (low) | 2/7 / 4/7 | 0.500 | 12.86 / 15.14 | -2.29 [-6.57, 1.57] | 28.1 / 31.5 | -3.35 [-11.40, 4.52] | 81112 / 83592 | 0.98 [0.63, 1.45] | 74053 / 76417 | 0 |
 | **pooled** | 6/14 / 7/14 | 1.000 | 15.00 / 16.14 | -1.14 [-4.07, 1.43] | 26.7 / 26.9 | -0.19 [-5.10, 4.21] | 93292 / 89143 | 1.08 [0.82, 1.38] | 85802 / 81283 | |
+
+Cost at OpenAI list prices ($ per 1M tokens: GPT-4.1 2.00 input / 0.50 cached input / 8.00 output; GPT-5.4 mini 0.75 / 0.075 / 4.50; the user simulator is GPT-4.1 in every run), and host time (wall time minus metered model time):
+
+| model | $ per task W / N | $ ratio W/N [95% CI] | $ total W / N | input (cached) per trial W / N | output per trial W / N | host s W / N | Δ host s [95% CI] |
+|---|---|---|---|---|---|---|---|
+| GPT-4.1 (temp 0) | 0.0982 / 0.0963 | 1.07 [0.79, 1.51] | 0.69 / 0.67 | 103689 (82286) / 93488 (66907) | 1783 / 1205 | -0.70 / -0.59 | -0.11 [-0.31, 0.11] |
+| GPT-5.4 mini (low) | 0.0331 / 0.0341 | 0.97 [0.67, 1.41] | 0.23 / 0.24 | 79406 (62519) / 81831 (64695) | 1706 / 1761 | -0.70 / -0.55 | -0.16 [-0.43, 0.13] |
+| **pooled** | 0.0657 / 0.0652 | 1.02 [0.79, 1.31] | 0.92 / 0.91 | 91547 (72402) / 87660 (65801) | 1745 / 1483 | -0.70 / -0.57 | -0.13 [-0.30, 0.05] |
 
 Weave script errors per trial (errors / scripts / tool calls inside scripts):
 

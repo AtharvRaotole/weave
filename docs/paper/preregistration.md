@@ -377,3 +377,75 @@ paired statistics and listed.
 |---|---|---|---|
 | tau-bench | gpt-4.1-2025-04-14 (t = 0) | retail_test10r6 | weave, native |
 | tau-bench | gpt-5.4-mini-2026-03-17 (effort low) | retail_test10r6 | weave, native |
+
+## Addendum 7: round 7 (written and committed before any run on `retail_test12r7`)
+
+Round 7 reruns tau-bench retail on more fresh test tasks with round 6's Weave arm plus the fix found after round 6:
+return shapes are sampled once per environment and cached (`cached_return_shapes`), instead of in every trial.
+In round 6 that sampling added about 2.2 s of host time to every Weave trial, inside the measured wall time. OpenAI
+models only. Hard cap for the round: 4.0M tokens, no new trial once 3.8M is committed.
+
+**What changed since Addendum 6.** Nothing in the agent, the prompt or the tool description. Code changes since
+round 6's evidence:
+
+- the shape cache;
+- the static check now accepts names assigned in one branch when the other ends in `continue`, `break`, `return` or
+  `raise`;
+- the runner's budget guard now waits for running trials rather than skipping a trial that does not fit;
+- the analysis adds list-price cost and host time.
+
+We considered cheaper first turns and direct calls for single reads, aimed at GPT-5.4 mini's wall-time loss, and made
+neither change. The train-split dev runs of round 6 (`bench/results/v9/*-dev*`) show GPT-5.4 mini's Weave model calls
+at 1.8–1.9 s each, and round 6's measured host time explains most of its loss. With 0.4M tokens for dev, any new change
+could only be smoke-tested, so we put the whole budget into evidence. No dev runs this round: 0 tokens.
+
+**Settings.** As in Addendum 6:
+
+- both arms send `parallel_tool_calls: true`; tau-bench's `ToolCallingAgent` executes only the first call of a step;
+- GPT-4.1 runs at temperature 0;
+- GPT-5.4 mini runs at `reasoning_effort: low`, with no temperature;
+- the user simulator is `gpt-4.1-2025-04-14`, and `max_num_steps` is 30;
+- tau-bench is at commit `59a200c`, unmodified.
+
+| subset | manifest hash | tasks |
+|---|---|---|
+| **retail_test12r7** | `7aba309eb345598b` | retail test indices 0, 2, 7, 9, 50, 54, 70, 72, 73, 83, 94, 101 = `sorted(random.Random("weave-round7-tau-retail-test").sample([i for i in range(115) if i not in retail_test7 + retail_test10r6], 12))`; disjoint from rounds 5 and 6 |
+
+**Size.** Twelve tasks, one repeat, per model and arm: 48 trials, the same tasks for both models. We aimed for 20 or
+more tasks per model, but the cap does not allow it. Round 6's test trials averaged 70.5k tokens with GPT-4.1 and
+73.8k with GPT-5.4 mini (agent plus user simulator), so a task pair costs about 141k and 148k tokens. Twelve tasks per
+model is about 3.47M tokens; 13 would be about 3.76M, too close to 3.8M; 20 would be about 5.8M.
+
+**Hypotheses** (two-sided 95% paired cluster-bootstrap CIs over tasks, per model and pooled over 24 (model, task)
+pairs; with 12 pairs per model they are wide, and we will say so):
+
+- **V1 (no harm).** Weave's pass count is at least native's minus 1, per model. Exact McNemar p reported.
+- **V2 (agent calls).** Mean agent model calls per task, Weave minus native. Replication target: round 6 found
+  −4.4 for GPT-4.1 and −2.5 pooled. We predict a CI below 0 for GPT-4.1 and pooled.
+- **V3 (wall time).** Wall seconds per task, Weave minus native. Round 6 found a GPT-5.4 mini loss of +4.8 s
+  [+0.5, +9.5]. We predict that with the cache its CI includes 0 or lies below it. A CI above 0 for either model is a
+  loss, and we will report it as one.
+- **V4 (tokens).** Geometric-mean ratio of total tokens, Weave/native.
+- **V5 (list-price cost).** Geometric-mean ratio of per-task dollars, Weave/native, using OpenAI list prices per 1M
+  tokens: GPT-4.1 $2.00 uncached input, $0.50 cached input, $8.00 output; GPT-5.4 mini $0.75, $0.075, $4.50. Reasoning
+  tokens count as output, and the user simulator is priced as GPT-4.1. The input, cached and output token split is
+  reported per arm, with total dollars per run.
+- **V6 (host time, checks the fix).** Wall time minus metered model time (agent plus user simulator), Weave minus
+  native. Round 6: +2.7 s (GPT-4.1) and +3.4 s (mini). We predict under 1 s for both.
+- **V7 (script errors, descriptive).** Script errors per Weave trial, against round 6.
+
+Exploratory, not part of the hypotheses: rounds 6 and 7 pooled (22 tasks per model). Round 6's Weave wall time
+includes the uncached sampling, so this pooling is labeled as exploratory wherever it appears.
+
+**Runs** (each once; provider errors count as failures):
+
+- The two runs execute concurrently, with 4 workers each.
+- The in-flight-aware guard caps GPT-4.1 at 1.85M tokens and GPT-5.4 mini at 1.95M (3.8M together). It reserves 160k
+  per trial in flight; the largest round-6 test trial used 152k.
+- A trial that does not fit waits for running trials to finish. It is skipped only when nothing is running.
+- Skipped trials are listed in `run.json` as not run. Unmatched pairs are dropped from paired statistics and listed.
+
+| harness | model | subset | arms |
+|---|---|---|---|
+| tau-bench | gpt-4.1-2025-04-14 (t = 0) | retail_test12r7 | weave, native |
+| tau-bench | gpt-5.4-mini-2026-03-17 (effort low) | retail_test12r7 | weave, native |
