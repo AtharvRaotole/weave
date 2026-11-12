@@ -27,7 +27,7 @@ BLUE, GREY = "#2457d6", "#a3a9b4"
 
 def load(run):
     d = RESULTS / run
-    for newer in ("v5", "v6", "v7", "v8", "v9"):
+    for newer in ("v5", "v6", "v7", "v8", "v9", "v10"):
         if not d.exists():
             d = ROOT / "bench/results" / newer / run
     rows = [json.loads(line) for line in (d / "rows.jsonl").read_text().splitlines() if line.strip()]
@@ -303,6 +303,54 @@ def tau_pooled(runs, key):
     return out
 
 
+# OpenAI list prices, $ per 1M tokens: (uncached input, output, cached input). Output includes reasoning tokens.
+PRICES = {"gpt-4.1": (2.00, 8.00, 0.50), "gpt-5.4-mini": (0.75, 4.50, 0.075)}
+
+
+def usd(model, t):
+    """List-price dollars for one usage record {input, output, cached} (input includes cached)."""
+    i, o, c = PRICES["gpt-5.4-mini" if "mini" in model else "gpt-4.1"]
+    return ((t["input"] - t["cached"]) * i + t["cached"] * c + t["output"] * o) / 1e6
+
+
+def trial_usd(r):
+    return usd(r["model"], r["agent_tokens"]) + usd(r.get("user_model") or "gpt-4.1", r["user_tokens"])
+
+
+def host_s(r):
+    """Wall time not spent waiting on a metered model call (agent or user simulator): host and tool time."""
+    return r["wall_s"] - r["agent_llm_s"] - r["user_llm_s"]
+
+
+def tau_cost_lines(runs, key):
+    """Token split, list-price cost and host time per arm, per model and pooled."""
+    entries = runs.get(key, {})
+    groups = [(label, tau_rows(run)[1]) for label, run in entries.items()]
+    if len(groups) > 1:
+        groups.append(("**pooled**", tau_pooled(runs, key)))
+    lines = ["", "Cost at OpenAI list prices ($ per 1M tokens: GPT-4.1 2.00 input / 0.50 cached input / 8.00 output; "
+             "GPT-5.4 mini 0.75 / 0.075 / 4.50; the user simulator is GPT-4.1 in every run), and host time "
+             "(wall time minus metered model time):", "",
+             "| model | $ per task W / N | $ ratio W/N [95% CI] | $ total W / N | input (cached) per trial W / N | output per trial W / N | host s W / N | Δ host s [95% CI] |",
+             "|---|---|---|---|---|---|---|---|"]
+    for label, rows in groups:
+        if not rows:
+            continue
+        c, h = stats.paired(rows, trial_usd, 3), stats.paired(rows, host_s, 4)
+        by = {m: [r for r in rows if r["mode"] == m] for m in ("weave", "native")}
+        if not by["weave"] or not by["native"] or c is None:
+            continue
+        mean = lambda m, f: statistics.fmean(f(r) for r in by[m])
+        tok = lambda m, k: mean(m, lambda r: r["agent_tokens"][k] + r["user_tokens"][k])
+        lines.append(f"| {label} | {mean('weave', trial_usd):.4f} / {mean('native', trial_usd):.4f} | "
+                     f"{c['ratio_gm']:.2f} {fmt_ci(c['ratio_gm_ci95'])} | "
+                     f"{sum(map(trial_usd, by['weave'])):.2f} / {sum(map(trial_usd, by['native'])):.2f} | "
+                     f"{tok('weave', 'input'):.0f} ({tok('weave', 'cached'):.0f}) / {tok('native', 'input'):.0f} ({tok('native', 'cached'):.0f}) | "
+                     f"{tok('weave', 'output'):.0f} / {tok('native', 'output'):.0f} | "
+                     f"{mean('weave', host_s):.2f} / {mean('native', host_s):.2f} | {h['mean_diff']:+.2f} {fmt_ci(h['mean_diff_ci95'])} |")
+    return lines
+
+
 def tau_section(runs, key="tau_retail", title=None, note=None):
     """tau-bench retail, Weave arm vs tau-bench's own ToolCallingAgent (round 5: Addendum 5; round 6: Addendum 6)."""
     entries = runs.get(key, {})
@@ -341,6 +389,7 @@ def tau_section(runs, key="tau_retail", title=None, note=None):
                      f"{w['mean_wall_s']:.1f} / {n['mean_wall_s']:.1f} | {wa['mean_diff']:+.2f} {fmt_ci(wa['mean_diff_ci95'])} | "
                      f"{w['mean_tokens']:.0f} / {n['mean_tokens']:.0f} | {tk['ratio_gm']:.2f} {fmt_ci(tk['ratio_gm_ci95'])} | "
                      f"{at['weave']:.0f} / {at['native']:.0f} | |")
+    lines += tau_cost_lines(runs, key)
     lines += ["", "Weave script errors per trial (errors / scripts / tool calls inside scripts):", ""]
     for label, run in entries.items():
         _, rows = tau_rows(run)
@@ -621,23 +670,28 @@ def charts_v8(runs):
     save(fig, "benchmark-v8-tau")
 
 
-def charts_v9(runs):
-    """Round 6: tau-bench retail on fresh test tasks, per model and pooled, Weave/native ratios with 95% CIs."""
+def charts_v9(runs, key="tau_retail_r6", name="benchmark-v9-tau",
+              title="Round 6, tau-bench retail (10 fresh test tasks per model; below 1 favours Weave)", cost=False):
+    """tau-bench retail on fresh test tasks, per model and pooled, Weave/native ratios with 95% CIs."""
     import matplotlib.pyplot as plt
-    if "tau_retail_r6" not in runs:
+    if key not in runs:
         return
     metrics = (("turns", "agent model calls"), ("wall", "wall time"), ("tokens", "total tokens"))
+    if cost:
+        metrics += (("usd", "$ at list prices"),)
     groups = []
-    for label, run in runs["tau_retail_r6"].items():
+    for label, run in runs[key].items():
         _, rows = tau_rows(run)
         groups.append((label, rows))
-    groups.append(("pooled (20 pairs)", tau_pooled(runs, "tau_retail_r6")))
+    pooled = tau_pooled(runs, key)
+    npairs = len({r["task"] for r in pooled if r["mode"] == "weave"} & {r["task"] for r in pooled if r["mode"] == "native"})
+    groups.append((f"pooled ({npairs} pairs)", pooled))
     fig, ax = plt.subplots(figsize=(7.2, 3.1))
     width = 0.8 / len(groups)
     colors = (GREY, "#7d93c9", BLUE)
     for i, (label, rows) in enumerate(groups):
         d = {"turns": stats.paired(rows, lambda r: r["turns"], 0), "wall": stats.paired(rows, lambda r: r["wall_s"], 1),
-             "tokens": stats.paired(rows, lambda r: r["total_tokens"], 2)}
+             "tokens": stats.paired(rows, lambda r: r["total_tokens"], 2), "usd": stats.paired(rows, trial_usd, 3)}
         w, n = stats.describe(sel(rows, mode="weave")), stats.describe(sel(rows, mode="native"))
         xs = [j + (i - (len(groups) - 1) / 2) * width for j in range(len(metrics))]
         ys = [d[m]["ratio_gm"] for m, _ in metrics]
@@ -651,9 +705,9 @@ def charts_v9(runs):
     ax.set_xticks(range(len(metrics)), [m for _, m in metrics], fontsize=8)
     ax.set_ylabel("Weave / native (geo. mean)")
     ax.legend(frameon=False, fontsize=6.5, loc="upper left")
-    ax.set_title("Round 6, tau-bench retail (10 fresh test tasks per model; below 1 favours Weave)", fontsize=8.5)
+    ax.set_title(title, fontsize=8.5)
     fig.tight_layout()
-    save(fig, "benchmark-v9-tau")
+    save(fig, name)
 
 
 def charts(head, fams, scaling):
@@ -738,7 +792,12 @@ def main():
                      "Both arms send `parallel_tool_calls: true` (OpenAI's default, as in tau-bench's own runs). The Weave arm uses "
                      "`conversational=True`, `persist_variables=True` and sampled return shapes. Turns = agent model calls; tokens = "
                      "agent + user simulator. n = 10 pairs per model and 20 pooled: CIs are wide.")
-    extra = r6 + tau_section(runs) + ptc_section(runs) + extra
+    r7 = tau_section(runs, "tau_retail_r7",
+                     "## tau-bench retail, round 7 (`retail_test12r7`: 12 fresh test-split tasks, 1 repeat; Addendum 7)",
+                     "Both arms send `parallel_tool_calls: true`. The Weave arm is round 6's (`conversational=True`, "
+                     "`persist_variables=True`, sampled return shapes), with the shapes now cached per environment. Turns = agent "
+                     "model calls; tokens = agent + user simulator. n = 12 pairs per model and 24 pooled.")
+    extra = r7 + r6 + tau_section(runs) + ptc_section(runs) + extra
     write_tables(runs, head, fams, scaling, extra)
     try:
         charts(head, fams, scaling)
@@ -747,6 +806,8 @@ def main():
         charts_v7(runs)
         charts_v8(runs)
         charts_v9(runs)
+        charts_v9(runs, "tau_retail_r7", "benchmark-v10-tau",
+                  "Round 7, tau-bench retail (12 fresh test tasks per model; below 1 favours Weave)", cost=True)
     except ImportError:
         print("matplotlib not installed: wrote tables only")
     print(f"wrote {TABLES.relative_to(ROOT)} and assets/benchmark-v4*.svg")

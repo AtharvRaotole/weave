@@ -1,5 +1,19 @@
 # Benchmarks
 
+## Round 7: a larger tau-bench retail rerun (2026-11-12)
+
+Pre-registered in Addendum 7 (`retail_test12r7`, hash `7aba309eb345598b`; 12 test tasks disjoint from rounds 5 and 6,
+1 repeat, both arms `parallel_tool_calls: true`). The Weave arm is round 6's with return shapes cached. No dev runs.
+
+| model | pass W / N | Δ agent calls [95% CI] | Δ wall s [95% CI] | token ratio [95% CI] | $ ratio [95% CI] | $ W / N |
+|---|---|---|---|---|---|---|
+| GPT-4.1 (temp 0) | 9/12 / 7/12 | −1.58 [−3.83, +0.58] | +2.13 [−1.25, +5.40] | 1.06 [0.87, 1.29] | 1.05 [0.89, 1.24] | 0.85 / 0.80 |
+| GPT-5.4 mini (low) | 8/12 / 7/12 | −0.42 [−2.17, +1.58] | +2.32 [−2.56, +8.11] | 1.15 [0.98, 1.36] | 1.11 [0.92, 1.34] | 0.37 / 0.33 |
+| pooled | 17/24 / 14/24 | −1.00 [−2.42, +0.46] | +2.22 [−0.75, +5.55] | 1.10 [0.97, 1.26] | 1.08 [0.95, 1.23] | 1.22 / 1.13 |
+
+No difference is significant. Host time (wall minus metered model time): Weave minus native is −0.02 s pooled, so the
+round-6 overhead is gone. Spend: 3.44M tokens, $2.35 at list prices; about 17.7M tokens over all rounds.
+
 ## Round 6: tau-bench retail on fresh tasks (2026-11-10)
 
 Pre-registered in Addendum 6 (`retail_test10r6`, hash `5d4fdabdbbd74701`; 10 test tasks, 1 repeat, both arms

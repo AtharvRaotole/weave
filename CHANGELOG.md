@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Benchmarks (round 7)
+- tau-bench runner: the in-flight budget guard now waits for running trials instead of skipping a trial that does
+  not fit (it skips only when nothing is running) and lists skipped trials in `run.json`.
+- tau tables report the input/cached/output token split, list-price dollars (with a Weave/native ratio CI) and host
+  time per arm.
+- Round 7 results (`retail_test12r7`, Addendum 7): `bench/results/v10/`, `assets/benchmark-v10-tau.*`.
+
 ### Agent tool and benchmarks (round 6)
 - `WeaveTool(conversational=True)` adds rules for hosts where a person replies between turns: fetch everything the
   next reply needs in one script, and change no state before the person confirms that exact change.

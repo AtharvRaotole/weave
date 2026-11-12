@@ -32,11 +32,12 @@ model, tools and services** ([paper](docs/paper/weave.md), [tables](docs/paper/r
   **0.51×** the tokens; GPT-5.4 mini **30/30 vs 25/30**, Δ −3.8 s [−6.0, −1.7], **0.54×** the tokens.
 - **Held-out simulated APIs** (round 1, 200 ms per call): **39–52% of the tokens** and **1.6–2.0 fewer model
   turns** on GPT-5.5, GPT-5.4 mini and GPT-4.1, with equal or higher success.
-- **On an external conversational benchmark it is mixed.** On [tau-bench](https://github.com/sierra-research/tau-bench)
-  retail (its tasks, simulated customer and grader unchanged; 10 fresh pre-registered test tasks per model, round 6),
-  Weave matched native's success (14/20 vs 13/20) with **2.5 fewer agent model calls per task** (CI [−4.5, −0.5];
-  GPT-4.1 −4.4 [−7.5, −1.5]). Tokens and time did not improve significantly, and **GPT-5.4 mini was 4.8 s slower per
-  task** (CI [+0.5, +9.5]). Round 5, before the conversational changes, showed no gain and GPT-4.1 3.0 s slower.
+- **On an external conversational benchmark it is a draw.** On [tau-bench](https://github.com/sierra-research/tau-bench)
+  retail (its tasks, simulated customer and grader unchanged), the latest pre-registered run covers 12 fresh test
+  tasks per model (round 7). Weave passed **17/24 vs 14/24** (p = 0.45). It was **not significantly faster or
+  cheaper**: the point estimates are +2.2 s per task and 1.08× the list-price cost, both CIs include no change. Round
+  6's call saving for GPT-4.1 (−4.4 calls per task) shrank to −1.6, CI [−3.8, +0.6]. Those tasks wait on the customer
+  at every step, so there is little to batch.
 - **Equal settings:** with `parallel_tool_calls` on in both arms, the real-services gain held (GPT-4.1 −1.8 s
   [−3.0, −0.5], 0.59× tokens; GPT-5.4 mini −4.6 s, 0.45×). Every loss, including earlier rounds' and a
   GPT-4.1 runaway at `max_output_tokens`, is in the paper.
@@ -416,6 +417,32 @@ printed the tags instead of creating them. `WeaveTool.request_options` now asks 
   billed usage, so those tables are not re-derived; the undercount is listed in the
   [tables](docs/paper/results-tables.md).
 - Gemini (quota) and GLM (timeout) failed their smoke requests again and were not run.
+
+**Round 7 (pre-registered in [Addendum 7](docs/paper/preregistration.md)): a larger tau-bench rerun, with list-price
+cost.**
+
+![tau-bench retail, round 7](assets/benchmark-v10-tau.png)
+
+12 fresh seeded test tasks (`retail_test12r7`, disjoint from rounds 5 and 6), 1 repeat, `parallel_tool_calls: true`
+in both arms. The Weave arm is round 6's with the return-shape cache, and there were no other changes.
+
+| model | pass W / N | Δ agent calls [95% CI] | Δ wall per task [95% CI] | tokens W/N [95% CI] | $ W/N [95% CI] |
+|---|---|---|---|---|---|
+| `gpt-4.1-2025-04-14` (temp 0) | 9/12 / 7/12 | −1.6 [−3.8, +0.6] | +2.1 s [−1.3, +5.4] | 1.06 [0.87, 1.29] | 1.05 [0.89, 1.24] |
+| `gpt-5.4-mini-2026-03-17` (low) | 8/12 / 7/12 | −0.4 [−2.2, +1.6] | +2.3 s [−2.6, +8.1] | 1.15 [0.98, 1.36] | 1.11 [0.92, 1.34] |
+| pooled | 17/24 / 14/24 | −1.0 [−2.4, +0.5] | +2.2 s [−0.8, +5.6] | 1.10 [0.97, 1.26] | 1.08 [0.95, 1.23] |
+
+- No difference is significant. The point estimates favour Weave on success and agent calls, and native on time,
+  tokens and cost.
+- The host-time overhead from round 6 is gone (Δ −0.02 s pooled). The remaining time gap is model time: Weave writes
+  more output tokens.
+- Cost at OpenAI list prices (GPT-4.1 $2/$0.50/$8 per 1M input/cached/output; GPT-5.4 mini $0.75/$0.075/$4.50; the
+  user simulator is GPT-4.1): **$2.35** for the round's 48 trials. That is $0.071 vs $0.067 per task for GPT-4.1 and
+  $0.031 vs $0.028 for GPT-5.4 mini.
+- Spend: 3.44M tokens, under the 4.0M cap; all 48 trials ran.
+- Rounds 6 and 7 together (exploratory, 22 tasks per model):
+  - GPT-4.1: −2.9 agent calls [−4.8, −1.1], with no time or token difference;
+  - GPT-5.4 mini: **1.13× the tokens** [1.01, 1.28] with Weave.
 
 **Round 6 (pre-registered in [Addendum 6](docs/paper/preregistration.md)): Python for conversations, tau-bench on
 fresh tasks.**
