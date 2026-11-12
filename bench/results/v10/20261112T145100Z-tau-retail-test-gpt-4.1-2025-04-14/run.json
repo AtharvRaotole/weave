@@ -1,0 +1,41 @@
+{
+  "started_utc": "2026-11-12T14:51:00Z",
+  "source_commit": "bc935fc73ec51b96ea099e7c7f0b51ae555b2c03",
+  "source_dirty": false,
+  "manifest": {
+    "benchmark": "tau-bench",
+    "commit": "59a200c6d575d595120f1cb70fea53cef0632f6b",
+    "env": "retail",
+    "split": "test",
+    "tasks": [
+      0,
+      2,
+      7,
+      9,
+      50,
+      54,
+      70,
+      72,
+      73,
+      83,
+      94,
+      101
+    ],
+    "user_model": "gpt-4.1-2025-04-14",
+    "user_strategy": "llm",
+    "max_num_steps": 30,
+    "hash": "7aba309eb345598b"
+  },
+  "model": "gpt-4.1-2025-04-14",
+  "effort": null,
+  "temperature": 0.0,
+  "parallel_tool_calls": true,
+  "arms": [
+    "weave",
+    "native"
+  ],
+  "repeats": 1,
+  "planned": 24,
+  "token_budget": 1850000,
+  "seed": 2026
+}
