@@ -6,11 +6,18 @@ loop, catch tool errors and combine results. Weave runs independent reads
 concurrently, orders writes by their declared effect, and records a trace you
 can replay without touching live systems.
 
-Use it when an agent routinely needs several dependent or fan-out tool calls
-per answer and you want those calls to happen in your runtime, not in extra
-model turns. Do not expect it to beat native tool calling on every task: on
-one-call tasks it adds nothing, and see [benchmarks](benchmarks.md) for what
-has and has not been measured.
+Weave is a runtime for **fan-out and chained tool work**. Use it when an agent
+routinely needs several dependent or fan-out tool calls per answer and you want
+those calls to happen in your runtime, not in extra model turns.
+
+Do not expect it to beat native tool calling on every task:
+
+- **One-call tasks:** it adds nothing.
+- **Conversational tasks that wait on a person at every step:** on tau-bench retail, our pre-registered rounds 6
+  and 7 found no significant difference in success, time, tokens or cost. In round 6, GPT-4.1 needed fewer model
+  calls; round 7 did not replicate that.
+
+See [benchmarks](benchmarks.md) for what has and has not been measured.
 
 ## Where you can use it
 

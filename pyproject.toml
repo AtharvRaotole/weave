@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "weave-lang"
 version = "1.0.0"
-description = "Parallel runtime for a small Python-like language aimed at agent tool calls"
+description = "Runtime for fan-out and chained agent tool calls: one script instead of many tool turns"
 requires-python = ">=3.9"
 readme = "README.md"
 license = { file = "LICENSE" }
