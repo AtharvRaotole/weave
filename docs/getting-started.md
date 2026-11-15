@@ -41,7 +41,13 @@ The distribution is **`weave-lang`**; you `import weave`.
 pip install weave-lang
 ```
 
-Paths that work today for anyone with access to the repository and releases:
+One command, from the latest GitHub release's wheels (needs the repository to be public):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AtharvRaotole/weave/main/scripts/install.sh | sh
+```
+
+Other paths that work today for anyone with access to the repository and releases:
 
 ```bash
 # 1) A prebuilt wheel from the v1.0.0 GitHub release (no Rust needed).
@@ -190,12 +196,33 @@ Then point your MCP client at the binary (absolute paths):
 }
 ```
 
+Or let Weave write that entry for you: `weave mcp-config --client claude --config upstreams.json --write` (or
+`--client cursor`). It finds `weave-mcp` on your `PATH` (or pass `--binary`), merges into the client's config file and
+keeps a `.bak`.
+
 A script sent to `weave_run` can now call `fs_read_text_file(...)`,
 `fs_list_directory(...)` and so on. CI runs `weave-mcp` against the official
 filesystem, git and memory reference servers with real writes.
 `python examples/real_mcp_upstream.py` is a local smoke test with temporary
 data. Upstreams get an allowlisted environment, and their stderr and error
 payloads are withheld from scripts by default ([privacy](privacy.md)).
+
+## Recipe 3b: LangGraph and the OpenAI Agents SDK
+
+```python
+tool = weave.WeaveTool([list_orders, order_total])
+
+# LangChain / LangGraph: a StructuredTool with one `source` argument
+from langgraph.prebuilt import ToolNode
+node = ToolNode([tool.langchain_tool()])          # or llm.bind_tools([tool.langchain_tool()])
+
+# OpenAI Agents SDK: a FunctionTool
+from agents import Agent
+agent = Agent(name="orders", tools=[tool.agents_tool()])
+```
+
+Full offline-runnable versions: `examples/langgraph_agent.py` and `examples/agents_sdk_agent.py` (add `--live` to
+use a real model).
 
 ## Recipe 4: hard deadlines and cancelling a run
 

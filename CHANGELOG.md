@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Adoption (round 8)
+- `WeaveTool.langchain_tool()` (and `weave.integrations.langchain_tool`): a LangChain `StructuredTool` for LangChain
+  and LangGraph (`ToolNode`, `bind_tools`, `create_react_agent`); async calls cancel the script session.
+- `weave mcp-config [--client claude|cursor] [--config FILE] [--binary PATH] [--name NAME] [--write]`: prints or
+  merges the `weave-mcp` entry into Claude Desktop's or Cursor's MCP config (absolute paths, `.bak` kept).
+- `scripts/install.sh`: one-command install from a GitHub release's prebuilt wheels (`--mcp` also builds weave-mcp).
+- Examples: `examples/langgraph_agent.py`, `examples/agents_sdk_agent.py` (offline scripted models, `--live`), demo
+  apps `examples/apps/dep_audit.py` (PyPI + OSV.dev; offline synthetic fixtures) and `examples/apps/repo_scan.py`
+  (many git repos in one script). CI runs all of them offline, plus `tests/python/test_integrations.py`.
+
 ### Benchmarks (round 7)
 - tau-bench runner: the in-flight budget guard now waits for running trials instead of skipping a trial that does
   not fit (it skips only when nothing is running) and lists skipped trials in `run.json`.

@@ -87,7 +87,7 @@ Weave adds local control flow and scheduling across a script.
 
 **Where you can use it:** any Python app that calls a function-calling model
 API (`WeaveTool` gives you one Chat Completions or Responses tool), the OpenAI
-Agents SDK (`tool.agents_tool()`), any MCP client that launches stdio servers
+Agents SDK (`tool.agents_tool()`), LangChain and LangGraph (`tool.langchain_tool()`), any MCP client that launches stdio servers
 (the `weave-mcp` binary, which can also proxy your other stdio MCP servers), the
 `weave` CLI, and Rust hosts. [Getting started](docs/getting-started.md) has
 copy-paste recipes for each.
@@ -106,7 +106,19 @@ No model account or API key is needed for this example.
 
 ### Install
 
-**Prebuilt wheels:** download the wheel matching your Python version, operating
+**One command (prebuilt wheels from the latest GitHub release, no Rust):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AtharvRaotole/weave/main/scripts/install.sh | sh
+# or, with pip directly (pick the release tag):
+pip install weave-lang --only-binary weave-lang -f https://github.com/AtharvRaotole/weave/releases/expanded_assets/v1.0.0
+```
+
+[`scripts/install.sh`](scripts/install.sh) checks your Python (3.9–3.13), installs the matching wheel and imports it;
+`... | sh -s -- --mcp` also builds `weave-mcp` with cargo. Both commands need the repository and its releases to be
+public. CI runs the script against freshly built wheels.
+
+**Prebuilt wheels by hand:** download the wheel matching your Python version, operating
 system, and architecture from the [latest release](https://github.com/AtharvRaotole/weave/releases/latest).
 In a virtual environment, run `python -m pip install /path/to/downloaded.whl`,
 replacing the path with the actual filename. The release includes CPython
@@ -250,6 +262,23 @@ the Agents SDK tool kill that work when the awaiting task is cancelled. Raise
 `weave.ToolError("message")` for error text the model should see; other
 exceptions reach the script as their type only.
 
+## Use it from your agent framework
+
+The same `WeaveTool` plugs into the common stacks. Each example runs offline with a scripted model (CI runs them) and
+with `--live` against a real model.
+
+| stack | one line | example |
+|---|---|---|
+| OpenAI Chat Completions / Responses | `tools=[tool.chat_tool()]` or `[tool.responses_tool()]` | [`run_weave_tool.py`](examples/run_weave_tool.py) |
+| OpenAI Agents SDK | `Agent(..., tools=[tool.agents_tool()])` | [`agents_sdk_agent.py`](examples/agents_sdk_agent.py) |
+| LangChain / LangGraph | `ToolNode([tool.langchain_tool()])`, `model.bind_tools([...])`, `create_react_agent` | [`langgraph_agent.py`](examples/langgraph_agent.py) |
+| Claude Desktop, Cursor (MCP) | `weave mcp-config --client claude --config tools.json --write` | [below](#connect-mcp-servers) |
+
+**Demo apps** ([`examples/apps/`](examples/apps/)): a [dependency auditor](examples/apps/dep_audit.py) that checks
+every pinned package of a requirements file against PyPI and OSV.dev in one script (offline: synthetic packages), and a
+[multi-repo scan](examples/apps/repo_scan.py) that inspects many git repositories at once for dirty trees, stale
+branches and recent committers.
+
 ## Connect MCP servers
 
 `weave-mcp` proxies local **stdio** MCP servers. Build it separately from the Python wheel:
@@ -275,7 +304,18 @@ directory you intend to expose. This example requires Node.js/npx:
 }
 ```
 
-Configure your MCP client to launch the binary with absolute paths:
+**One-liner for Claude Desktop or Cursor:** with `weave-mcp` on your `PATH` (`cargo install --locked --git
+https://github.com/AtharvRaotole/weave weave-mcp`), run
+
+```bash
+weave mcp-config --client claude --config upstreams.json --write   # or --client cursor
+```
+
+It merges a `weave` entry with absolute paths into the client's config (Claude Desktop's
+`claude_desktop_config.json` for your OS, or `~/.cursor/mcp.json`), keeps your other servers and writes a `.bak` copy.
+Without `--write` it prints the JSON to paste by hand. Restart the client afterwards.
+
+Or configure the client by hand, with absolute paths:
 
 ```json
 {
