@@ -484,10 +484,10 @@ Twitter, a trading bot, travel booking, vehicle control, ...). A turn usually ne
 **Dev** (`dev6` = ids 4, 20, 25, 73, 135, 198, seeded; never evidence; `bench/results/v11/*-dev*`; $0.6499 and
 831,878 tokens):
 
-- GPT-4.1: Weave 1/6, native 2/6.
-- GPT-5.4 mini: Weave 2/6, native 2/6. Native agent calls 49 against Weave 41.
-- Weave cost more per GPT-4.1 trial ($0.030 against $0.025): about 1k more input tokens per call, and a lower
-  cached share.
+- GPT-4.1: Weave 1/6, native 2/6; 38 against 49 agent calls.
+- GPT-5.4 mini: Weave 2/6, native 2/6; 38 against 49 agent calls.
+- Weave cost more per trial: $0.032 against $0.025 (GPT-4.1) and $0.0069 against $0.0056 (GPT-5.4 mini). It used
+  about 1k more input tokens per call, with a lower cached share.
 
 One change came from dev. The Weave arm runs without `persist_variables`: in task 135 a persisted `order` let GPT-5.4
 mini answer the last turn without the lookup BFCL's grader expects in every turn. After the change, Weave passed 3/6
