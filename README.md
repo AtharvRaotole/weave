@@ -38,6 +38,10 @@ model, tools and services** ([paper](docs/paper/weave.md), [tables](docs/paper/r
   cheaper**: the point estimates are +2.2 s per task and 1.08× the list-price cost, both CIs include no change. Round
   6's call saving for GPT-4.1 (−4.4 calls per task) shrank to −1.6, CI [−3.8, +0.6]. Those tasks wait on the customer
   at every step, so there is little to batch.
+- **On BFCL multi-turn it costs more.** On 40 pre-registered [BFCL v4](https://github.com/ShishirPatil/gorilla)
+  `multi_turn_base` tasks (its grader unchanged), success was equal within noise (**39/78 vs 35/78**) and Weave made
+  0.6 fewer model calls per task, but it used **1.22× the tokens and 1.36× the list-price cost**. Short chains leave
+  little to batch.
 - **Equal settings:** with `parallel_tool_calls` on in both arms, the real-services gain held (GPT-4.1 −1.8 s
   [−3.0, −0.5], 0.59× tokens; GPT-5.4 mini −4.6 s, 0.45×). Every loss, including earlier rounds' and a
   GPT-4.1 runaway at `max_output_tokens`, is in the paper.
@@ -48,7 +52,7 @@ model, tools and services** ([paper](docs/paper/weave.md), [tables](docs/paper/r
 
 | Use Weave when one answer needs… | Skip it when… |
 |---|---|
-| **fan-out**: the same lookup over many items (audit 40 packages, check 12 repos, fetch every order of a user) | a task is **one or two tool calls**: there is nothing to batch, and the script adds a little output |
+| **fan-out**: the same lookup over many items (audit 40 packages, check 12 repos, fetch every order of a user) | a task is **one or two tool calls**: there is nothing to batch, and the script costs more (BFCL multi-turn: 1.36× the cost) |
 | **chains**: lookups that feed each other (find id → fetch record → fetch related records) | **each step waits for a person** (support chat, confirmations): measured on tau-bench, it is a draw, see below |
 | **local logic on results**: filter, sort, aggregate, branch before the model sees anything | the model must **reason freshly about every single result** before the next call |
 | **fewer tokens in context**: only what the script prints goes back to the model | your tools have **side effects you cannot declare** (Weave orders writes by declared effects) |
@@ -470,6 +474,26 @@ printed the tags instead of creating them. `WeaveTool.request_options` now asks 
   billed usage, so those tables are not re-derived; the undercount is listed in the
   [tables](docs/paper/results-tables.md).
 - Gemini (quota) and GLM (timeout) failed their smoke requests again and were not run.
+
+**Round 8 (pre-registered in [Addendum 8](docs/paper/preregistration.md)): BFCL multi-turn, a public benchmark.**
+
+![BFCL multi_turn_base, round 8](assets/benchmark-v11-bfcl.png)
+
+40 seeded tasks from the [Berkeley Function Calling Leaderboard](https://github.com/ShishirPatil/gorilla) v4
+`multi_turn_base` (`bfcl-eval==2026.3.23`), its tasks and grader unchanged; the native arm is BFCL's own OpenAI
+handler ([`bench/bfcl/`](bench/bfcl/)).
+
+| model | pass W / N | Δ model calls [95% CI] | Δ wall per task [95% CI] | tokens W/N [95% CI] | $ W/N [95% CI] |
+|---|---|---|---|---|---|
+| `gpt-4.1-2025-04-14` (38 pairs) | 19/38 / 18/38 | −0.58 [−1.18, +0.00] | +0.5 s [−0.1, +1.1] | **1.24 [1.15, 1.33]** | **1.53 [1.36, 1.71]** |
+| `gpt-5.4-mini-2026-03-17` (none) | 20/40 / 17/40 | −0.60 [−1.20, +0.07] | −0.0 s [−0.6, +0.5] | **1.20 [1.10, 1.31]** | **1.21 [1.11, 1.33]** |
+| pooled | 39/78 / 35/78 | **−0.59 [−1.03, −0.15]** | +0.2 s [−0.2, +0.6] | **1.22 [1.15, 1.29]** | **1.36 [1.26, 1.47]** |
+
+- **Weave costs more here:** 1.22× tokens and 1.36× list-price dollars pooled. Weave scripts averaged 1.6 tool calls,
+  so there is little to batch, and each request carried more input (likely the longer tool description).
+- Success is equal within noise (McNemar p = 0.42 pooled). GPT-4.1's no-harm bound (−0.105) narrowly misses the
+  pre-registered −0.10; three GPT-4.1 trials were skipped by the budget guard.
+- Spend: $4.15 and 5.69M tokens for the round (dev included).
 
 **Round 7 (pre-registered in [Addendum 7](docs/paper/preregistration.md)): a larger tau-bench rerun, with list-price
 cost.**

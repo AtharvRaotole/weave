@@ -203,6 +203,17 @@ Least-squares slopes over the scaling suite (per-trial means):
 | GPT-5.4 mini (low) | 200 ms | 7.8 / 77.9 | 0.00 / 1.00 |
 | GPT-5.4 mini (low) | 0 ms | 0.4 / 78.0 | 0.00 / 1.00 |
 
+## BFCL v4 `multi_turn_base`, round 8 (`mtb40`: 40 seeded tasks, 1 repeat; Addendum 8)
+
+Weave vs BFCL's own OpenAI FC handler, BFCL's grader unchanged. Three GPT-4.1 trials skipped for budget (pairs
+dropped). Rows: `bench/results/v11/*-evidence-*`; summary: `bench/results/v11/summary.json` (`bench/bfcl/report.py`).
+
+| model | pairs | pass W / N (McNemar p) | Δ pass rate [95 % CI] | model calls W / N | Δ model calls [95 % CI] | Δ wall s [95 % CI] | token ratio [95 % CI] | $ ratio [95 % CI] | $ W / N |
+|---|---|---|---|---|---|---|---|---|---|
+| GPT-4.1 (t = 0.001) | 38 | 19/38 / 18/38 (1.00) | +0.026 [−0.105, +0.158] | 8.68 / 9.26 | −0.58 [−1.18, +0.00] | +0.49 [−0.07, +1.09] | **1.24 [1.15, 1.33]** | **1.53 [1.36, 1.71]** | 1.60 / 1.06 |
+| GPT-5.4 mini (effort none) | 40 | 20/40 / 17/40 (0.45) | +0.075 [−0.050, +0.200] | 8.43 / 9.03 | −0.60 [−1.20, +0.07] | −0.02 [−0.56, +0.54] | **1.20 [1.10, 1.31]** | **1.21 [1.11, 1.33]** | 0.44 / 0.35 |
+| pooled | 78 | 39/78 / 35/78 (0.42) | +0.051 [−0.038, +0.154] | 8.55 / 9.14 | **−0.59 [−1.03, −0.15]** | +0.23 [−0.17, +0.63] | **1.22 [1.15, 1.29]** | **1.36 [1.26, 1.47]** | 2.03 / 1.40 |
+
 ## tau-bench retail, round 7 (`retail_test12r7`: 12 fresh test-split tasks, 1 repeat; Addendum 7)
 
 tau-bench (Sierra, MIT) at commit `59a200c`, unmodified: its tasks, user simulator (GPT-4.1), tools and grader. Native arm = tau-bench's `ToolCallingAgent`; Weave arm = the same loop with one `run_weave` tool. Both arms send `parallel_tool_calls: true`. The Weave arm is round 6's (`conversational=True`, `persist_variables=True`, sampled return shapes), with the shapes now cached per environment. Turns = agent model calls; tokens = agent + user simulator. n = 12 pairs per model and 24 pooled.
@@ -447,6 +458,8 @@ Rows that ended `provider_error:incomplete` before round 4 recorded 0 tokens for
 
 | label | suite | run directory | source commit | trials | total tokens |
 |---|---|---|---|---|---|
+| GPT-4.1 (t 0.001) | BFCL mtb40 | `20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14` | `64e9cd6` | 77 | 2,376,181 |
+| GPT-5.4 mini (none) | BFCL mtb40 | `20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17` | `64e9cd6` | 80 | 2,478,949 |
 | GPT-5.5 (low) | held_out | `20261111T015127Z-held_out-openai-gpt-5.5-2026-04-23` | `8dae373` | 120 | 451,041 |
 | GPT-5.4 mini (low) | held_out | `20261111T015127Z-held_out-openai-gpt-5.4-mini-2026-03-17` | `8dae373` | 120 | 492,102 |
 | GPT-4.1 (temp 0) | held_out | `20261111T015127Z-held_out-openai-gpt-4.1-2025-04-14` | `8dae373` | 120 | 550,589 |

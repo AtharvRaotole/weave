@@ -449,3 +449,84 @@ includes the uncached sampling, so this pooling is labeled as exploratory wherev
 |---|---|---|---|
 | tau-bench | gpt-4.1-2025-04-14 (t = 0) | retail_test12r7 | weave, native |
 | tau-bench | gpt-5.4-mini-2026-03-17 (effort low) | retail_test12r7 | weave, native |
+
+## Addendum 8: round 8, BFCL multi-turn (written and committed before any evidence trial on `mtb40`)
+
+Round 8 adds a second external benchmark, one built around chained, multi-step tool use:
+[BFCL](https://github.com/ShishirPatil/gorilla/tree/main/berkeley-function-call-leaderboard)'s multi-turn category.
+BFCL is the Berkeley Function Calling Leaderboard, Apache-2.0, installed as `bfcl-eval==2026.3.23` from PyPI. Its
+`multi_turn_base` category has 200 tasks. Each task is several user turns against stateful backends (a file system,
+Twitter, a trading bot, travel booking, vehicle control, ...). A turn usually needs several dependent calls:
+`cd`, `mkdir`, `mv`, `grep`, and so on.
+
+**Harness** (`bench/bfcl/`). The tasks, function docs, backends and grader are BFCL's, unmodified.
+
+- **Native arm.** BFCL's own `OpenAICompletionsHandler.inference_multi_turn_FC` (FC mode). It executes every tool
+  call of a step and runs at most 20 steps per turn.
+- **Weave arm.** The same loop with one `run_weave` tool. Every function the script calls runs through BFCL's
+  `execute_multi_turn_func_call`. Each call is recorded in the native handler's format, so BFCL's
+  `_evaluate_single_multi_turn_entry` grades both arms identically: it re-executes the recorded calls and checks
+  state and responses against the ground truth.
+- **Calls are kept in order.** Every backend function is declared `reversible` (a write), so Weave keeps calls in
+  program order. On these stateful backends the gain can only come from fewer model round trips, not concurrency.
+- **Offline check.** `bench/bfcl/test_offline.py` has an oracle that replays the ground truth; it passes in both arms,
+  and a model that makes no calls fails in both.
+
+**Settings, identical in both arms.**
+
+- Chat Completions with OpenAI's default `parallel_tool_calls` (on), `store: false`, and the handler's rate-limit
+  retries.
+- GPT-4.1 (`gpt-4.1-2025-04-14`) runs at BFCL's default temperature, 0.001.
+- GPT-5.4 mini (`gpt-5.4-mini-2026-03-17`) runs with `reasoning_effort: "none"` and no temperature. Chat Completions
+  rejects function tools with any other effort for this model, as dev run B found.
+- One repeat.
+
+**Dev** (`dev6` = ids 4, 20, 25, 73, 135, 198, seeded; never evidence; `bench/results/v11/*-dev*`; $0.6499 and
+831,878 tokens):
+
+- GPT-4.1: Weave 1/6, native 2/6; 38 against 49 agent calls.
+- GPT-5.4 mini: Weave 2/6, native 2/6; 38 against 49 agent calls.
+- Weave cost more per trial: $0.032 against $0.025 (GPT-4.1) and $0.0069 against $0.0056 (GPT-5.4 mini). It used
+  about 1k more input tokens per call, with a lower cached share.
+
+One change came from dev. The Weave arm runs without `persist_variables`: in task 135 a persisted `order` let GPT-5.4
+mini answer the last turn without the lookup BFCL's grader expects in every turn. After the change, Weave passed 3/6
+(GPT-4.1) and 1/6 (GPT-5.4 mini) on dev, run without the native arm.
+
+**Subset.**
+
+| subset | manifest hash | tasks |
+|---|---|---|
+| **mtb40** | `3ab8f2865c012424` | `multi_turn_base` ids 13, 14, 17, 21, 28, 30, 36, 41, 43, 45, 52, 57, 61, 70, 80, 87, 88, 93, 95, 96, 102, 103, 108, 111, 116, 120, 126, 136, 140, 161, 163, 177, 181, 182, 187, 188, 192, 193, 194, 199 = `sorted(random.Random("weave-round8-bfcl-evidence").sample([i for i in range(200) if i not in dev6], 40))` |
+
+**Size.** The same 40 tasks for both models: 160 trials. Dev trials cost about $0.03 (GPT-4.1) and $0.006
+(GPT-5.4 mini) at list prices, so 40 tasks is about $2.3 and $0.5. With dev spend, that stays under the round's
+$4.70 stop.
+
+**Hypotheses** (paired by task; 95% cluster-bootstrap CIs; per model and pooled over 80 (model, task) pairs):
+
+- **B1 (success).** Pass counts, exact McNemar p, and the paired difference in pass rate with a CI. Weave does "no
+  harm" if that CI's lower bound is above −0.10.
+- **B2 (agent model calls per task).** Weave minus native. We predict a CI below 0 for each model, because a turn's
+  chain fits in one script.
+- **B3 (wall time per task).** Weave minus native. No direction predicted: the backends are in-memory, so fewer calls
+  are the only source of a gain.
+- **B4 (tokens).** Geometric-mean ratio of tokens (input plus output), Weave/native. No direction predicted: dev
+  showed more input per call for Weave.
+- **B5 (list-price cost per task).** Geometric-mean ratio, Weave/native. Prices per 1M tokens: GPT-4.1 $2.00 input,
+  $0.50 cached, $8.00 output; GPT-5.4 mini $0.75, $0.075, $4.50. Reasoning tokens count as output. Total dollars
+  reported per run.
+- **B6 (descriptive).** BFCL error types per arm, Weave scripts and script errors, and tool calls per script.
+
+**Runs** (each once; provider errors count as failures):
+
+- The two runs execute concurrently, with 4 workers each.
+- The in-flight guard caps GPT-4.1 at $2.80 and GPT-5.4 mini at $0.85, reserving $0.10 and $0.03 per trial in
+  flight. A trial that does not fit waits; it is skipped only when nothing is running. Skipped trials are listed and
+  dropped from paired statistics.
+- Round total: at most $0.65 dev + $3.65 evidence = $4.30, under the $4.70 stop.
+
+| harness | model | subset | arms |
+|---|---|---|---|
+| BFCL v4 multi_turn_base (`bfcl-eval==2026.3.23`) | gpt-4.1-2025-04-14 (temperature 0.001) | mtb40 | weave, native |
+| BFCL v4 multi_turn_base (`bfcl-eval==2026.3.23`) | gpt-5.4-mini-2026-03-17 (effort none) | mtb40 | weave, native |
