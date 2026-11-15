@@ -6,6 +6,11 @@ date: "November 2026 (draft v7)"
 
 ## Abstract
 
+**Summary.** Weave is a runtime for fan-out and chained tool work. On our pre-registered suites, it cut tokens and
+model turns substantially, and the real-services suites confirmed those gains. On tau-bench, an external conversational
+benchmark paced by a simulated customer, it was a draw in our latest, larger round. The rest of this abstract gives
+the details by round.
+
 Agents built on function-calling models pay one model round trip for every round of tool calls, and the result of
 each call goes back through the model's context. Weave is a small Python-like scripting runtime written in Rust that lets
 the model send one script instead. The script can call tools, loop over results, branch and aggregate. The runtime

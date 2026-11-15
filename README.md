@@ -2,7 +2,7 @@
 
 # Weave
 
-**Write a tool workflow. Run independent calls together.**
+**A runtime for fan-out and chained tool work: one model turn, one script, many tool calls.**
 
 A Rust runtime for agent-written workflows, with a small Python-like language,
 Python bindings, and an MCP proxy.
@@ -44,6 +44,19 @@ model, tools and services** ([paper](docs/paper/weave.md), [tables](docs/paper/r
 
 <p align="center"><img src="assets/benchmark-v7-real.png" alt="Weave/native wall time and turns on real services across rounds 2, 3 and 4" width="720"></p>
 
+### When to use it, and when not to
+
+| Use Weave when one answer needs… | Skip it when… |
+|---|---|
+| **fan-out**: the same lookup over many items (audit 40 packages, check 12 repos, fetch every order of a user) | a task is **one or two tool calls**: there is nothing to batch, and the script adds a little output |
+| **chains**: lookups that feed each other (find id → fetch record → fetch related records) | **each step waits for a person** (support chat, confirmations): measured on tau-bench, it is a draw, see below |
+| **local logic on results**: filter, sort, aggregate, branch before the model sees anything | the model must **reason freshly about every single result** before the next call |
+| **fewer tokens in context**: only what the script prints goes back to the model | your tools have **side effects you cannot declare** (Weave orders writes by declared effects) |
+
+Measured gains come from fewer model round trips and less tool output in context, not from raw concurrency. On
+tau-bench retail (conversational, one confirmation per write), 48 pre-registered trials in round 7 showed no
+significant difference in success, time, tokens or cost.
+
 ### Try it in one minute
 
 No API key, no network after the clone. You need Python 3.9–3.13 and [Rust](https://rustup.rs/)
@@ -62,7 +75,7 @@ Every file in [`examples/`](examples/) runs offline without keys, and CI runs th
 
 ## What it is
 
-Weave lets an agent express tool calls, dependencies, branches, and loops in one
+Weave is a runtime for **fan-out and chained tool work**. It lets an agent express tool calls, dependencies, branches, and loops in one
 script. The runtime runs independent reads concurrently and applies ordering
 rules to tools that change state. You keep your existing Python functions or
 stdio MCP servers.
