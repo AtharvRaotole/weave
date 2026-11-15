@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Benchmarks (round 8)
+- `bench/bfcl/`: a Weave arm for BFCL v4 `multi_turn_base` (`bfcl-eval==2026.3.23`) next to BFCL's own OpenAI FC
+  handler, graded by BFCL's unchanged multi-turn checker; offline oracle test; `$` guard with in-flight reserve.
+- Round 8 results (`mtb40`, Addendum 8): `bench/results/v11/`, `bench/bfcl/report.py`, `assets/benchmark-v11-bfcl.*`.
+  Equal success within noise, −0.59 model calls per task pooled, 1.22× tokens and 1.36× list-price cost (a loss).
+
 ### Benchmarks (round 7)
 - tau-bench runner: the in-flight budget guard now waits for running trials instead of skipping a trial that does
   not fit (it skips only when nothing is running) and lists skipped trials in `run.json`.

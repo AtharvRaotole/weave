@@ -1,5 +1,23 @@
 # Benchmarks
 
+## Round 8: BFCL v4 multi-turn (2026-11-15)
+
+Pre-registered in Addendum 8 (`mtb40`, hash `3ab8f2865c012424`; 40 seeded `multi_turn_base` tasks disjoint from 6 dev
+tasks, 1 repeat). BFCL's tasks, backends and grader are unchanged; the native arm is BFCL's `OpenAICompletionsHandler`.
+Harness: [`bench/bfcl/`](../bench/bfcl/). Three GPT-4.1 trials were skipped by the $ guard; 38 GPT-4.1 pairs remain.
+
+| model | pairs | pass W / N (McNemar p) | Δ pass rate [95 % CI] | model calls W / N | Δ model calls [95 % CI] | Δ wall s [95 % CI] | token ratio [95 % CI] | $ ratio [95 % CI] | $ W / N |
+|---|---|---|---|---|---|---|---|---|---|
+| GPT-4.1 (t = 0.001) | 38 | 19/38 / 18/38 (1.00) | +0.026 [−0.105, +0.158] | 8.68 / 9.26 | −0.58 [−1.18, +0.00] | +0.49 [−0.07, +1.09] | **1.24 [1.15, 1.33]** | **1.53 [1.36, 1.71]** | 1.60 / 1.06 |
+| GPT-5.4 mini (effort none) | 40 | 20/40 / 17/40 (0.45) | +0.075 [−0.050, +0.200] | 8.43 / 9.03 | −0.60 [−1.20, +0.07] | −0.02 [−0.56, +0.54] | **1.20 [1.10, 1.31]** | **1.21 [1.11, 1.33]** | 0.44 / 0.35 |
+| pooled | 78 | 39/78 / 35/78 (0.42) | +0.051 [−0.038, +0.154] | 8.55 / 9.14 | **−0.59 [−1.03, −0.15]** | +0.23 [−0.17, +0.63] | **1.22 [1.15, 1.29]** | **1.36 [1.26, 1.47]** | 2.03 / 1.40 |
+
+**Losses:** Weave used 1.22× the tokens and cost 1.36× pooled (1.53× with GPT-4.1, where prompt caching hit less
+often). GPT-4.1's no-harm CI lower bound (−0.105) misses the pre-registered −0.10. **Wins:** −0.59 model calls per task
+pooled. Success: equal within noise (every point estimate favours Weave). Spend: $4.15 and 5.69M tokens for the round.
+
+![BFCL multi_turn_base](../assets/benchmark-v11-bfcl.png)
+
 ## Round 7: a larger tau-bench retail rerun (2026-11-12)
 
 Pre-registered in Addendum 7 (`retail_test12r7`, hash `7aba309eb345598b`; 12 test tasks disjoint from rounds 5 and 6,
