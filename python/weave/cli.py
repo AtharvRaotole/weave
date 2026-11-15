@@ -1,4 +1,4 @@
-"""`weave check`, `run`, `replay`, and `trace`.
+"""`weave check`, `run`, `replay`, `trace`, and `mcp-config`.
 
 Scripted tools are `echo` (return the positional argument) or `const` (return
 a fixed string). Real host functions are registered in Python with
@@ -16,6 +16,7 @@ weave check FILE [--tool name=...,effect=read,arity=1]
 weave run FILE [--tool name=...,effect=read,behavior=echo] [--trace-out PATH]
 weave replay FILE --trace PATH [--tool ...]
 weave trace PATH
+weave mcp-config [--client claude|cursor] [--config FILE] [--binary PATH] [--name weave] [--write]
 
 --tool fields: name, effect (pure|read|reversible|irreversible), arity,
 behavior (echo|const), result (a string, required for const).
@@ -51,6 +52,8 @@ def dispatch(args: list[str]) -> str:
         return cmd_replay(rest)
     if cmd == "trace":
         return cmd_trace(rest)
+    if cmd == "mcp-config":
+        return cmd_mcp_config(rest)
     raise RuntimeError(f"unknown command `{cmd}`\n{HELP}")
 
 
@@ -148,6 +151,32 @@ def cmd_replay(args: list[str]) -> str:
     trace = Path(flags["trace"]).read_text()
     result = engine_from(flags["tools"]).replay(source, trace)
     return result.stdout
+
+
+def cmd_mcp_config(args: list[str]) -> str:
+    """`weave mcp-config [--client claude|cursor] [--config FILE] [--binary PATH] [--name NAME] [--write]`:
+    print the MCP client entry that launches weave-mcp, or merge it into the client's config with --write."""
+    from weave.integrations import install_mcp_config, mcp_config_path, mcp_server_entry
+
+    opts = {"--client": None, "--config": None, "--binary": None, "--name": "weave"}
+    write, i = False, 0
+    while i < len(args):
+        if args[i] == "--write":
+            write, i = True, i + 1
+        elif args[i] in opts and i + 1 < len(args):
+            opts[args[i]], i = args[i + 1], i + 2
+        else:
+            raise RuntimeError(f"mcp-config: unexpected argument `{args[i]}`")
+    entry = mcp_server_entry(opts["--config"], opts["--binary"])
+    if write:
+        if not opts["--client"]:
+            raise RuntimeError("mcp-config --write needs --client claude or --client cursor")
+        path = install_mcp_config(opts["--client"], entry, opts["--name"])
+        return f"added `{opts['--name']}` to {path}; restart the client to load it"
+    out = json.dumps({"mcpServers": {opts["--name"]: entry}}, indent=2)
+    if opts["--client"]:
+        out += f"\n# paste into {mcp_config_path(opts['--client'])}, or rerun with --write"
+    return out
 
 
 def cmd_trace(args: list[str]) -> str:

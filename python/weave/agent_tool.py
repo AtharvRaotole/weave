@@ -521,3 +521,11 @@ class WeaveTool:
             on_invoke_tool=invoke,
             strict_json_schema=True,
         )
+
+    def langchain_tool(self):
+        """A LangChain `StructuredTool` (`pip install langchain-core`). Works anywhere LangChain tools do:
+        `model.bind_tools([...])`, LangGraph's `ToolNode` and `create_react_agent`. Async invocation
+        (`ainvoke`) cancels the script session when the awaiting task is cancelled, like `agents_tool`."""
+        from weave.integrations import langchain_tool  # imported lazily; LangChain is optional
+
+        return langchain_tool(self)

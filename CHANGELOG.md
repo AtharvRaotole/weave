@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Adoption (round 8)
+- `WeaveTool.langchain_tool()` (and `weave.integrations.langchain_tool`): a LangChain `StructuredTool` for LangChain
+  and LangGraph (`ToolNode`, `bind_tools`, `create_react_agent`); async calls cancel the script session.
+- `weave mcp-config [--client claude|cursor] [--config FILE] [--binary PATH] [--name NAME] [--write]`: prints or
+  merges the `weave-mcp` entry into Claude Desktop's or Cursor's MCP config (absolute paths, `.bak` kept).
+- `scripts/install.sh`: one-command install from a GitHub release's prebuilt wheels (`--mcp` also builds weave-mcp).
+- Examples: `examples/langgraph_agent.py`, `examples/agents_sdk_agent.py` (offline scripted models, `--live`), demo
+  apps `examples/apps/dep_audit.py` (PyPI + OSV.dev; offline synthetic fixtures) and `examples/apps/repo_scan.py`
+  (many git repos in one script). CI runs all of them offline, plus `tests/python/test_integrations.py`.
+
 ### Benchmarks (round 8)
 - `bench/bfcl/`: a Weave arm for BFCL v4 `multi_turn_base` (`bfcl-eval==2026.3.23`) next to BFCL's own OpenAI FC
   handler, graded by BFCL's unchanged multi-turn checker; offline oracle test; `$` guard with in-flight reserve.
