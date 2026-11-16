@@ -30,9 +30,11 @@ Pre-registered, on fresh tasks, against native function calling with the same mo
   task, at **0.45–0.50× the cost** (GPT-4.1 and GPT-5.4 mini).
 - **BFCL v4 multi-turn** (public tasks and grader): **0.86× the cost** and 25 % fewer tokens. Success: **+3 tasks with
   GPT-4.1 (38 vs 35 of 60), but −9 with GPT-5.4 mini (18 vs 27), a significant loss.**
+- **BFCL miss_param / miss_func with the write gate** (round 10, `write_gate="choice"`): GPT-5.4 mini **30/105 vs
+  24/105** (not significant) at **equal cost**; GPT-4.1 **3/16 vs 5/16**.
 - **tau-bench retail** (a conversation, one confirmation per write): a draw.
 
-Round 9 used `WeaveTool(compact=True)`, which is on `main` and not yet in a release.
+Rounds 9–10 used `WeaveTool(compact=True)` and `write_gate`, which are not yet in a release.
 
 Use Weave for fan-out (the same lookup over many items), chains of dependent lookups, and filtering results before
 the model sees them. Skip it when each step waits for a person, or when a small model must think after every result.
