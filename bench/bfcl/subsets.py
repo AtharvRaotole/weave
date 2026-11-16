@@ -38,3 +38,10 @@ R10_DEV_MP = sorted(random.Random("weave-round10-bfcl-dev-mp").sample([i for i i
 R10_DEV_MF = sorted(random.Random("weave-round10-bfcl-dev-mf").sample([i for i in TRAIN if i not in DEV], 10))
 SUBSETS["devMP20r10"] = ("dev", R10_DEV_MP)
 SUBSETS["devMF10r10"] = ("dev", R10_DEV_MF)
+# Round 10 evidence: the 60 scenario ids no round tuned on (R9_EVIDENCE: not train, so no shapes or effects were
+# learned from them), in two categories never run before; GPT-4.1 on a seeded 20 of them (budget).
+R10_EVIDENCE = list(R9_EVIDENCE)
+R10_EVIDENCE_41 = sorted(random.Random("weave-round10-gpt41").sample(R9_EVIDENCE, 20))
+SUBSETS["mp60r10"] = ("evidence", R10_EVIDENCE)
+SUBSETS["mf60r10"] = ("evidence", R10_EVIDENCE)
+SUBSETS["mp20r10"] = ("evidence", R10_EVIDENCE_41)

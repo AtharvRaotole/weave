@@ -1,0 +1,38 @@
+{
+  "started_utc": "2026-11-16T06:04:53Z",
+  "source_commit": "818fe94cac7964b75cb82444bb7a878835322868",
+  "source_dirty": false,
+  "split": "dev",
+  "manifest": {
+    "category": "multi_turn_miss_func",
+    "ids": [
+      5,
+      24,
+      43,
+      96,
+      105,
+      107,
+      114,
+      159,
+      177,
+      193
+    ],
+    "bfcl_eval": "2026.3.23",
+    "hash": "036e9952cce25f5c"
+  },
+  "model": "gpt-5.4-mini-2026-03-17",
+  "effort": "none",
+  "temperature": null,
+  "arms": [
+    "weave",
+    "native"
+  ],
+  "repeats": 1,
+  "planned": 20,
+  "usd_budget": 0.2,
+  "reserve_usd": 0.03,
+  "seed": 2026,
+  "handler": "bfcl_eval OpenAICompletionsHandler (FC)",
+  "weave_config": "compact,learned,trace,typecheck,gate",
+  "cache_key": true
+}
