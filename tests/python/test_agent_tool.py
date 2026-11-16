@@ -198,6 +198,51 @@ def test_conversational_rules_are_opt_in():
     assert "A person is waiting" in weave.WeaveTool([look], conversational=True).description
 
 
+def test_compact_listing_factors_shared_sentences():
+    """Round 9: compact=True prints a sentence repeated in 3+ docs once, as a lettered note."""
+    shared = "This tool belongs to the vehicle control system, which lets users drive."
+
+    def mk(name):
+        def f(x: str) -> str:
+            return x
+        f.__name__ = name
+        f.__doc__ = f"Do {name}. {shared}"
+        return weave.declare(effect="read")(f)
+
+    fns = [mk("a"), mk("b"), mk("c")]
+    full, small = weave.WeaveTool(fns), weave.WeaveTool(fns, compact=True)
+    assert full.description.count(shared) == 3
+    assert small.description.count(shared) == 1 and "[A]" in small.description
+    assert len(small.description) < len(full.description)
+    assert small.run('print(a("x") + b("y"))') == "xy\n"
+
+
+def test_reply_ends_the_turn_with_its_text():
+    @weave.declare(effect="read")
+    def look(k: str) -> str:
+        return k.upper()
+
+    tool = weave.WeaveTool([look], reply=True)
+    assert "reply(" in tool.description
+    assert tool.run('reply("got " + look("a"))') == "(replied)"
+    assert tool.take_reply() == "got A"
+    out = tool.run('print(look("b"))')
+    assert out == "B\n" and tool.take_reply() is None
+    assert "reply(" not in weave.WeaveTool([look]).description
+
+
+def test_listing_false_omits_function_lines():
+    """With compact=True, listing=False leaves the function list to native schemas the host sends."""
+    @weave.declare(effect="read")
+    def very_specific_name(k: str) -> str:
+        return k
+
+    assert "very_specific_name" in weave.WeaveTool([very_specific_name]).description
+    hybrid = weave.WeaveTool([very_specific_name], compact=True, listing=False)
+    assert "very_specific_name(" not in hybrid.description
+    assert hybrid.run('print(very_specific_name("z"))') == "z\n"
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

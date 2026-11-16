@@ -65,3 +65,11 @@ tokens, −0.6 model calls.
    `run_weave` for two or more calls.
 
 Ablations, decisions and their numbers are in paper §5.17 (dev rows: `bench/results/v12/*-dev-*`).
+
+## 4. Outcome
+
+W3 (compact, learned shapes, trace, type check) ran on 60 fresh tasks per model. It was cheaper for both models
+(0.85× and 0.88× list price), but GPT-5.4 mini passed 18/60 against native's 27/60, a significant loss; GPT-4.1
+passed 38/60 against 35/60. The fan-out reconfirm passed 40/40 against 27/40 at about half the cost. Full tables:
+paper §5.17. Next idea not built: read-before-write, i.e. stop a script at its first state-changing call whose
+inputs came from an unverified assumption, so a small model sees one result before it batches writes.

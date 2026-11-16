@@ -10,7 +10,10 @@ date: "November 2026 (draft v7)"
 model turns substantially, and the real-services suites confirmed those gains. On tau-bench, an external conversational
 benchmark paced by a simulated customer, it was a draw in our latest, larger round. On BFCL multi-turn (round 8, public tasks and grader), success was
 equal within noise and Weave saved about 0.6 model calls per task, but it used 1.22× the tokens and cost 1.36× at list
-prices. The rest of this abstract gives
+prices. In round 9 a compact description, learned result types and a cache key made Weave cheaper on 60 fresh BFCL
+tasks (0.86× pooled list-price cost, 25 % fewer tokens), with +3 tasks for GPT-4.1 but **−9 tasks for GPT-5.4 mini, a
+significant loss**; on a real-services fan-out reconfirm it passed 40/40 against native's 27/40 at about half the cost.
+The rest of this abstract gives
 the details by round.
 
 Agents built on function-calling models pay one model round trip for every round of tool calls, and the result of
@@ -796,6 +799,81 @@ The round cost **$4.15** at list prices and 5.69M tokens: $0.65 dev (0.83M token
 $0.79 GPT-5.4 mini evidence (2.48M). On BFCL multi-turn, Weave matches native success within noise and saves a few
 model calls, but costs more. That is a loss on cost, not a win.
 
+### 5.17 Round 9: a cheaper BFCL arm, and where it still loses
+
+Round 8 left Weave 1.36× as expensive as native on BFCL. Round 9 diagnosed why from the committed round-8 traces
+(`bench/bfcl/diagnose.py`; notes and citations in `docs/research/round9-notes.md`) and changed the tool, not the
+benchmark:
+
+- The Weave description was billed about 850 tokens more per request than BFCL's native schemas (probes: 2,902 vs
+  2,058 tokens on task 73, 4,106 vs 3,242 on task 4), and GPT-4.1's cached share was 57 % against native's 72 %.
+- Most script errors came from response shapes that BFCL's docs state wrongly (33 on `get_order_history`, 8 on
+  `check_tire_pressure`) and from results returned as Python-literal text (13).
+
+Techniques (all opt-in; tuned only on train/dev tasks): a **compact description** (`WeaveTool(compact=True)`:
+short rules, sentences repeated across docs factored into lettered notes, a shared effect printed once; dev20 mean
+3,259 → 2,057 tokens); a **cache routing key** (`prompt_cache_key`, sent in both arms); **typed results learned from
+the 140 train tasks' ground-truth executions** plus Python-literal parsing (BFCL adapter); a **call trace** after the
+printed output; **checked arguments** (a call that breaks its declared simple type is refused once); `reply(text)`
+(`WeaveTool(reply=True)`) to end a turn without the restating model call, with a **guard** that withholds it after an
+error; and **hybrid routing** (`WeaveTool(listing=False)`: native schemas plus `run_weave`).
+
+Dev ablation (40 train tasks, one run each; native with the cache key):
+
+| config | GPT-4.1 pass, $ / task | GPT-5.4 mini pass, $ / task |
+|---|---|---|
+| native | 25/40, 0.0257 | 18/40, 0.0064 |
+| **W3** = compact, learned shapes, trace, type check | 28/40, 0.0215 | 22/40, 0.0054 |
+| W4 = W3 + reply (guarded) | 18/40, 0.0168 | 23/40, 0.0042 |
+| W5 = hybrid | — | 19/40, 0.0064 |
+
+`reply` was the cheapest but GPT-4.1 ended turns before making the requested change, so W3 was pre-registered
+(Addendum 9) for 60 fresh, seeded tasks disjoint from train and from round 8 (`mtb60r9`, hash `dd3384a5132d2183`).
+All 240 trials ran; none were skipped.
+
+| model | pass W / N | Δ pass rate [95 % CI] | W-only / N-only (McNemar p) | Δ model calls [95 % CI] | token ratio [95 % CI] | $ ratio [95 % CI] | $ W / N |
+|---|---|---|---|---|---|---|---|
+| GPT-4.1 | 38/60 / 35/60 | +0.050 [−0.067, +0.150] | 7 / 4 (0.55) | −1.30 [−1.97, −0.67] | 0.76 [0.70, 0.82] | **0.85 [0.79, 0.91]** | 1.434 / 1.673 |
+| GPT-5.4 mini (effort none) | 18/60 / 27/60 | **−0.150 [−0.283, −0.017]** | 4 / 13 (0.05) | −1.43 | 0.74 | **0.88 [0.82, 0.95]** | 0.365 / 0.407 |
+| pooled | 56/120 / 62/120 | −0.050 [−0.142, +0.033] | 11 / 17 (0.34) | −1.37 [−1.82, −0.92] | 0.75 [0.71, 0.79] | **0.86 [0.82, 0.91]** | 1.798 / 2.081 |
+
+![Round 9 on BFCL multi_turn_base](../../assets/benchmark-v12-bfcl.png)
+
+- **C2 (cost): supported.** Weave is now cheaper on BFCL for both models (0.85× and 0.88×), where round 8 was 1.53×
+  and 1.21× (different tasks).
+- **C3, C4: supported.** About 25 % fewer tokens and 1.3–1.4 fewer model calls per task.
+- **C1 (success): not supported, and a loss for GPT-5.4 mini.** GPT-4.1 gained 3 tasks (not significant). GPT-5.4
+  mini lost 9 (18 vs 27), a significant difference whose CI crosses the −0.10 no-harm bound; pooled no-harm also
+  fails (lower bound −0.142). Of mini's 13 Weave-only failures, 9 are `instance_state_mismatch`, 3 empty turns and 1
+  execution response. The traces show scripts that batch state-changing calls on a wrong assumption (for example
+  `mkdir` in the wrong directory, leaving extra state) and steps skipped after an error value. At effort `none`,
+  the small model does worse when writes are batched blind than when it sees each result first. Dev did not show
+  this (22 vs 18 on 40 train tasks), so it is either a dev/evidence gap or noise on dev; we report it as found.
+- **C5:** wall time −0.22 s (GPT-4.1) and −0.70 s [−1.22, −0.22] (mini). **C6:** 22 and 19 script errors.
+
+**Fan-out reconfirm (`confirm9`, F1/F2)**, 10 tasks × 2 repeats on real SQLite, git, files, HTTP and PyPI:
+
+| model | mode | pass | mean wall s | mean tokens | Δ wall s vs native [95 % CI] | token ratio vs native [CI] | $ ratio vs native [CI] | $ total |
+|---|---|---|---|---|---|---|---|---|
+| GPT-4.1 | weave_compact | 20/20 | 2.06 | 1,596 | −2.25 [−3.09, −1.43] | 0.38 [0.29, 0.49] | 0.45 [0.34, 0.59] | 0.079 |
+| GPT-4.1 | weave | 20/20 | 2.06 | 2,242 | −2.25 [−3.06, −1.46] | 0.53 [0.41, 0.69] | 0.59 [0.44, 0.78] | 0.103 |
+| GPT-4.1 | native | 14/20 | 4.32 | 4,575 | | | | 0.190 |
+| GPT-5.4 mini (low) | weave_compact | 20/20 | 2.68 | 2,589 | −1.57 [−2.69, −0.52] | 0.52 [0.35, 0.75] | 0.50 [0.36, 0.67] | 0.049 |
+| GPT-5.4 mini (low) | weave | 20/20 | 2.32 | 2,576 | −1.93 [−2.91, −1.00] | 0.55 [0.42, 0.73] | 0.53 [0.42, 0.67] | 0.050 |
+| GPT-5.4 mini (low) | native | 13/20 | 4.25 | 5,028 | | | | 0.100 |
+
+McNemar p for Weave vs native is 0.03 (GPT-4.1) and 0.02 (mini). Native failed `pypi_major` (4) and
+`warehouse_shortfall` (2) with GPT-4.1, and `git_review` (6) and `warehouse_shortfall` (1) with mini.
+- **F1: supported** for both models: more passes, about half the time, half the cost or less.
+- **F2: supported for GPT-4.1** (`weave_compact`/`weave` tokens 0.71 [0.70, 0.72]), **not for mini** (0.94 [0.79,
+  1.15]).
+
+**Release rule: not met.** On BFCL, pooled success is below native and GPT-5.4 mini's loss is significant, so we did
+not release v1.1.0 or change the repository's visibility. The fan-out wins are clear, but the suite is ours and the
+BFCL loss is real. The round cost **$10.52** at list prices and 15.44M tokens: $6.07 dev (8.74M), $3.88 BFCL evidence
+(6.33M) and $0.57 `confirm9` (0.37M). Reproduce with `python bench/bfcl/report.py --round9` and
+`python bench/v4/report_r9.py`.
+
 ## 6. Threats to validity
 
 - **Simulated backend.** In the main suites latency is synthetic (uniform around a mean, with a concurrency cap of
@@ -823,6 +901,9 @@ model calls, but costs more. That is a loss on cost, not a win.
   coarse, and the families were designed by the authors of the system under test. Two held-out families were never seen
   in development, but their shapes, fan-out and conditional writes, are the kind of workload Weave targets.
   Conversational tasks, tasks that need judgement between steps, and very long horizons are not covered.
+- **BFCL success (round 9).** With GPT-5.4 mini at effort `none`, Weave passed 18 of 60 fresh BFCL multi-turn tasks
+  against native's 27. Batched writes made on a wrong assumption are the main cause seen in traces. Weave is not
+  uniformly better on success.
 - **Models.** Only OpenAI models were run in full. Gemini is anecdotal (round 1) or missing (round 2, quota), and GLM
   and Anthropic are missing.
 - **Prompt.** Weave's tool description was tuned on dev, while the native arm uses plain JSON tool definitions with

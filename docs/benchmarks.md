@@ -1,5 +1,38 @@
 # Benchmarks
 
+## Round 9: cheaper on BFCL, a success loss with GPT-5.4 mini, fan-out reconfirmed (2026-11-16)
+
+Pre-registered in Addendum 9 (`mtb60r9`, hash `dd3384a5132d2183`: 60 fresh seeded tasks disjoint from the 140 train
+tasks used for tuning and from round 8; `confirm9`, hash `a7ef5eb5aac5cd26`). Weave config: compact description,
+result types learned from train executions, call trace, checked arguments; `prompt_cache_key` in both arms. Details,
+dev ablations and failure analysis: [paper §5.17](paper/weave.md), [round 9 notes](research/round9-notes.md).
+
+| model | pass W / N | Δ pass rate [95 % CI] | W-only / N-only (McNemar p) | Δ model calls [95 % CI] | token ratio [95 % CI] | $ ratio [95 % CI] | $ W / N |
+|---|---|---|---|---|---|---|---|
+| GPT-4.1 | 38/60 / 35/60 | +0.050 [−0.067, +0.150] | 7 / 4 (0.55) | −1.30 [−1.97, −0.67] | 0.76 [0.70, 0.82] | **0.85 [0.79, 0.91]** | 1.434 / 1.673 |
+| GPT-5.4 mini (effort none) | 18/60 / 27/60 | **−0.150 [−0.283, −0.017]** | 4 / 13 (0.05) | −1.43 | 0.74 | **0.88 [0.82, 0.95]** | 0.365 / 0.407 |
+| pooled | 56/120 / 62/120 | −0.050 [−0.142, +0.033] | 11 / 17 (0.34) | −1.37 [−1.82, −0.92] | 0.75 [0.71, 0.79] | **0.86 [0.82, 0.91]** | 1.798 / 2.081 |
+
+**Loss:** GPT-5.4 mini (effort none) passed 18/60 with Weave against 27/60 native (Δ −0.150 [−0.283, −0.017]); pooled
+no-harm fails. Traces show batched writes made on a wrong assumption and steps skipped after errors. **Wins:** cheaper
+for both models (0.85× and 0.88×), ~25 % fewer tokens, 1.3–1.4 fewer model calls per task.
+
+![BFCL multi_turn_base, round 9](../assets/benchmark-v12-bfcl.png)
+
+Fan-out reconfirm on real SQLite, git, files, HTTP and PyPI (10 tasks × 2 repeats):
+
+| model | mode | pass | mean wall s | mean tokens | Δ wall s vs native [95 % CI] | token ratio vs native [CI] | $ ratio vs native [CI] | $ total |
+|---|---|---|---|---|---|---|---|---|
+| GPT-4.1 | weave_compact | 20/20 | 2.06 | 1,596 | −2.25 [−3.09, −1.43] | 0.38 [0.29, 0.49] | 0.45 [0.34, 0.59] | 0.079 |
+| GPT-4.1 | weave | 20/20 | 2.06 | 2,242 | −2.25 [−3.06, −1.46] | 0.53 [0.41, 0.69] | 0.59 [0.44, 0.78] | 0.103 |
+| GPT-4.1 | native | 14/20 | 4.32 | 4,575 | | | | 0.190 |
+| GPT-5.4 mini (low) | weave_compact | 20/20 | 2.68 | 2,589 | −1.57 [−2.69, −0.52] | 0.52 [0.35, 0.75] | 0.50 [0.36, 0.67] | 0.049 |
+| GPT-5.4 mini (low) | weave | 20/20 | 2.32 | 2,576 | −1.93 [−2.91, −1.00] | 0.55 [0.42, 0.73] | 0.53 [0.42, 0.67] | 0.050 |
+| GPT-5.4 mini (low) | native | 13/20 | 4.25 | 5,028 | | | | 0.100 |
+
+Spend: $10.52 and 15.44M tokens for the round (dev $6.07). Reproduce: `python bench/bfcl/report.py --round9`,
+`python bench/v4/report_r9.py`.
+
 ## Round 8: BFCL v4 multi-turn (2026-11-15)
 
 Pre-registered in Addendum 8 (`mtb40`, hash `3ab8f2865c012424`; 40 seeded `multi_turn_base` tasks disjoint from 6 dev

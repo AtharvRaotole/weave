@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Agent tool (round 9)
+- `WeaveTool(compact=True)`: shorter rules and a listing that prints doc sentences repeated in 3+ functions once, as
+  lettered notes, and a shared effect once (BFCL dev: 3,259 → 2,057 description tokens).
+- `WeaveTool(reply=True)`: a pure `reply(text)` function; a successful script that calls it returns `(replied)` and
+  `take_reply()` gives the text, so a host can end the turn without a restating model call. Opt-in; it hurt GPT-4.1
+  on BFCL dev (turns ended before the requested change).
+- `WeaveTool(compact=True, listing=False)`: the description without the function list, for hosts that also send
+  native schemas.
+- A script's last bare `reply(...)` is no longer echoed.
+
+### Benchmarks (round 9)
+- BFCL adapter: Python-literal results parsed, result shapes learned from train executions (`bench/bfcl/learn_shapes.py`,
+  `shapes.json`), call trace, checked arguments, `--weave-config`, `--cache-key` (both arms), subsets `mtb60r9`,
+  `dev40r9`; `bench/bfcl/diagnose.py`; `bench/v4` mode `weave_compact` and suite `confirm9`.
+- Round 9 results (Addendum 9): `bench/results/v12/`, `bench/bfcl/report.py --round9`, `bench/v4/report_r9.py`,
+  `assets/benchmark-v12-bfcl.*`, `assets/results.*`. BFCL: 0.86× cost pooled; GPT-4.1 38/60 vs 35/60; **GPT-5.4 mini
+  18/60 vs 27/60 (a significant loss)**. Fan-out `confirm9`: 40/40 vs 27/40 at 0.45–0.50× cost.
+
+### Docs (round 9)
+- README rewritten short; the previous long README is `docs/reference.md`. Research notes:
+  `docs/research/round9-notes.md`; paper §5.17.
+
 ### Adoption (round 8)
 - `WeaveTool.langchain_tool()` (and `weave.integrations.langchain_tool`): a LangChain `StructuredTool` for LangChain
   and LangGraph (`ToolNode`, `bind_tools`, `create_react_agent`); async calls cancel the script session.
