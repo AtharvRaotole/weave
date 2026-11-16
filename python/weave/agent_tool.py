@@ -351,6 +351,22 @@ def _leaves(value, out: list, depth: int = 0) -> list:
     return out
 
 
+def _choice_leaves(value, out: set, depth: int = 0, in_list: bool = False) -> set:
+    """Scalar leaves that sit inside a list of two or more items: values a script can *pick* among."""
+    if depth > 6 or len(out) > 2000:
+        return out
+    if isinstance(value, dict):
+        for v in value.values():
+            _choice_leaves(v, out, depth + 1, in_list)
+    elif isinstance(value, (list, tuple, set)):
+        many = in_list or len(value) >= 2
+        for v in value:
+            _choice_leaves(v, out, depth + 1, many)
+    elif in_list and isinstance(value, (str, int, float)) and not isinstance(value, bool):
+        out.add(repr(value))
+    return out
+
+
 def default_is_error(value) -> bool:
     """A result that reports a failure as a value, e.g. `{"error": "..."}`."""
     return isinstance(value, dict) and "error" in value
@@ -368,7 +384,10 @@ class WriteGate:
       leaves. A leaf is *known* when it appears literally in text the model has seen: its own scripts, what the tool
       returned to it, and anything the host adds with `note_shown` (the user's messages). A write with an unknown
       leaf, made after this script received any result, was computed from data the model has not seen.
-    * **Failures (`flow`).** A write after a call of this script that raised a ToolError the script caught, or
+    * **Choices (`choice`, the default).** As `flow`, but only for a leaf that the script picked out of a list of
+      two or more items it has not seen (which order, which file, which flight). A value read from a single field,
+      such as a price or an id looked up by name, passes: the model asked for exactly that value.
+    * **Failures (all modes; `errors` is this rule alone).** A write after a call of this script that raised a ToolError the script caught, or
       returned an error value (`is_error`), is control-dependent on an outcome the model has not seen.
 
     The paused write is refused before it runs (its function is never called), every later write of the script is
@@ -383,10 +402,10 @@ class WriteGate:
     are all literals in the script.
     """
 
-    def __init__(self, mode: str = "flow", is_error: Callable[[Any], bool] | None = None,
+    def __init__(self, mode: str = "choice", is_error: Callable[[Any], bool] | None = None,
                  read_names: Iterable[str] = ()):
-        if mode not in ("flow",):
-            raise ValueError("write_gate must be 'flow' or None")
+        if mode not in ("flow", "choice", "errors"):
+            raise ValueError("write_gate must be 'choice', 'flow', 'errors' or None")
         self.mode = mode
         self.is_error = is_error or default_is_error
         self.read_names = set(read_names)
@@ -404,6 +423,7 @@ class WriteGate:
         with self._lock:
             self._calls: list[tuple[str, str]] = []
             self._results = 0
+            self._choices: set = set()
             self._failed: str | None = None
             self._held: str | None = None
             self._reason = ""
@@ -434,11 +454,15 @@ class WriteGate:
                     if gate._held is None:
                         if gate._failed is not None:
                             gate._held, gate._reason = shown_call, f"it follows {gate._failed}, which failed"
-                        elif gate._results:
+                        elif gate._results and gate.mode != "errors":
                             unknown = [x for x in _leaves([list(args), kwargs], []) if not gate._known(x)]
+                            if gate.mode == "choice":
+                                unknown = [x for x in unknown if repr(x) in gate._choices]
                             if unknown:
                                 gate._held = shown_call
-                                gate._reason = f"{unknown[0]!r} came from results you have not seen"
+                                gate._reason = (f"{unknown[0]!r} was picked from a list you have not seen"
+                                                if gate.mode == "choice" else
+                                                f"{unknown[0]!r} came from results you have not seen")
                     held = gate._held
                 if held is not None:
                     raise ToolError(f"paused before {shown_call}: check the results first")
@@ -456,6 +480,8 @@ class WriteGate:
                 except (TypeError, ValueError):
                     text = repr(value)
                 gate._calls.append((shown_call, text))
+                if gate.mode == "choice":
+                    _choice_leaves(value, gate._choices)
                 if gate.is_error(value):
                     gate._failed = gate._failed or shown_call
             return value
@@ -473,8 +499,8 @@ class WriteGate:
             out = (f"[paused before {held}: {reason}. It and any later writes did not run; the calls before it did.]\n"
                    + (printed.rstrip("\n") + "\n" if printed.strip() else "")
                    + "[results so far]\n" + "\n".join(lines) +
-                   "\nCheck these results. If the writes are still right, send them in a new script (do not repeat "
-                   "the writes above that already ran).")
+                   "\nThe request is not finished. Check these results, then call this tool again now with the "
+                   "remaining steps (fixed if needed); do not repeat calls above that already ran.")
         self.note_shown(out)
         return out
 
@@ -519,8 +545,8 @@ class WeaveTool:
         `reply=True` adds a `reply(text)` function: a script that succeeds and calls it ends the turn with that
         text, saving the model call that would only restate the output. After `run`, `take_reply()` returns the
         text (or None); the host decides whether to end the turn with it.
-        `write_gate="flow"` pauses a script before a write whose arguments came from results the model has not seen,
-        or that follows a failed call, and returns those results instead (see `WriteGate`). `gate_is_error` decides
+        `write_gate="choice"` pauses a script before a write whose arguments were picked from a list the model has not
+        seen, or that follows a failed call (`"flow"`: any argument computed from unseen results; `"errors"`: failures only), and returns those results instead (see `WriteGate`). `gate_is_error` decides
         which results count as failures (default: a dict with an "error" key); `gate_read_names` lists functions the
         gate treats as reads although they are declared writes (e.g. for scheduling). Call `note_shown(text)` with
         other text the model sees, such as the user's messages. Not available with `worker_pool` or an `engine`."""

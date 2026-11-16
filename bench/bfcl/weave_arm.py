@@ -189,7 +189,8 @@ def inference_multi_turn_weave(handler, entry: dict, instance_name: str, create,
                             max_wall_time_ms=60_000,
                             compact="compact" in opts or "hybrid" in opts, reply="reply" in opts,
                             listing="hybrid" not in opts,
-                            write_gate="flow" if "gate" in opts else None, gate_read_names=learned_reads())
+                            write_gate=next((m for m in ("flow", "choice", "errors") if "gate" + ("" if m == "flow" else m) in opts),
+                                            None), gate_read_names=learned_reads())
         if shown and t.gate is not None:
             t.gate._shown = shown
         return t

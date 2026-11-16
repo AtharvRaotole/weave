@@ -301,6 +301,23 @@ def test_write_gate_is_opt_in_and_replays():
     assert replayed.stdout == result.stdout and log == ["report_2026.txt"]
 
 
+def test_write_gate_choice_mode_pauses_only_picks_from_lists():
+    @weave.declare(effect="read")
+    def price(symbol: str) -> dict:
+        return {"price": 227.16}
+
+    @weave.declare(effect="reversible")
+    def buy(p: float) -> dict:
+        return {"ok": True}
+
+    log, fns = _gate_tools()
+    tool = weave.WeaveTool(fns + [price, buy], write_gate="choice")
+    assert tool.run('print(buy(price("A")["price"]))') == "{'ok': True}\n"  # a single looked-up value passes
+    out = tool.run('rm(ls()[1])')
+    assert "was picked from a list you have not seen" in out and log == []
+    assert "The request is not finished" in out
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
