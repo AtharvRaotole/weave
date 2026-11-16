@@ -131,7 +131,7 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--usd-budget", type=float, required=True)
     ap.add_argument("--reserve-usd", type=float, default=0.25, help="$ reserved for each trial in flight")
-    ap.add_argument("--out", type=Path, default=ROOT / "bench/results/v12")
+    ap.add_argument("--out", type=Path, default=ROOT / "bench/results/v13")
     ap.add_argument("--tag", default="")
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--weave-config", default="doc",
@@ -139,6 +139,8 @@ def main(argv=None):
     ap.add_argument("--cache-key", action="store_true",
                     help="send prompt_cache_key=<arm tag>-<task id> in BOTH arms (routing hint for prompt caching)")
     args = ap.parse_args(argv)
+    global CATEGORY
+    CATEGORY = args.category
     if not (args.allow_live and os.environ.get("WEAVE_BENCH_LIVE") == "1"):
         raise SystemExit("refusing: pass --allow-live AND set WEAVE_BENCH_LIVE=1")
     from bfcl_eval.utils import load_dataset_entry, load_ground_truth_entry
