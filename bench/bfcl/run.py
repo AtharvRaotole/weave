@@ -48,7 +48,7 @@ def manifest(ids):
             "hash": hashlib.sha256(blob.encode()).hexdigest()[:16]}
 
 
-def metered(handler, meter, effort):
+def metered(handler, meter, effort, cache_key=None):
     """Patch the handler's client so every request is metered and carries the same settings in both arms."""
     real = handler.client.chat.completions.create
 
@@ -56,6 +56,8 @@ def metered(handler, meter, effort):
         if effort:
             kw.pop("temperature", None)
             kw["reasoning_effort"] = effort
+        if cache_key:
+            kw["prompt_cache_key"] = cache_key
         t0 = time.time()
         res = real(**kw)
         meter["llm_s"] += time.time() - t0
@@ -82,7 +84,7 @@ def one_trial(args, arm, entry, gt, repeat):
     tag = f"{handler.model_name_underline_replaced}_{arm}_r{repeat}"
     handler.model_name_underline_replaced = tag  # instance namespace for this arm's backends
     meter = {"calls": 0, "input": 0, "output": 0, "cached": 0, "reasoning": 0, "llm_s": 0.0}
-    metered(handler, meter, args.effort)
+    metered(handler, meter, args.effort, f"{tag}-{entry['id']}" if args.cache_key else None)
     t0 = time.time()
     error, extra, result = None, {}, None
     try:
@@ -90,7 +92,7 @@ def one_trial(args, arm, entry, gt, repeat):
             result, meta = handler.inference_multi_turn_FC(entry, False, True)
         else:
             result, extra = inference_multi_turn_weave(
-                handler, entry, tag, lambda **kw: handler.generate_with_backoff(**kw)[0])
+                handler, entry, tag, lambda **kw: handler.generate_with_backoff(**kw)[0], args.weave_config)
     except Exception as e:  # noqa: BLE001 - a provider or harness error fails the trial
         error = f"{type(e).__name__}: {e}"[:500]
     wall = time.time() - t0
@@ -110,6 +112,7 @@ def one_trial(args, arm, entry, gt, repeat):
         "tool_calls": tool_calls, "tokens": toks, "total_tokens": toks["input"] + toks["output"],
         "usd": usd(args.model, toks), "wall_s": wall, "llm_s": meter["llm_s"],
         "weave": extra.get("weave"), "force_quit": extra.get("force_quit"),
+        "weave_config": args.weave_config if arm == "weave" else None, "cache_key": bool(args.cache_key),
     }, {"result": result, "messages": json.loads(json.dumps(messages, default=lambda o: getattr(o, "model_dump", str)()))
         if messages is not None else None}
 
@@ -126,9 +129,13 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--usd-budget", type=float, required=True)
     ap.add_argument("--reserve-usd", type=float, default=0.25, help="$ reserved for each trial in flight")
-    ap.add_argument("--out", type=Path, default=ROOT / "bench/results/v11")
+    ap.add_argument("--out", type=Path, default=ROOT / "bench/results/v12")
     ap.add_argument("--tag", default="")
     ap.add_argument("--seed", type=int, default=2026)
+    ap.add_argument("--weave-config", default="doc",
+                    help="comma list: compact, reply, learned|doc|noshapes (round 8 = doc)")
+    ap.add_argument("--cache-key", action="store_true",
+                    help="send prompt_cache_key=<arm tag>-<task id> in BOTH arms (routing hint for prompt caching)")
     args = ap.parse_args(argv)
     if not (args.allow_live and os.environ.get("WEAVE_BENCH_LIVE") == "1"):
         raise SystemExit("refusing: pass --allow-live AND set WEAVE_BENCH_LIVE=1")
@@ -171,7 +178,8 @@ def main(argv=None):
             "source_dirty": dirty, "split": split, "manifest": man, "model": args.model, "effort": args.effort,
             "temperature": None if args.effort else args.temperature, "arms": arms, "repeats": args.repeats,
             "planned": len(plan), "usd_budget": args.usd_budget, "reserve_usd": args.reserve_usd, "seed": args.seed,
-            "handler": "bfcl_eval OpenAICompletionsHandler (FC)"}
+            "handler": "bfcl_eval OpenAICompletionsHandler (FC)", "weave_config": args.weave_config,
+            "cache_key": bool(args.cache_key)}
     (out / "run.json").write_text(json.dumps(meta, indent=2) + "\n")
     rows_f, traces_f = (out / "rows.jsonl").open("a"), (out / "traces.jsonl").open("a")
     room = threading.Condition()

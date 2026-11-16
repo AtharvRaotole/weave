@@ -530,3 +530,64 @@ $4.70 stop.
 |---|---|---|---|
 | BFCL v4 multi_turn_base (`bfcl-eval==2026.3.23`) | gpt-4.1-2025-04-14 (temperature 0.001) | mtb40 | weave, native |
 | BFCL v4 multi_turn_base (`bfcl-eval==2026.3.23`) | gpt-5.4-mini-2026-03-17 (effort none) | mtb40 | weave, native |
+
+## Addendum 9: round 9, a cheaper and checked Weave arm (written and committed before any evidence trial on `mtb60r9` or `confirm9`)
+
+**Why.** Round 8 showed Weave costing 1.36× native on BFCL `multi_turn_base`. The diagnosis
+(`docs/research/round9-notes.md`, `bench/bfcl/diagnose.py`) found a description billed ~850 tokens larger than the
+native schemas on every request, repeated doc text, a GPT-4.1 cache-hit gap (57 % vs 72 %), result types that did
+not match the backends, and a harness defect (Python-literal results passed to scripts as strings).
+
+**Techniques** (ablated on train tasks only; rows in `bench/results/v12/*-dev-*`): compact description with shared
+doc sentences factored out (`WeaveTool(compact=True)`), return shapes learned from train-split ground-truth
+executions (`bench/bfcl/learn_shapes.py`, `shapes.json`; evidence tasks excluded), Python-literal result parsing, a
+call trace in the script output, checked arguments (refused once on a simple type mismatch), `reply()` with a guard,
+hybrid routing, and `prompt_cache_key` per trial.
+
+**Dev results, 40 train tasks** (`dev40r9` = 20 tasks of mtb40 + 20 other train tasks; one run each; native with the
+cache key):
+
+| config | GPT-4.1 pass / $ per task | GPT-5.4 mini pass / $ per task |
+|---|---|---|
+| native | 25/40, $0.0257 | 18/40, $0.0064 |
+| **W3** compact, learned, trace, typecheck | **28/40, $0.0215** | **22/40, $0.0054** |
+| W4 = W3 + reply, guard | 18/40, $0.0168 | 23/40, $0.0042 |
+| W5 hybrid, learned, trace, typecheck | — | 19/40, $0.0064 |
+
+`reply()` saves a model call per turn but made GPT-4.1 end turns before doing the requested change (18/40), so it is
+not used. Hybrid matched native in cost and success. **W3 is the evidence configuration for both models.**
+
+**BFCL evidence subset.**
+
+| subset | manifest hash | tasks |
+|---|---|---|
+| **mtb60r9** | `dd3384a5132d2183` | `multi_turn_base` ids 0, 1, 3, 11, 12, 22, 23, 31, 32, 33, 40, 50, 55, 56, 58, 60, 62, 64, 66, 69, 72, 76, 78, 79, 83, 84, 86, 90, 94, 97, 99, 106, 113, 115, 117, 123, 125, 128, 130, 141, 142, 147, 150, 152, 157, 160, 166, 167, 169, 170, 171, 174, 175, 179, 180, 183, 184, 185, 189, 195 = `sorted(random.Random("weave-round9-bfcl-evidence").sample(R9_POOL, 60))`, R9_POOL = ids not in dev6 or mtb40; never used for tuning or shape learning |
+
+**Settings.** `bfcl-eval==2026.3.23`, tasks and grader unchanged; native arm = BFCL's `OpenAICompletionsHandler`
+loop. Both arms: `prompt_cache_key=<arm>-<task>`, OpenAI default `parallel_tool_calls`, `store: false`.
+GPT-4.1 at temperature 0.001; GPT-5.4 mini with `reasoning_effort: none`. Weave config
+`compact,learned,trace,typecheck`. One repeat, 4 workers, runs concurrent.
+
+**Hypotheses** (paired by task; 95 % cluster-bootstrap CIs; per model and pooled over 120 pairs):
+
+- **C1 (success).** Pass counts, exact McNemar p, paired pass-rate difference. No harm if the CI lower bound is above
+  −0.10. We predict a pooled point estimate ≥ 0 (dev: +7 tasks of 80); significance is not expected at this size.
+- **C2 (cost).** Geometric-mean ratio of list-price dollars per task, Weave/native. We predict a pooled CI entirely
+  below 1.
+- **C3 (tokens)** ratio, **C4 (model calls)** difference, **C5 (wall time)** difference: reported, predicted ≤ 1,
+  < 0 and ≈ 0.
+- **C6 (descriptive).** Script errors, type-check refusals, cached share, error types per arm.
+
+**Fan-out reconfirm, `confirm9`** (hash `a7ef5eb5aac5cd26`; the `confirm4` recipe with seeds + 500; real SQLite, git,
+files, HTTP and PyPI; latency 0): modes `weave_compact` (`WeaveTool(compact=True)`), `weave` (round-4 listing) and
+`native`, 2 repeats, GPT-4.1 (temperature 0) and GPT-5.4 mini (effort low).
+- **F1.** `weave_compact` vs native: pass ≥, wall time and tokens lower (as in rounds 2–5).
+- **F2.** `weave_compact` vs `weave`: fewer tokens, pass within noise.
+
+**Caps** (list prices; in-flight guard): BFCL GPT-4.1 $3.40 (reserve $0.08 per trial), GPT-5.4 mini $0.95 (reserve
+$0.03); `confirm9` 600k tokens per model. Round 9 dev spend before evidence: $6.07 (8.74M tokens). Round total at most
+$12.1, under the $14 stop. Skipped trials are listed and their pairs dropped.
+
+**Release rule** (from the owner's brief): release v1.1.0 and make the repository public only if BFCL shows Weave ≥
+native on success and ≤ native on cost (point estimates, with no-harm met), or clear wins elsewhere with no hidden
+losses.

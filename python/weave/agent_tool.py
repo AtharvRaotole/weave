@@ -47,6 +47,25 @@ RULES = (
     "what the script printed, or the error with a hint so you can fix the script."
 )
 
+# `compact=True`: the same rules in fewer tokens. The description is sent with every request, so on short tasks it is
+# most of what Weave adds to the bill (round 8, BFCL: about 850 more billed input tokens per request than the native
+# tool schemas).
+COMPACT_RULES = (
+    "Run a Weave script (Python subset) that calls the functions below by bare name. Put a turn's dependent calls in "
+    "ONE script; independent calls and loop iterations run in parallel. No imports, classes, while or with; use "
+    "`for _ in range(N):` + break. Allowed: if/for/try/except, def, comprehensions, lambda, f-strings, str/list/dict "
+    "methods, common builtins, parse_json. A failing call raises ToolError. print() only what you need; you get the "
+    "printed text or an error with a hint."
+)
+
+REPLY_RULE = (
+    " If the printed results fully answer the user, end the script with reply(text), e.g. "
+    "reply(f\"Moved {n} files to {dest}.\"): the turn then ends with that text and you will not see the output. "
+    "Call reply() only when this script has already done everything the user asked in this turn (every requested "
+    "change made, every requested value fetched), never to report partial progress; do not call it when you need to "
+    "look at results first."
+)
+
 # For hosts where a person replies between turns (support agents, assistants): every script is a model
 # round trip the person waits for, so a script should fetch everything the next reply needs. Writes still
 # wait for the person's explicit go-ahead, which is the host policy's job to require; these rules only
@@ -138,7 +157,7 @@ def echo_last_expression(source: str) -> str:
         return source
     node = tree.body[-1].value
     if isinstance(node, ast.Constant) or (
-        isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "print"
+        isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in ("print", "reply")
     ):
         return source
     lines = source.splitlines(keepends=True)
@@ -231,6 +250,49 @@ def tool_line(func: Callable) -> str:
     return f"{func.__name__}({_signature(func)}){arrow}, effect {effect}. {doc}".rstrip()
 
 
+def _sentences(text: str) -> list:
+    import re
+
+    return [x.strip() for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x.strip()]
+
+
+def compact_listing(functions: list) -> str:
+    """Function lines with shared text factored out, for `compact=True`.
+
+    Tool docs generated from one API often repeat the same sentences in every entry ("This tool belongs to the
+    vehicle control system, ...", "Note that the provided function is in Python 3 syntax."). Any sentence of 40+
+    characters that appears in 3 or more docs is written once as a note `[A] ...` and each line cites its notes.
+    The effect is printed once when every function has the same one."""
+    metas = [(getattr(f, "__weave__", None) or {}).get("effect") or "irreversible" for f in functions]
+    same_effect = len(set(metas)) == 1
+    docs = [_sentences(" ".join((inspect.getdoc(f) or "").split())) for f in functions]
+    counts: dict = {}
+    for d in docs:
+        for sent in dict.fromkeys(d):
+            counts[sent] = counts.get(sent, 0) + 1
+    shared = [x for x, c in counts.items() if c >= 3 and len(x) >= 40]
+    labels = {x: chr(65 + i) if i < 26 else f"N{i}" for i, x in enumerate(shared)}
+    lines = []
+    if same_effect:
+        lines.append(f"Every function has effect {metas[0]}.")
+    lines += [f"[{labels[x]}] {x}" for x in shared]
+    owns = [" ".join(x for x in d if x not in labels) for d in docs]
+    # A label every remaining doc starts with ("Tool description: ...") says nothing; drop it.
+    import os as _os
+
+    prefix = _os.path.commonprefix(owns) if len(owns) >= 3 else ""
+    prefix = prefix[: prefix.find(":") + 1] if ":" in prefix[:40] else ""
+    for f, effect, d, own in zip(functions, metas, docs, owns):
+        returns = _returns(f)
+        head = f"{f.__name__}({_signature(f)})" + (f" -> {returns}" if returns else "")
+        if not same_effect:
+            head += f", effect {effect}"
+        own = own[len(prefix):].strip() if prefix else own
+        refs = "".join(f"[{labels[x]}]" for x in dict.fromkeys(d) if x in labels)
+        lines.append(f"{head}. {own} {refs}".rstrip())
+    return "\n".join(lines)
+
+
 def _literal(value: Any, depth: int = 0) -> str | None:
     """Weave source for a plain value, or None when it has no literal form."""
     if depth > 40:
@@ -280,6 +342,9 @@ class WeaveTool:
         debug: bool = False,
         conversational: bool = False,
         persist_variables: bool = False,
+        compact: bool = False,
+        reply: bool = False,
+        listing: bool = True,
     ):
         """`worker_pool=N` runs every function in killable worker processes
         (`Engine(worker_pool=N, isolate_all=True)`): a tool timeout or the run
@@ -291,8 +356,32 @@ class WeaveTool:
         `persist_variables=True` keeps the variables of earlier scripts, like a notebook: a later script
         can use `order` from the script before instead of fetching it again. Values are snapshots taken
         when the earlier script ended; they reach the engine as literal assignments, so effect analysis
-        and scheduling see plain constants."""
+        and scheduling see plain constants.
+        `compact=True` sends shorter rules and a listing with repeated doc sentences factored out
+        (`compact_listing`); the description is part of every request.
+        `listing=False` (with `compact=True`) leaves the function list out of the description, for hosts that
+        also send every function as its own native tool (a hybrid: one call directly, several in a script).
+        `reply=True` adds a `reply(text)` function: a script that succeeds and calls it ends the turn with that
+        text, saving the model call that would only restate the output. After `run`, `take_reply()` returns the
+        text (or None); the host decides whether to end the turn with it."""
         self.functions = list(functions)
+        self.compact = compact
+        self.reply = reply
+        self.listing = listing
+        self._reply_text = None
+        if reply:
+            box = self
+
+            def reply_fn(text):
+                """End the turn with this text for the user."""
+                box._pending_reply = str(text)
+                return None
+
+            reply_fn.__name__ = "reply"
+            from weave import declare as _declare
+
+            self._reply_fn = _declare(effect="pure", arity=1)(reply_fn)
+            self._pending_reply = None
         self.conversational = conversational
         self.persist_variables = persist_variables
         self.variables: dict = {}
@@ -307,7 +396,9 @@ class WeaveTool:
                 if worker_limits is not None:
                     raise ValueError("worker_limits needs worker_pool=N")
                 engine = Engine(debug=debug)
-            engine.install(self.functions)
+            engine.install(self.functions + ([self._reply_fn] if reply else []))
+        elif reply:
+            engine.install([self._reply_fn])
         self.engine = engine
         if max_wall_time_ms is not None:
             self.engine.set_limits(max_wall_time_ms=max_wall_time_ms)
@@ -315,8 +406,21 @@ class WeaveTool:
     # ---- tool definitions -------------------------------------------------
     @property
     def description(self) -> str:
+        if self.compact:
+            rules = COMPACT_RULES + (REPLY_RULE if self.reply else "")
+            if self.persist_variables:
+                rules += " Variables persist between scripts."
+            if self.conversational:
+                rules = f"{rules} {CONVERSATION_RULES}"
+            if not self.listing:
+                # Hybrid hosts also send each function as its own tool; the script calls the same functions by name.
+                return (rules.replace("the functions below", "the other tools in this request") +
+                        " Call a single tool directly; use this tool for two or more calls, loops or dependent calls.")
+            return f"{rules}\nFunctions:\n{compact_listing(self.functions)}"
         lines = "\n".join(tool_line(f) for f in self.functions)
         rules = RULES
+        if self.reply:
+            rules += REPLY_RULE
         if self.persist_variables:
             rules = rules.replace("(scripts do not share variables)", "(each script sees the variables earlier scripts set)")
             rules += (" Variables persist between scripts, like a notebook: reuse values you already fetched instead "
@@ -359,6 +463,9 @@ class WeaveTool:
     def run(self, source: str, _cancel: dict | None = None) -> str:
         """Check and run a script. Returns text for the model: printed output
         on success, or `error: ...` lines it can repair from."""
+        self._reply_text = None
+        if self.reply:
+            self._pending_reply = None
         if not isinstance(source, str):
             return 'error: source must be a string'
         if not source.endswith("\n"):
@@ -388,7 +495,15 @@ class WeaveTool:
             return f"error: {_shift_lines(str(exc), prelude)}"
         if len(out) > self.max_output_chars:
             out = out[: self.max_output_chars] + f"\n[truncated to {self.max_output_chars} characters]"
+        if self.reply and self._pending_reply is not None:
+            self._reply_text = self._pending_reply
+            return out if out.strip() else "(replied)"
         return out if out.strip() else "(the script printed nothing; print the values you need)"
+
+    def take_reply(self) -> str | None:
+        """The text the last successful script passed to `reply()`, once; None if it did not reply or failed."""
+        text, self._reply_text = self._reply_text, None
+        return text
 
     def _prelude(self, source: str) -> str:
         """Literal assignments for the earlier variables this script reads, on one line."""

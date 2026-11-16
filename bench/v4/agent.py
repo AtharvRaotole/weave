@@ -44,7 +44,7 @@ def native_tools(tools=TOOLS):
     return out
 
 
-def weave_tool(world, *, pipeline_loops=True, footprints=True, tools=TOOLS, fps=FOOTPRINTS):
+def weave_tool(world, *, pipeline_loops=True, footprints=True, tools=TOOLS, fps=FOOTPRINTS, compact=False):
     from weave import ToolError, WeaveTool, declare
 
     functions = []
@@ -67,7 +67,7 @@ def weave_tool(world, *, pipeline_loops=True, footprints=True, tools=TOOLS, fps=
         fn.__weave_returns__ = returns
         fp = fps.get(name, {}) if footprints else {}
         functions.append(declare(effect=effect, **fp)(fn))
-    tool = WeaveTool(functions, max_wall_time_ms=60_000, max_output_chars=20_000)
+    tool = WeaveTool(functions, max_wall_time_ms=60_000, max_output_chars=20_000, compact=compact)
     if not pipeline_loops:
         tool.engine.set_limits(pipeline_loops=False)
     return tool
@@ -117,7 +117,7 @@ def run_native_calls(world, calls, tools=TOOLS):
 
 
 def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_loops=True, footprints=True, seed=0,
-          parallel_tool_calls=None):
+          parallel_tool_calls=None, compact=False):
     if task.backend == "real":
         from . import real
         world = real.RealWorld(task, concurrency=concurrency)
@@ -127,19 +127,21 @@ def trial(task, mode, client, *, latency_ms, repeat=0, concurrency=8, pipeline_l
         spec, fps = TOOLS, FOOTPRINTS
     try:
         return _trial(task, mode, client, world, spec, fps, latency_ms=latency_ms, repeat=repeat,
-                      pipeline_loops=pipeline_loops, footprints=footprints, parallel_tool_calls=parallel_tool_calls)
+                      pipeline_loops=pipeline_loops, footprints=footprints, parallel_tool_calls=parallel_tool_calls,
+                      compact=compact)
     finally:
         if hasattr(world, "close"):
             world.close()
 
 
 def _trial(task, mode, client, world, spec, fps, *, latency_ms, repeat, pipeline_loops, footprints,
-           parallel_tool_calls=None):
+           parallel_tool_calls=None, compact=False):
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": task.instruction}]
     if mode == "native":
         tools = native_tools(spec)
     else:
-        wt = weave_tool(world, pipeline_loops=pipeline_loops, footprints=footprints, tools=spec, fps=fps)
+        wt = weave_tool(world, pipeline_loops=pipeline_loops, footprints=footprints, tools=spec, fps=fps,
+                        compact=compact)
         tools = [wt.chat_tool()]
         # The product's recommended request settings (WeaveTool.request_options): one script per turn.
         if hasattr(client, "parallel_tool_calls"):

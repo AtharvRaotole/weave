@@ -19,7 +19,7 @@ def _calls(gt_turn):
     return out
 
 
-def fake_client(gt, arm, entry, lazy=False):
+def fake_client(gt, arm, entry, lazy=False, reply=False):
     """Replays ground truth: per turn one step with all calls (native: tool calls; weave: one script), then text."""
     docs = {d["name"]: list(d["parameters"].get("properties", {})) for d in entry["function"]}
     state = {"turn": 0, "phase": 0}
@@ -37,7 +37,7 @@ def fake_client(gt, arm, entry, lazy=False):
                     name=f, arguments=json.dumps({**dict(zip(docs[f], a)), **k}))) for j, (f, a, k) in enumerate(calls)]
             else:
                 src = "\n".join(f"{f}({', '.join([repr(x) for x in a] + [f'{p}={v!r}' for p, v in k.items()])})"
-                                for f, a, k in calls) + "\n"
+                                for f, a, k in calls) + "\n" + ('reply("done")\n' if reply else "")
                 msg.tool_calls = [types.SimpleNamespace(id="c0", type="function", function=types.SimpleNamespace(
                     name="run_weave", arguments=json.dumps({"source": src})))]
             msg.model_dump = lambda: {"role": "assistant", "content": None}
@@ -54,21 +54,25 @@ def main():
     from bfcl_eval.utils import load_dataset_entry, load_ground_truth_entry
     entries = {e["id"]: e for e in load_dataset_entry(R.CATEGORY)}
     gts = {g["id"]: g for g in load_ground_truth_entry(R.CATEGORY)}
-    args = Namespace(model="gpt-4.1-2025-04-14", temperature=0.001, effort=None)
+    base = dict(model="gpt-4.1-2025-04-14", temperature=0.001, effort=None, cache_key=False)
     real_init = openai_completion.OpenAICompletionsHandler.__init__
     for i in (0, 4, 20, 73):
         eid = f"{R.CATEGORY}_{i}"
-        for arm in ("native", "weave"):
+        for arm, config in (("native", "doc"), ("weave", "doc"), ("weave", "compact,reply,learned")):
+            args = Namespace(**base, weave_config=config)
+            reply = "reply" in config
             for lazy in (False, True):
                 def init(self, *a, **k):
                     real_init(self, *a, **k)
                     self.client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(
-                        create=fake_client(gts[eid]["ground_truth"], arm, entries[eid], lazy))))
+                        create=fake_client(gts[eid]["ground_truth"], arm, entries[eid], lazy, reply))))
                 openai_completion.OpenAICompletionsHandler.__init__ = init
                 row, _ = R.one_trial(args, arm, entries[eid], gts[eid], 9 + lazy)
                 assert row["error"] is None, row
                 assert row["passed"] == (not lazy), (eid, arm, lazy, row["error_type"])
-                print("ok", eid, arm, "lazy" if lazy else "oracle", row["passed"], row["agent_calls"], row["tool_calls"])
+                if reply and not lazy:
+                    assert row["agent_calls"] == row["turns"], row  # one model call per turn
+                print("ok", eid, arm, config, "lazy" if lazy else "oracle", row["passed"], row["agent_calls"], row["tool_calls"])
     openai_completion.OpenAICompletionsHandler.__init__ = real_init
     print("bfcl harness offline checks passed")
 

@@ -451,6 +451,8 @@ CONFIRM4 = tuple(FAMILIES[t.family](t.size, t.seed + 200, "confirm4") for t in R
     git_review(10, 303, "confirm4"), git_review(18, 304, "confirm4"))
 # Round 5, pre-registered in Addendum 5: the CONFIRM4 recipe with seeds + 100 (parallel_tool_calls ablation).
 CONFIRM5 = tuple(FAMILIES[t.family](t.size, t.seed + 100, "confirm5") for t in CONFIRM4)
+# Round 9, pre-registered in Addendum 9: the CONFIRM4 recipe with seeds + 500 (fan-out reconfirm, compact listing).
+CONFIRM9 = tuple(FAMILIES[t.family](t.size, t.seed + 500, "confirm9") for t in CONFIRM4)
 # Round 4 dev-only suite for diagnosing git_review (tuning allowed; never an evidence suite).
 REAL_DEV_GIT = tuple(git_review(n, s, "real_dev") for n in (8, 14) for s in (901, 902, 903, 904))
-REAL_SUITES = {"real_dev": REAL_DEV, "real_dev_git": REAL_DEV_GIT, "real": REAL, "real2": REAL2, "confirm4": CONFIRM4, "confirm5": CONFIRM5}
+REAL_SUITES = {"real_dev": REAL_DEV, "real_dev_git": REAL_DEV_GIT, "real": REAL, "real2": REAL2, "confirm4": CONFIRM4, "confirm5": CONFIRM5, "confirm9": CONFIRM9}

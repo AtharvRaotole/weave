@@ -16,3 +16,19 @@ SUBSETS = {
     "dev6": ("dev", DEV),
     "mtb40": ("evidence", EVIDENCE),
 }
+
+# Round 9. Evidence: 60 tasks never used before (not dev6, not mtb40). Everything else is train: the Weave arm may be
+# tuned on it, and return shapes are learned from its ground-truth executions (bench/bfcl/learn_shapes.py).
+R9_POOL = [i for i in range(200) if i not in DEV and i not in EVIDENCE]
+R9_EVIDENCE = sorted(random.Random("weave-round9-bfcl-evidence").sample(R9_POOL, 60))
+TRAIN = [i for i in range(200) if i not in R9_EVIDENCE]
+# Ablations run on 20 train tasks drawn from mtb40, whose round-8 native rows give a reference.
+R9_DEV = sorted(random.Random("weave-round9-bfcl-dev").sample(EVIDENCE, 20))
+
+SUBSETS["dev20r9"] = ("dev", R9_DEV)
+SUBSETS["mtb60r9"] = ("evidence", R9_EVIDENCE)
+# A second ablation set: 20 train tasks outside mtb40 and dev6 (for decisions on 40 dev tasks, not 20).
+R9_DEV_B = sorted(random.Random("weave-round9-bfcl-dev-b").sample(
+    [i for i in TRAIN if i not in EVIDENCE and i not in DEV], 20))
+SUBSETS["dev40r9"] = ("dev", sorted(R9_DEV + R9_DEV_B))
+SUBSETS["devB20r9"] = ("dev", R9_DEV_B)
