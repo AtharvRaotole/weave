@@ -32,3 +32,9 @@ R9_DEV_B = sorted(random.Random("weave-round9-bfcl-dev-b").sample(
     [i for i in TRAIN if i not in EVIDENCE and i not in DEV], 20))
 SUBSETS["dev40r9"] = ("dev", sorted(R9_DEV + R9_DEV_B))
 SUBSETS["devB20r9"] = ("dev", R9_DEV_B)
+
+# Round 10 (other multi-turn categories; ids index the same 200 base scenarios). Dev: train ids only.
+R10_DEV_MP = sorted(random.Random("weave-round10-bfcl-dev-mp").sample([i for i in TRAIN if i not in DEV], 20))
+R10_DEV_MF = sorted(random.Random("weave-round10-bfcl-dev-mf").sample([i for i in TRAIN if i not in DEV], 10))
+SUBSETS["devMP20r10"] = ("dev", R10_DEV_MP)
+SUBSETS["devMF10r10"] = ("dev", R10_DEV_MF)

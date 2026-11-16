@@ -28,7 +28,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BFCL_VERSION = "2026.3.23"
-CATEGORY = "multi_turn_base"
+CATEGORY = "multi_turn_base"  # default; --category picks another multi-turn category (tasks and grader unchanged)
 # $ per 1M tokens: (uncached input, output, cached input).
 PRICES = {"gpt-4.1": (2.00, 8.00, 0.50), "gpt-5.4-mini": (0.75, 4.50, 0.075)}
 
@@ -123,6 +123,8 @@ def main(argv=None):
     ap.add_argument("--model", required=True)
     ap.add_argument("--effort")
     ap.add_argument("--temperature", type=float, default=0.001)
+    ap.add_argument("--category", default="multi_turn_base",
+                    choices=["multi_turn_base", "multi_turn_miss_func", "multi_turn_miss_param", "multi_turn_long_context"])
     ap.add_argument("--tasks", required=True, help="comma-separated indices, or @name of a frozen subset")
     ap.add_argument("--arms", default="weave,native")
     ap.add_argument("--repeats", type=int, default=1)

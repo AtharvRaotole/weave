@@ -326,6 +326,158 @@ def _shift_lines(text: str, prelude: str) -> str:
     return re.sub(r"\bL(\d+):", lambda m: f"L{max(1, int(m.group(1)) - 1)}:", text)
 
 
+
+GATE_RULE = (
+    " A write whose arguments were computed from results you have not seen (or that follows a call that failed) is "
+    "paused before it runs: the tool returns the results so far, and you send the writes again in the next script."
+)
+
+_WRITE_EFFECTS = ("reversible", "irreversible")
+
+
+def _leaves(value, out: list, depth: int = 0) -> list:
+    """Scalar leaves of a value (strings, numbers), for value provenance."""
+    if depth > 6 or len(out) > 2000:
+        return out
+    if isinstance(value, dict):
+        for k, v in value.items():
+            _leaves(k, out, depth + 1)
+            _leaves(v, out, depth + 1)
+    elif isinstance(value, (list, tuple, set)):
+        for v in value:
+            _leaves(v, out, depth + 1)
+    elif isinstance(value, (str, int, float)) and not isinstance(value, bool):
+        out.append(value)
+    return out
+
+
+def default_is_error(value) -> bool:
+    """A result that reports a failure as a value, e.g. `{"error": "..."}`."""
+    return isinstance(value, dict) and "error" in value
+
+
+class WriteGate:
+    """Pauses a script before a write the model has not effectively seen the inputs of.
+
+    A script batches calls the model never looks at one by one. That saves round trips, but a write can then act on
+    a value the model never saw: an id picked out of a list, a directory name from a listing, or a step that follows
+    a call that failed. Native function calling never does this, because the model sees every result before its next
+    call. The gate restores that guarantee only where it matters, at writes:
+
+    * **Value provenance (`flow`).** Every argument of a `reversible` or `irreversible` call is split into scalar
+      leaves. A leaf is *known* when it appears literally in text the model has seen: its own scripts, what the tool
+      returned to it, and anything the host adds with `note_shown` (the user's messages). A write with an unknown
+      leaf, made after this script received any result, was computed from data the model has not seen.
+    * **Failures (`flow`).** A write after a call of this script that raised a ToolError the script caught, or
+      returned an error value (`is_error`), is control-dependent on an outcome the model has not seen.
+
+    The paused write is refused before it runs (its function is never called), every later write of the script is
+    refused too, and reads may continue. The tool then returns the printed output plus every call and result of the
+    script, which become known, so the same writes go through in the next script. Nothing is undone and nothing runs
+    twice: refused writes never started. The refusal is an ordinary tool error, so traces and replay record it like
+    any other. Writes wait for all earlier observable calls (effect ordering), so by the time a write reaches the
+    gate every result it could depend on has been seen by the gate.
+
+    Matching is by value, not by tracking the interpreter: a computed value that happens to equal known text passes
+    (a miss), and short numbers usually appear somewhere, so they pass. It never pauses a write whose arguments
+    are all literals in the script.
+    """
+
+    def __init__(self, mode: str = "flow", is_error: Callable[[Any], bool] | None = None,
+                 read_names: Iterable[str] = ()):
+        if mode not in ("flow",):
+            raise ValueError("write_gate must be 'flow' or None")
+        self.mode = mode
+        self.is_error = is_error or default_is_error
+        self.read_names = set(read_names)
+        self._shown: list[str] = []
+        self._lock = threading.Lock()
+        self.pauses = 0
+        self.begin("")
+
+    def note_shown(self, text: str) -> None:
+        if text:
+            with self._lock:
+                self._shown.append(str(text))
+
+    def begin(self, source: str) -> None:
+        with self._lock:
+            self._calls: list[tuple[str, str]] = []
+            self._results = 0
+            self._failed: str | None = None
+            self._held: str | None = None
+            self._reason = ""
+        self.note_shown(source)
+
+    def _known(self, leaf) -> bool:
+        text = leaf if isinstance(leaf, str) else repr(leaf)
+        if isinstance(leaf, str) and len(leaf.strip()) < 2:
+            return True
+        return any(text in chunk for chunk in self._shown) or (
+            isinstance(leaf, str) and any(json.dumps(leaf)[1:-1] in chunk for chunk in self._shown))
+
+    def wrap(self, func: Callable) -> Callable:
+        import functools
+
+        from weave.errors import ToolError
+
+        meta = getattr(func, "__weave__", None) or {}
+        name = getattr(func, "__name__", "tool")
+        is_write = (meta.get("effect") or "irreversible") in _WRITE_EFFECTS and name not in self.read_names
+        gate = self
+
+        @functools.wraps(func)
+        def gated(*args, **kwargs):
+            shown_call = f"{name}({', '.join([repr(a) for a in args] + [f'{k}={v!r}' for k, v in kwargs.items()])})"
+            if is_write:
+                with gate._lock:
+                    if gate._held is None:
+                        if gate._failed is not None:
+                            gate._held, gate._reason = shown_call, f"it follows {gate._failed}, which failed"
+                        elif gate._results:
+                            unknown = [x for x in _leaves([list(args), kwargs], []) if not gate._known(x)]
+                            if unknown:
+                                gate._held = shown_call
+                                gate._reason = f"{unknown[0]!r} came from results you have not seen"
+                    held = gate._held
+                if held is not None:
+                    raise ToolError(f"paused before {shown_call}: check the results first")
+            try:
+                value = func(*args, **kwargs)
+            except ToolError as exc:
+                with gate._lock:
+                    gate._calls.append((shown_call, f"error: {exc}"))
+                    gate._failed = gate._failed or shown_call
+                raise
+            with gate._lock:
+                gate._results += 1
+                try:
+                    text = json.dumps(value, default=str)
+                except (TypeError, ValueError):
+                    text = repr(value)
+                gate._calls.append((shown_call, text))
+                if gate.is_error(value):
+                    gate._failed = gate._failed or shown_call
+            return value
+
+        return gated
+
+    def finish(self, out: str) -> str:
+        """The text to return for this run: `out`, or the pause report when a write was held."""
+        with self._lock:
+            held, reason, calls = self._held, self._reason, list(self._calls)
+        if held is not None:
+            self.pauses += 1
+            lines = [f"{c} -> {r if len(r) <= 400 else r[:400] + '...'}" for c, r in calls[:40]]
+            printed = out if out and not out.startswith("error:") else ""
+            out = (f"[paused before {held}: {reason}. It and any later writes did not run; the calls before it did.]\n"
+                   + (printed.rstrip("\n") + "\n" if printed.strip() else "")
+                   + "[results so far]\n" + "\n".join(lines) +
+                   "\nCheck these results. If the writes are still right, send them in a new script (do not repeat "
+                   "the writes above that already ran).")
+        self.note_shown(out)
+        return out
+
 class WeaveTool:
     """A single function-calling tool that runs Weave scripts over `functions`."""
 
@@ -345,6 +497,9 @@ class WeaveTool:
         compact: bool = False,
         reply: bool = False,
         listing: bool = True,
+        write_gate: str | None = None,
+        gate_is_error: Callable[[Any], bool] | None = None,
+        gate_read_names: Iterable[str] = (),
     ):
         """`worker_pool=N` runs every function in killable worker processes
         (`Engine(worker_pool=N, isolate_all=True)`): a tool timeout or the run
@@ -363,8 +518,16 @@ class WeaveTool:
         also send every function as its own native tool (a hybrid: one call directly, several in a script).
         `reply=True` adds a `reply(text)` function: a script that succeeds and calls it ends the turn with that
         text, saving the model call that would only restate the output. After `run`, `take_reply()` returns the
-        text (or None); the host decides whether to end the turn with it."""
+        text (or None); the host decides whether to end the turn with it.
+        `write_gate="flow"` pauses a script before a write whose arguments came from results the model has not seen,
+        or that follows a failed call, and returns those results instead (see `WriteGate`). `gate_is_error` decides
+        which results count as failures (default: a dict with an "error" key); `gate_read_names` lists functions the
+        gate treats as reads although they are declared writes (e.g. for scheduling). Call `note_shown(text)` with
+        other text the model sees, such as the user's messages. Not available with `worker_pool` or an `engine`."""
         self.functions = list(functions)
+        self.gate = WriteGate(write_gate, gate_is_error, gate_read_names) if write_gate else None
+        if self.gate is not None and (engine is not None or worker_pool is not None):
+            raise ValueError("write_gate wraps the functions in-process; it cannot be used with engine= or worker_pool=")
         self.compact = compact
         self.reply = reply
         self.listing = listing
@@ -396,7 +559,8 @@ class WeaveTool:
                 if worker_limits is not None:
                     raise ValueError("worker_limits needs worker_pool=N")
                 engine = Engine(debug=debug)
-            engine.install(self.functions + ([self._reply_fn] if reply else []))
+            installed = [self.gate.wrap(f) for f in self.functions] if self.gate is not None else self.functions
+            engine.install(installed + ([self._reply_fn] if reply else []))
         elif reply:
             engine.install([self._reply_fn])
         self.engine = engine
@@ -407,7 +571,7 @@ class WeaveTool:
     @property
     def description(self) -> str:
         if self.compact:
-            rules = COMPACT_RULES + (REPLY_RULE if self.reply else "")
+            rules = COMPACT_RULES + (REPLY_RULE if self.reply else "") + (GATE_RULE if self.gate else "")
             if self.persist_variables:
                 rules += " Variables persist between scripts."
             if self.conversational:
@@ -421,6 +585,8 @@ class WeaveTool:
         rules = RULES
         if self.reply:
             rules += REPLY_RULE
+        if self.gate is not None:
+            rules += GATE_RULE
         if self.persist_variables:
             rules = rules.replace("(scripts do not share variables)", "(each script sees the variables earlier scripts set)")
             rules += (" Variables persist between scripts, like a notebook: reuse values you already fetched instead "
@@ -460,9 +626,23 @@ class WeaveTool:
         return {"type": "function", "name": self.name, "description": self.description, "parameters": self.parameters, "strict": True}
 
     # ---- running ----------------------------------------------------------
+    def note_shown(self, text: str) -> None:
+        """Tell the write gate about text the model has seen outside this tool (e.g. the user's message)."""
+        if self.gate is not None:
+            self.gate.note_shown(text)
+
     def run(self, source: str, _cancel: dict | None = None) -> str:
         """Check and run a script. Returns text for the model: printed output
         on success, or `error: ...` lines it can repair from."""
+        if self.gate is None:
+            return self._run(source, _cancel)
+        self.gate.begin(source if isinstance(source, str) else "")
+        out = self.gate.finish(self._run(source, _cancel))
+        if out.startswith("[paused"):
+            self._reply_text = None
+        return out
+
+    def _run(self, source: str, _cancel: dict | None = None) -> str:
         self._reply_text = None
         if self.reply:
             self._pending_reply = None

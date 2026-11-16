@@ -78,6 +78,23 @@ def learned_shapes() -> dict:
     return _SHAPES
 
 
+_READS = None
+
+
+def _long_context(entry: dict) -> bool:
+    """BFCL's flag for the long-context and composite categories (bigger backend states), as its loop sets it."""
+    return "long_context" in entry["id"] or "composite" in entry["id"]
+
+
+def learned_reads() -> list:
+    """Functions that never changed backend state on train ground-truth executions (`learn_effects.py`)."""
+    global _READS
+    if _READS is None:
+        path = os.path.join(os.path.dirname(__file__), "effects.json")
+        _READS = json.load(open(path))["reads"] if os.path.exists(path) else []
+    return _READS
+
+
 def make_functions(entry: dict, instance_name: str, step_calls: List[dict], stats: Dict[str, int],
                    shapes: str = "learned", typed_args_doc: bool = True, trace: list | None = None,
                    check_types: bool = False):
@@ -115,7 +132,7 @@ def make_functions(entry: dict, instance_name: str, step_calls: List[dict], stat
                 stats["tool_calls"] += 1
                 call = f"{name}({','.join(f'{k}={repr(v)}' for k, v in kwargs.items())})"
                 [out], _ = execute_multi_turn_func_call([call], entry["initial_config"], entry["involved_classes"],
-                                                        instance_name, entry["id"], long_context=False,
+                                                        instance_name, entry["id"], long_context=_long_context(entry),
                                                         is_evaL_run=False)
                 if trace is not None:
                     trace.append((call, out))
@@ -166,11 +183,18 @@ def inference_multi_turn_weave(handler, entry: dict, instance_name: str, create,
     # No persisted variables: in dev task 135 a persisted `order` let the model answer the last turn without the
     # lookup BFCL's grader expects in every turn ("empty turn"); each script starts fresh, as each native step does.
     trace: list = []
-    tool = weave.WeaveTool(make_functions(entry, instance_name, step_calls, stats, shapes, "compact" not in opts,
-                                          trace if "trace" in opts else None, "typecheck" in opts),
-                           max_wall_time_ms=60_000,
-                           compact="compact" in opts or "hybrid" in opts, reply="reply" in opts,
-                           listing="hybrid" not in opts)
+    def build_tool(shown=None):
+        t = weave.WeaveTool(make_functions(entry, instance_name, step_calls, stats, shapes, "compact" not in opts,
+                                           trace if "trace" in opts else None, "typecheck" in opts),
+                            max_wall_time_ms=60_000,
+                            compact="compact" in opts or "hybrid" in opts, reply="reply" in opts,
+                            listing="hybrid" not in opts,
+                            write_gate="flow" if "gate" in opts else None, gate_read_names=learned_reads())
+        if shown and t.gate is not None:
+            t.gate._shown = shown
+        return t
+
+    tool = build_tool()
     tools = [tool.chat_tool()]
     if "hybrid" in opts:
         # Adaptive routing: BFCL's own native schemas (as the native arm sends them) plus run_weave for chains.
@@ -181,12 +205,20 @@ def inference_multi_turn_weave(handler, entry: dict, instance_name: str, create,
         direct = {f.__name__: f for f in tool.functions}
     # Instantiate the backends now, as the native loop does before its first query.
     execute_multi_turn_func_call([], entry["initial_config"], entry["involved_classes"], instance_name, entry["id"],
-                                 long_context=False, is_evaL_run=False)
+                                 long_context=_long_context(entry), is_evaL_run=False)
     messages: List[Any] = []
     all_turns: list = []
     force_quit = False
-    for turn in entry["question"]:
+    # miss_func: BFCL withholds some functions until a later turn (`missed_function`), as the native loop does.
+    holdout = entry.get("missed_function", {}) or {}
+    for turn_idx, turn in enumerate(entry["question"]):
+        if str(turn_idx) in holdout:
+            entry["function"].extend(holdout[str(turn_idx)])
+            tool = build_tool(tool.gate._shown if tool.gate is not None else None)
+            tools = [tool.chat_tool()]
         messages.extend(turn)
+        for m in turn:  # the write gate counts what the user said as seen
+            tool.note_shown(m.get("content", "") if isinstance(m, dict) else "")
         turn_responses: list = []
         count = 0
         while True:
@@ -222,12 +254,16 @@ def inference_multi_turn_weave(handler, entry: dict, instance_name: str, create,
                     out = tool.run(source) if isinstance(source, str) else "error: arguments must be JSON with a 'source' string"
                     stats["scripts"] += 1
                     text = tool.take_reply()
-                    if "trace" in opts and trace:
+                    paused = out.startswith("[paused")
+                    if paused:
+                        stats["gate_pauses"] = stats.get("gate_pauses", 0) + 1
+                    if "trace" in opts and trace and not paused:
                         # Show every call and its result, as the native loop shows each tool result: the model keeps
                         # the same observations while the calls stay batched in one script.
                         lines = [f"{c} -> {o if len(o) <= 300 else o[:300] + '...'}" for c, o in trace[:30]]
                         out = out.rstrip("\n") + "\n[calls]\n" + "\n".join(lines)
                         trace.clear()
+                        tool.note_shown(out)
                     if text is not None and "guard" in opts and stats["_soft_error"]:
                         out += "\n[reply withheld: a call returned an error; handle it, then answer]"
                         stats["replies_withheld"] = stats.get("replies_withheld", 0) + 1

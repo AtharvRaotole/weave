@@ -58,7 +58,8 @@ def main():
     real_init = openai_completion.OpenAICompletionsHandler.__init__
     for i in (0, 4, 20, 73):
         eid = f"{R.CATEGORY}_{i}"
-        for arm, config in (("native", "doc"), ("weave", "doc"), ("weave", "compact,reply,learned")):
+        for k, (arm, config) in enumerate((("native", "doc"), ("weave", "doc"), ("weave", "compact,reply,learned"),
+                             ("weave", "compact,learned,trace,typecheck,gate"))):
             args = Namespace(**base, weave_config=config)
             reply = "reply" in config
             for lazy in (False, True):
@@ -67,9 +68,10 @@ def main():
                     self.client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(
                         create=fake_client(gts[eid]["ground_truth"], arm, entries[eid], lazy, reply))))
                 openai_completion.OpenAICompletionsHandler.__init__ = init
-                row, _ = R.one_trial(args, arm, entries[eid], gts[eid], 9 + lazy)
+                # a fresh backend namespace per trial: the instances are module-level, keyed by this tag
+                row, _ = R.one_trial(args, arm, entries[eid], gts[eid], 100 + 10 * k + lazy)
                 assert row["error"] is None, row
-                assert row["passed"] == (not lazy), (eid, arm, lazy, row["error_type"])
+                assert row["passed"] == (not lazy), (eid, arm, config, lazy, row["error_type"], row.get("weave"))
                 if reply and not lazy:
                     assert row["agent_calls"] == row["turns"], row  # one model call per turn
                 print("ok", eid, arm, config, "lazy" if lazy else "oracle", row["passed"], row["agent_calls"], row["tool_calls"])
