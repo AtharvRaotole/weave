@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Agent tool (round 10)
+- `WeaveTool(write_gate="choice" | "flow" | "errors")` and `weave.agent_tool.WriteGate`: pause a script before a
+  write whose argument was picked from a list the model has not seen (`choice`), or computed from any unseen
+  result (`flow`), or that follows a failed call (all modes). Refused writes never run, and the model gets the results
+  so far. `note_shown(text)` adds user text to what counts as seen; `gate_is_error` and `gate_read_names` adjust
+  the gate. It works in-process only (not with `worker_pool` or `engine=`).
+
+### Benchmarks (round 10)
+- BFCL adapter: `--category` (miss_param, miss_func, long_context), `missed_function` handling, the long-context
+  flag, read/write classes learned by differential execution (`learn_effects.py`, `effects.json`), and the configs
+  `gate`, `gatechoice` and `gateerrors`.
+- Round 10 results (Addendum 10): `bench/results/v13/`, `bench/bfcl/report_r10.py`.
+
 ### Agent tool (round 9)
 - `WeaveTool(compact=True)`: shorter rules and a listing that prints doc sentences repeated in 3+ functions once, as
   lettered notes, and a shared effect once (BFCL dev: 3,259 → 2,057 description tokens).

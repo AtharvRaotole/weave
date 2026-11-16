@@ -1,5 +1,21 @@
 # Benchmarks
 
+## Round 10: the write gate on BFCL miss_param / miss_func (2026-11-16)
+
+Pre-registered in Addendum 10. Weave = round 9's W3 + `write_gate="choice"`. These categories had not been run in any
+earlier round; the scenario ids were never used for training or tuning. A provider credit outage cut the mini runs
+short (105 of 120 pairs complete); GPT-4.1 has 16 of 20 pairs (budget). Details: [paper §5.18](paper/weave.md).
+
+| model, category | pairs | pass W / N | Δ pass rate [95% CI] | W-only / N-only (p) | Δ model calls [CI] | Δ wall s [CI] | token ratio [CI] | $ ratio [CI] | $ W / N | gate pauses |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GPT-5.4 mini, miss_func | 50 | 15 / 12 | +0.060 [-0.060, +0.180] | 6 / 3 (0.51) | -1.12 [-1.980, -0.300] | -0.23 [-0.975, +0.519] | 0.80 [0.73, 0.88] | 0.98 [0.93, 1.03] | 0.437 / 0.444 | 5 |
+| GPT-5.4 mini, pooled | 105 | 30 / 24 | +0.057 [-0.029, +0.133] | 13 / 7 (0.26) | -1.21 [-1.781, -0.676] | -0.63 [-1.182, -0.088] | 0.80 [0.75, 0.84] | 1.02 [0.98, 1.06] | 0.829 / 0.825 | 11 |
+| GPT-4.1, miss_param | 16 | 3 / 5 | -0.125 [-0.312, +0.000] | 0 / 2 (0.50) | -2.00 [-3.688, -0.812] | -2.02 [-4.015, -0.470] | 0.78 [0.70, 0.87] | 1.00 [0.88, 1.14] | 0.456 / 0.476 | 3 |
+| GPT-5.4 mini, miss_param | 55 | 15 / 12 | +0.055 [-0.073, +0.182] | 7 / 4 (0.55) | -1.29 [-2.145, -0.636] | -0.99 [-1.830, -0.291] | 0.80 [0.74, 0.85] | 1.05 [0.99, 1.12] | 0.392 / 0.381 | 6 |
+
+**Result:** GPT-5.4 mini +6 tasks pooled (not significant, no-harm met), at equal cost (1.02×: 20 % fewer tokens,
+offset by a lower cache share and more output). **GPT-4.1: 3/16 vs 5/16** (not significant). Spend $3.85.
+
 ## Round 9: cheaper on BFCL, a success loss with GPT-5.4 mini, fan-out reconfirmed (2026-11-16)
 
 Pre-registered in Addendum 9 (`mtb60r9`, hash `dd3384a5132d2183`: 60 fresh seeded tasks disjoint from the 140 train

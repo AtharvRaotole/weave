@@ -12,7 +12,9 @@ benchmark paced by a simulated customer, it was a draw in our latest, larger rou
 equal within noise and Weave saved about 0.6 model calls per task, but it used 1.22× the tokens and cost 1.36× at list
 prices. In round 9 a compact description, learned result types and a cache key made Weave cheaper on 60 fresh BFCL
 tasks (0.86× pooled list-price cost, 25 % fewer tokens), with +3 tasks for GPT-4.1 but **−9 tasks for GPT-5.4 mini, a
-significant loss**; on a real-services fan-out reconfirm it passed 40/40 against native's 27/40 at about half the cost.
+significant loss**; on a real-services fan-out reconfirm it passed 40/40 against native's 27/40 at about half the cost. In round 10
+an opt-in write gate brought GPT-5.4 mini to 30/105 against 24/105 on two BFCL categories never run before (not
+significant, no-harm met) at equal cost; GPT-4.1 had 3/16 against 5/16.
 The rest of this abstract gives
 the details by round.
 
@@ -873,6 +875,52 @@ not release v1.1.0 or change the repository's visibility. The fan-out wins are c
 BFCL loss is real. The round cost **$10.52** at list prices and 15.44M tokens: $6.07 dev (8.74M), $3.88 BFCL evidence
 (6.33M) and $0.57 `confirm9` (0.37M). Reproduce with `python bench/bfcl/report.py --round9` and
 `python bench/v4/report_r9.py`.
+
+### 5.18 Round 10: a write gate, on BFCL categories never run before
+
+Round 9's GPT-5.4 mini loss came from scripts that batched writes on values the model never saw. Round 10 adds an
+opt-in **write gate** (`WeaveTool(write_gate="choice")`, class `WriteGate`). Before a `reversible` or
+`irreversible` call runs, the gate checks two things. First, value provenance: is an argument value (a scalar
+leaf) one the script picked out of a list of two or more items the model has not seen? A value counts as seen when it
+appears in the model's own script, in text the tool returned, or in text the host passes to `note_shown` (the
+user's messages). Second, failures: did an earlier call of this script fail, by raising a ToolError the script
+caught or by returning an error value? If either is true, the write and every later write of the script are refused
+before they run, and the tool returns the results so far. Nothing is undone or run twice, the refusal is an ordinary
+tool error (so traces and replay record it), and effect ordering guarantees that every earlier result has reached
+the gate before a write does. BFCL's read/write classes come from differential execution of train ground truth (37
+reads, 41 writes; `bench/bfcl/learn_effects.py`).
+
+Dev (train ids, GPT-5.4 mini, one run each): on `dev40r9`, native 18/40, W3 22/40, W3 + `flow` (pause on any
+unseen-derived value) 20/40, **W3 + `choice` 24/40** at $0.0048 per task against W3's $0.0054. The `flow` gate
+paused on harmless single-value lookups (a price, a symbol), and once the model ended the turn after a pause. Three dev
+runs ran on the wrong category because of a `--category` bug; they are kept in `bench/results/v13/mislabeled/`.
+
+Evidence (Addendum 10): `multi_turn_miss_param` and `multi_turn_miss_func`, tasks and grader unchanged, on the 60
+scenario ids never used for training or tuning. The mini runs were cut short when the OpenAI account ran out of
+credits (HTTP 429) at 112/120 and 102/120 trials. Incomplete pairs are dropped, which is a deviation from the plan
+(only budget skips were pre-registered). GPT-4.1's run skipped 6 trials at its $1.05 cap, leaving 16 pairs.
+
+| model, category | pairs | pass W / N | Δ pass rate [95% CI] | W-only / N-only (p) | Δ model calls [CI] | Δ wall s [CI] | token ratio [CI] | $ ratio [CI] | $ W / N | gate pauses |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GPT-5.4 mini, miss_func | 50 | 15 / 12 | +0.060 [-0.060, +0.180] | 6 / 3 (0.51) | -1.12 [-1.980, -0.300] | -0.23 [-0.975, +0.519] | 0.80 [0.73, 0.88] | 0.98 [0.93, 1.03] | 0.437 / 0.444 | 5 |
+| GPT-5.4 mini, pooled | 105 | 30 / 24 | +0.057 [-0.029, +0.133] | 13 / 7 (0.26) | -1.21 [-1.781, -0.676] | -0.63 [-1.182, -0.088] | 0.80 [0.75, 0.84] | 1.02 [0.98, 1.06] | 0.829 / 0.825 | 11 |
+| GPT-4.1, miss_param | 16 | 3 / 5 | -0.125 [-0.312, +0.000] | 0 / 2 (0.50) | -2.00 [-3.688, -0.812] | -2.02 [-4.015, -0.470] | 0.78 [0.70, 0.87] | 1.00 [0.88, 1.14] | 0.456 / 0.476 | 3 |
+| GPT-5.4 mini, miss_param | 55 | 15 / 12 | +0.055 [-0.073, +0.182] | 7 / 4 (0.55) | -1.29 [-2.145, -0.636] | -0.99 [-1.830, -0.291] | 0.80 [0.74, 0.85] | 1.05 [0.99, 1.12] | 0.392 / 0.381 | 6 |
+
+- **D1 (success): supported for GPT-5.4 mini.** Pooled 30/105 vs 24/105, +0.057 [−0.029, +0.133]. The point estimate
+  is ≥ 0 and the lower bound is above −0.10. It is not significant (McNemar p = 0.26). Per category: +3 tasks on
+  miss_param and +3 on miss_func. **GPT-4.1 (16 pairs) went the other way: 3 vs 5**, −0.125 [−0.312, 0.000]. The
+  sample is small and the result is not significant, but it is a loss in the point estimate.
+- **D2 (cost): not supported.** The $ ratio is 1.02 [0.98, 1.06] pooled for mini and 1.00 for GPT-4.1. Weave sent
+  about 20 % fewer input tokens (27k against 34–36k per trial), but less of its input was cached (77–86 % against
+  82–90 %) and it wrote more output (570–630 against 450–490 tokens). At list prices that cancels the saving.
+- **D3–D5:** 0.80× tokens, 1.1–2.0 fewer model calls per task, wall time −0.6 s pooled for mini.
+- **D6:** 11 gate pauses over 105 mini Weave trials and 3 over 16 GPT-4.1 trials. Weave had fewer empty-turn failures
+  (31 vs 37) and fewer `instance_state_mismatch` failures (34 vs 40), but more `execution_response_mismatch`
+  (10 vs 4).
+
+Round 10 cost **$3.85** at list prices and 12.5M tokens (dev $1.18, including $0.20 for the mislabeled runs;
+evidence $2.67). Reproduce: `python bench/bfcl/report_r10.py`.
 
 ## 6. Threats to validity
 
