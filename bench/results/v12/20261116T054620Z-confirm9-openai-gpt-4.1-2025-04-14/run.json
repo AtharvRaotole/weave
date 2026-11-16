@@ -1,0 +1,99 @@
+{
+  "protocol": "weave-benchmark-protocol-v4",
+  "kind": "live",
+  "started_utc": "2026-11-16T05:46:20Z",
+  "source_commit": "1826ffb9657a6d140bece8e89fd06e1c5ea4c017",
+  "source_dirty": false,
+  "weave_version": "0.0.0",
+  "python": "3.13.5",
+  "provider": "openai",
+  "model": "gpt-4.1-2025-04-14",
+  "effort": null,
+  "temperature": 0.0,
+  "max_tokens": 4096,
+  "suite": "confirm9",
+  "manifest": {
+    "suite": "confirm9",
+    "tasks": [
+      {
+        "id": "pypi_major-n10-s801",
+        "family": "pypi_major",
+        "size": 10,
+        "fingerprint": "819e849f5cdae869"
+      },
+      {
+        "id": "pypi_major-n16-s802",
+        "family": "pypi_major",
+        "size": 16,
+        "fingerprint": "28979babccac2af4"
+      },
+      {
+        "id": "sqlite_triage-n12-s801",
+        "family": "sqlite_triage",
+        "size": 12,
+        "fingerprint": "68379219ca594801"
+      },
+      {
+        "id": "sqlite_triage-n20-s802",
+        "family": "sqlite_triage",
+        "size": 20,
+        "fingerprint": "fce8fabcc410e78b"
+      },
+      {
+        "id": "git_review-n8-s801",
+        "family": "git_review",
+        "size": 8,
+        "fingerprint": "2519f5799358b718"
+      },
+      {
+        "id": "git_review-n14-s802",
+        "family": "git_review",
+        "size": 14,
+        "fingerprint": "a1da152a8eeb2e5d"
+      },
+      {
+        "id": "warehouse_shortfall-n10-s801",
+        "family": "warehouse_shortfall",
+        "size": 10,
+        "fingerprint": "35b4aca2dce7c5c8"
+      },
+      {
+        "id": "warehouse_shortfall-n16-s802",
+        "family": "warehouse_shortfall",
+        "size": 16,
+        "fingerprint": "1e9eaaca0b63d725"
+      },
+      {
+        "id": "git_review-n10-s803",
+        "family": "git_review",
+        "size": 10,
+        "fingerprint": "8539d9e913689714"
+      },
+      {
+        "id": "git_review-n18-s804",
+        "family": "git_review",
+        "size": 18,
+        "fingerprint": "a563ddd297492a2d"
+      }
+    ],
+    "hash": "a7ef5eb5aac5cd26"
+  },
+  "task_subset": null,
+  "modes": [
+    "weave_compact",
+    "weave",
+    "native"
+  ],
+  "repeats": 2,
+  "latency_ms": [
+    0.0
+  ],
+  "concurrency_cap": 8,
+  "max_turns": 16,
+  "system_prompt": "You are an operations agent with access to tools. Use them to complete the user's task; tool results are authoritative. When the task is complete, reply with only the final answer in the requested format and no other text.",
+  "planned_trials": 60,
+  "workers": 4,
+  "min_interval_s": 0.0,
+  "token_budget": 600000,
+  "seed": 2026
+}
