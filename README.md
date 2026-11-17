@@ -38,7 +38,7 @@ Pre-registered, on fresh tasks, against native function calling with the same mo
   completed on Azure).
 - **tau-bench retail** (a conversation, one confirmation per write): a draw.
 
-Round 9 used `WeaveTool(compact=True)`; rounds 10–11 added `write_gate="choice"`. Both are on `main` but not in a release yet. The chart shows round 9.
+Round 9 used `WeaveTool(compact=True)`; rounds 10–11 added `write_gate="choice"`. Both ship in 1.1.0. The chart shows round 9.
 
 Use Weave for fan-out (the same lookup over many items), chains of dependent lookups, and filtering results before
 the model sees them. Skip it when each step waits for a person, or when a small model must think after every result.
@@ -47,7 +47,7 @@ the model sees them. Skip it when each step waits for a person, or when a small 
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AtharvRaotole/weave/main/scripts/install.sh | sh   # prebuilt wheels
-# or from source (needs Rust):  pip install "git+https://github.com/AtharvRaotole/weave@v1.0.0"
+# or from source (needs Rust):  pip install "git+https://github.com/AtharvRaotole/weave@v1.1.0"
 ```
 
 The package is `weave-lang` (import `weave`); it is not on PyPI yet. Python 3.9–3.13, Linux, macOS and Windows.

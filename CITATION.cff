@@ -7,8 +7,8 @@ authors:
     given-names: Atharv
 repository-code: "https://github.com/AtharvRaotole/weave"
 license: MIT
-version: 1.0.0
-date-released: 2026-11-09
+version: 1.1.0
+date-released: 2026-11-16
 keywords: [agents, llm, tool-calling, function-calling, mcp, scheduler, rust]
 preferred-citation:
   type: report
