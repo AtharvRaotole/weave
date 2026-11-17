@@ -1,0 +1,487 @@
+{
+ "GPT-5.4 mini, miss_func": {
+  "pairs": 50,
+  "mcnemar": {
+   "weave_only": 6,
+   "native_only": 3,
+   "p": 0.5078125
+  },
+  "weave": {
+   "passed": 15,
+   "wilson95": [
+    0.1910338908960936,
+    0.4375061227736339
+   ],
+   "usd": 0.43727385,
+   "tokens": 1368011,
+   "calls": 495
+  },
+  "native": {
+   "passed": 12,
+   "wilson95": [
+    0.14297252401872207,
+    0.3741294937519236
+   ],
+   "usd": 0.4440882,
+   "tokens": 1701869,
+   "calls": 551
+  },
+  "pass_diff": {
+   "pairs": 50,
+   "tasks": 50,
+   "mean_diff": 0.06,
+   "mean_diff_ci95": [
+    -0.06,
+    0.18
+   ],
+   "ratio_gm": 1.0,
+   "ratio_gm_ci95": [
+    1.0,
+    1.0
+   ],
+   "weave_better_tasks": 3
+  },
+  "calls": {
+   "pairs": 50,
+   "tasks": 50,
+   "mean_diff": -1.12,
+   "mean_diff_ci95": [
+    -1.98,
+    -0.3
+   ],
+   "ratio_gm": 0.9156345745141048,
+   "ratio_gm_ci95": [
+    0.8440351608477802,
+    0.9855898080739454
+   ],
+   "weave_better_tasks": 25
+  },
+  "wall": {
+   "pairs": 50,
+   "tasks": 50,
+   "mean_diff": -0.2346675443649292,
+   "mean_diff_ci95": [
+    -0.9747793483734131,
+    0.5186485385894776
+   ],
+   "ratio_gm": 0.9761878428822894,
+   "ratio_gm_ci95": [
+    0.9074478888637226,
+    1.0494199608300274
+   ],
+   "weave_better_tasks": 27
+  },
+  "tokens": {
+   "pairs": 50,
+   "tasks": 50,
+   "mean_diff": -6677.16,
+   "mean_diff_ci95": [
+    -10249.58,
+    -3439.06
+   ],
+   "ratio_gm": 0.8004235693237547,
+   "ratio_gm_ci95": [
+    0.7261801613462817,
+    0.8756000523689146
+   ],
+   "weave_better_tasks": 37
+  },
+  "usd": {
+   "pairs": 50,
+   "tasks": 50,
+   "mean_diff": -0.00013628699999999996,
+   "mean_diff_ci95": [
+    -0.000632856,
+    0.0003914549999999999
+   ],
+   "ratio_gm": 0.9799497566879348,
+   "ratio_gm_ci95": [
+    0.9306595225347634,
+    1.034680908739144
+   ],
+   "weave_better_tasks": 27
+  },
+  "weave_scripts": 287,
+  "weave_script_errors": 17,
+  "weave_tool_calls": 386,
+  "error_types": {
+   "weave": {
+    "pass": 15,
+    "multi_turn:empty_turn_model_response": 19,
+    "multi_turn:instance_state_mismatch": 12,
+    "multi_turn:execution_response_mismatch": 4
+   },
+   "native": {
+    "multi_turn:empty_turn_model_response": 20,
+    "pass": 12,
+    "multi_turn:instance_state_mismatch": 17,
+    "multi_turn:execution_response_mismatch": 1
+   }
+  },
+  "gate_pauses": 5
+ },
+ "GPT-5.4 mini, pooled": {
+  "pairs": 105,
+  "mcnemar": {
+   "weave_only": 13,
+   "native_only": 7,
+   "p": 0.26317596435546875
+  },
+  "weave": {
+   "passed": 30,
+   "wilson95": [
+    0.20806999151103067,
+    0.3784851491704734
+   ],
+   "usd": 0.82930935,
+   "tokens": 2887877,
+   "calls": 1042
+  },
+  "native": {
+   "passed": 24,
+   "wilson95": [
+    0.1586828389252159,
+    0.3176203392713559
+   ],
+   "usd": 0.82463925,
+   "tokens": 3646735,
+   "calls": 1169
+  },
+  "pass_diff": {
+   "pairs": 105,
+   "tasks": 105,
+   "mean_diff": 0.05714285714285714,
+   "mean_diff_ci95": [
+    -0.02857142857142857,
+    0.13333333333333333
+   ],
+   "ratio_gm": 1.0,
+   "ratio_gm_ci95": [
+    1.0,
+    1.0
+   ],
+   "weave_better_tasks": 7
+  },
+  "calls": {
+   "pairs": 105,
+   "tasks": 105,
+   "mean_diff": -1.2095238095238094,
+   "mean_diff_ci95": [
+    -1.7809523809523808,
+    -0.6761904761904762
+   ],
+   "ratio_gm": 0.9075789280805491,
+   "ratio_gm_ci95": [
+    0.8656934559262867,
+    0.9535663275172999
+   ],
+   "weave_better_tasks": 58
+  },
+  "wall": {
+   "pairs": 105,
+   "tasks": 105,
+   "mean_diff": -0.6290424074445452,
+   "mean_diff_ci95": [
+    -1.1816915012541271,
+    -0.08815453620184036
+   ],
+   "ratio_gm": 0.9452154953508589,
+   "ratio_gm_ci95": [
+    0.8970723070650097,
+    0.9935838603351385
+   ],
+   "weave_better_tasks": 63
+  },
+  "tokens": {
+   "pairs": 105,
+   "tasks": 105,
+   "mean_diff": -7227.219047619048,
+   "mean_diff_ci95": [
+    -9865.180952380952,
+    -5035.257142857143
+   ],
+   "ratio_gm": 0.7987383778247188,
+   "ratio_gm_ci95": [
+    0.7519245869594899,
+    0.8439154647046542
+   ],
+   "weave_better_tasks": 81
+  },
+  "usd": {
+   "pairs": 105,
+   "tasks": 105,
+   "mean_diff": 4.447714285714286e-05,
+   "mean_diff_ci95": [
+    -0.0003188642857142857,
+    0.0003930814285714287
+   ],
+   "ratio_gm": 1.0169942143493695,
+   "ratio_gm_ci95": [
+    0.9758081658926265,
+    1.0605953125554937
+   ],
+   "weave_better_tasks": 52
+  },
+  "weave_scripts": 607,
+  "weave_script_errors": 42,
+  "weave_tool_calls": 850,
+  "error_types": {
+   "weave": {
+    "pass": 30,
+    "multi_turn:empty_turn_model_response": 31,
+    "multi_turn:instance_state_mismatch": 34,
+    "multi_turn:execution_response_mismatch": 10
+   },
+   "native": {
+    "multi_turn:empty_turn_model_response": 37,
+    "pass": 24,
+    "multi_turn:instance_state_mismatch": 40,
+    "multi_turn:execution_response_mismatch": 4
+   }
+  },
+  "gate_pauses": 11
+ },
+ "GPT-4.1, miss_param": {
+  "pairs": 16,
+  "mcnemar": {
+   "weave_only": 0,
+   "native_only": 2,
+   "p": 0.5
+  },
+  "weave": {
+   "passed": 3,
+   "wilson95": [
+    0.06591478773586765,
+    0.4300935986845823
+   ],
+   "usd": 0.45604,
+   "tokens": 458003,
+   "calls": 161
+  },
+  "native": {
+   "passed": 5,
+   "wilson95": [
+    0.14164435051961052,
+    0.5559606813326594
+   ],
+   "usd": 0.475522,
+   "tokens": 596387,
+   "calls": 193
+  },
+  "pass_diff": {
+   "pairs": 16,
+   "tasks": 16,
+   "mean_diff": -0.125,
+   "mean_diff_ci95": [
+    -0.3125,
+    0.0
+   ],
+   "ratio_gm": 1.0,
+   "ratio_gm_ci95": [
+    1.0,
+    1.0
+   ],
+   "weave_better_tasks": 2
+  },
+  "calls": {
+   "pairs": 16,
+   "tasks": 16,
+   "mean_diff": -2.0,
+   "mean_diff_ci95": [
+    -3.6875,
+    -0.8125
+   ],
+   "ratio_gm": 0.8644679466883801,
+   "ratio_gm_ci95": [
+    0.7951352852693876,
+    0.9315403551091608
+   ],
+   "weave_better_tasks": 11
+  },
+  "wall": {
+   "pairs": 16,
+   "tasks": 16,
+   "mean_diff": -2.020425021648407,
+   "mean_diff_ci95": [
+    -4.015337347984314,
+    -0.46980777382850647
+   ],
+   "ratio_gm": 0.8621908705172345,
+   "ratio_gm_ci95": [
+    0.7569931280074553,
+    0.9762697385371751
+   ],
+   "weave_better_tasks": 10
+  },
+  "tokens": {
+   "pairs": 16,
+   "tasks": 16,
+   "mean_diff": -8649.0,
+   "mean_diff_ci95": [
+    -16516.4375,
+    -3580.25
+   ],
+   "ratio_gm": 0.7820363388771447,
+   "ratio_gm_ci95": [
+    0.7037840681455965,
+    0.8671074824063099
+   ],
+   "weave_better_tasks": 15
+  },
+  "usd": {
+   "pairs": 16,
+   "tasks": 16,
+   "mean_diff": -0.001217625,
+   "mean_diff_ci95": [
+    -0.007459624999999999,
+    0.004244625
+   ],
+   "ratio_gm": 1.0004730224560745,
+   "ratio_gm_ci95": [
+    0.8781065500403248,
+    1.1440119355239613
+   ],
+   "weave_better_tasks": 7
+  },
+  "weave_scripts": 102,
+  "weave_script_errors": 3,
+  "weave_tool_calls": 157,
+  "error_types": {
+   "weave": {
+    "pass": 3,
+    "multi_turn:empty_turn_model_response": 3,
+    "multi_turn:instance_state_mismatch": 8,
+    "multi_turn:force_terminated": 1,
+    "multi_turn:execution_response_mismatch": 1
+   },
+   "native": {
+    "pass": 5,
+    "multi_turn:empty_turn_model_response": 2,
+    "multi_turn:instance_state_mismatch": 8,
+    "multi_turn:execution_response_mismatch": 1
+   }
+  },
+  "gate_pauses": 3
+ },
+ "GPT-5.4 mini, miss_param": {
+  "pairs": 55,
+  "mcnemar": {
+   "weave_only": 7,
+   "native_only": 4,
+   "p": 0.548828125
+  },
+  "weave": {
+   "passed": 15,
+   "wilson95": [
+    0.17280602508013648,
+    0.40232449482414895
+   ],
+   "usd": 0.3920355,
+   "tokens": 1519866,
+   "calls": 547
+  },
+  "native": {
+   "passed": 12,
+   "wilson95": [
+    0.12945897827653213,
+    0.3437028664047817
+   ],
+   "usd": 0.38055105,
+   "tokens": 1944866,
+   "calls": 618
+  },
+  "pass_diff": {
+   "pairs": 55,
+   "tasks": 55,
+   "mean_diff": 0.05454545454545454,
+   "mean_diff_ci95": [
+    -0.07272727272727272,
+    0.18181818181818182
+   ],
+   "ratio_gm": 1.0,
+   "ratio_gm_ci95": [
+    1.0,
+    1.0
+   ],
+   "weave_better_tasks": 4
+  },
+  "calls": {
+   "pairs": 55,
+   "tasks": 55,
+   "mean_diff": -1.290909090909091,
+   "mean_diff_ci95": [
+    -2.1454545454545455,
+    -0.6363636363636364
+   ],
+   "ratio_gm": 0.9003171306279129,
+   "ratio_gm_ci95": [
+    0.8488948866900856,
+    0.9526030466213063
+   ],
+   "weave_better_tasks": 33
+  },
+  "wall": {
+   "pairs": 55,
+   "tasks": 55,
+   "mean_diff": -0.9875650102441961,
+   "mean_diff_ci95": [
+    -1.8298062324523925,
+    -0.29054149280894886
+   ],
+   "ratio_gm": 0.9179123870520726,
+   "ratio_gm_ci95": [
+    0.8464767367616687,
+    0.9848691538752171
+   ],
+   "weave_better_tasks": 36
+  },
+  "tokens": {
+   "pairs": 55,
+   "tasks": 55,
+   "mean_diff": -7727.272727272727,
+   "mean_diff_ci95": [
+    -11808.963636363636,
+    -4762.109090909091
+   ],
+   "ratio_gm": 0.7972094645572171,
+   "ratio_gm_ci95": [
+    0.742319317204657,
+    0.8529187859571034
+   ],
+   "weave_better_tasks": 44
+  },
+  "usd": {
+   "pairs": 55,
+   "tasks": 55,
+   "mean_diff": 0.0002088081818181818,
+   "mean_diff_ci95": [
+    -0.0003171681818181818,
+    0.0006668154545454546
+   ],
+   "ratio_gm": 1.051884812884993,
+   "ratio_gm_ci95": [
+    0.9869414686899212,
+    1.121100145213518
+   ],
+   "weave_better_tasks": 25
+  },
+  "weave_scripts": 320,
+  "weave_script_errors": 25,
+  "weave_tool_calls": 464,
+  "error_types": {
+   "weave": {
+    "multi_turn:instance_state_mismatch": 22,
+    "multi_turn:execution_response_mismatch": 6,
+    "pass": 15,
+    "multi_turn:empty_turn_model_response": 12
+   },
+   "native": {
+    "pass": 12,
+    "multi_turn:instance_state_mismatch": 23,
+    "multi_turn:execution_response_mismatch": 3,
+    "multi_turn:empty_turn_model_response": 17
+   }
+  },
+  "gate_pauses": 6
+ }
+}

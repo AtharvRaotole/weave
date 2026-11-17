@@ -1,0 +1,80 @@
+{
+  "started_utc": "2026-11-16T06:11:57Z",
+  "source_commit": "18c1edaec89aa287a33f7cb100ffada43c4050bf",
+  "source_dirty": false,
+  "split": "evidence",
+  "manifest": {
+    "category": "multi_turn_miss_param",
+    "ids": [
+      0,
+      11,
+      12,
+      32,
+      40,
+      50,
+      62,
+      64,
+      66,
+      106,
+      117,
+      123,
+      147,
+      152,
+      157,
+      166,
+      167,
+      175,
+      180,
+      185
+    ],
+    "bfcl_eval": "2026.3.23",
+    "hash": "533996f83ad87686"
+  },
+  "model": "gpt-4.1-2025-04-14",
+  "effort": null,
+  "temperature": 0.001,
+  "arms": [
+    "weave",
+    "native"
+  ],
+  "repeats": 1,
+  "planned": 40,
+  "usd_budget": 1.05,
+  "reserve_usd": 0.1,
+  "seed": 2026,
+  "handler": "bfcl_eval OpenAICompletionsHandler (FC)",
+  "weave_config": "compact,learned,trace,typecheck,gatechoice",
+  "cache_key": true,
+  "not_run_budget": [
+    {
+      "arm": "weave",
+      "task_index": 117,
+      "repeat": 0
+    },
+    {
+      "arm": "weave",
+      "task_index": 157,
+      "repeat": 0
+    },
+    {
+      "arm": "weave",
+      "task_index": 32,
+      "repeat": 0
+    },
+    {
+      "arm": "native",
+      "task_index": 175,
+      "repeat": 0
+    },
+    {
+      "arm": "native",
+      "task_index": 32,
+      "repeat": 0
+    },
+    {
+      "arm": "native",
+      "task_index": 117,
+      "repeat": 0
+    }
+  ]
+}

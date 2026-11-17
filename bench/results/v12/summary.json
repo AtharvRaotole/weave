@@ -1,0 +1,367 @@
+{
+  "GPT-4.1": {
+    "pairs": 60,
+    "mcnemar": {
+      "weave_only": 7,
+      "native_only": 4,
+      "p": 0.548828125
+    },
+    "weave": {
+      "passed": 38,
+      "wilson95": [
+        0.5068276736679673,
+        0.7437926115379172
+      ],
+      "usd": 1.433632,
+      "tokens": 1399808,
+      "calls": 521
+    },
+    "native": {
+      "passed": 35,
+      "wilson95": [
+        0.45727854313239624,
+        0.6993591351212818
+      ],
+      "usd": 1.67341,
+      "tokens": 1801583,
+      "calls": 599
+    },
+    "pass_diff": {
+      "pairs": 60,
+      "tasks": 60,
+      "mean_diff": 0.05,
+      "mean_diff_ci95": [
+        -0.06666666666666667,
+        0.15
+      ],
+      "ratio_gm": 1.0,
+      "ratio_gm_ci95": [
+        1.0,
+        1.0
+      ],
+      "weave_better_tasks": 4
+    },
+    "calls": {
+      "pairs": 60,
+      "tasks": 60,
+      "mean_diff": -1.3,
+      "mean_diff_ci95": [
+        -1.9666666666666666,
+        -0.6666666666666666
+      ],
+      "ratio_gm": 0.8665047256835752,
+      "ratio_gm_ci95": [
+        0.8201197695015282,
+        0.914048762574794
+      ],
+      "weave_better_tasks": 39
+    },
+    "wall": {
+      "pairs": 60,
+      "tasks": 60,
+      "mean_diff": -0.2210568904876709,
+      "mean_diff_ci95": [
+        -0.7329428990681967,
+        0.2787238359451294
+      ],
+      "ratio_gm": 0.9678748894096614,
+      "ratio_gm_ci95": [
+        0.9068658206509091,
+        1.0335026374064784
+      ],
+      "weave_better_tasks": 34
+    },
+    "tokens": {
+      "pairs": 60,
+      "tasks": 60,
+      "mean_diff": -6696.25,
+      "mean_diff_ci95": [
+        -9261.85,
+        -4460.75
+      ],
+      "ratio_gm": 0.7579592300339422,
+      "ratio_gm_ci95": [
+        0.7024553125662695,
+        0.8161991959524589
+      ],
+      "weave_better_tasks": 51
+    },
+    "usd": {
+      "pairs": 60,
+      "tasks": 60,
+      "mean_diff": -0.0039962999999999995,
+      "mean_diff_ci95": [
+        -0.006023166666666666,
+        -0.0020689666666666665
+      ],
+      "ratio_gm": 0.848371269728765,
+      "ratio_gm_ci95": [
+        0.7873174410298469,
+        0.9127982714745669
+      ],
+      "weave_better_tasks": 44
+    },
+    "weave_scripts": 341,
+    "weave_script_errors": 22,
+    "weave_tool_calls": 458,
+    "error_types": {
+      "weave": {
+        "pass": 38,
+        "multi_turn:instance_state_mismatch": 18,
+        "multi_turn:execution_response_mismatch": 3,
+        "multi_turn:empty_turn_model_response": 1
+      },
+      "native": {
+        "pass": 35,
+        "multi_turn:execution_response_mismatch": 5,
+        "multi_turn:instance_state_mismatch": 20
+      }
+    },
+    "skipped_for_budget": [],
+    "run_usd_all_trials": 3.107042,
+    "run_tokens_all_trials": 3201391
+  },
+  "GPT-5.4 mini": {
+    "pairs": 60,
+    "mcnemar": {
+      "weave_only": 4,
+      "native_only": 13,
+      "p": 0.049041748046875
+    },
+    "weave": {
+      "passed": 18,
+      "wilson95": [
+        0.19898010252726892,
+        0.42508946966390415
+      ],
+      "usd": 0.3646731,
+      "tokens": 1339354,
+      "calls": 491
+    },
+    "native": {
+      "passed": 27,
+      "wilson95": [
+        0.33093453853760824,
+        0.575082854510185
+      ],
+      "usd": 0.40747005,
+      "tokens": 1792450,
+      "calls": 577
+    },
+    "pass_diff": {
+      "pairs": 60,
+      "tasks": 60,
+      "mean_diff": -0.15,
+      "mean_diff_ci95": [
+        -0.2833333333333333,
+        -0.016666666666666666
+      ],
+      "ratio_gm": 1.0,
+      "ratio_gm_ci95": [
+        1.0,
+        1.0
+      ],
+      "weave_better_tasks": 13
+    },
+    "calls": {
+      "pairs": 60,
+      "tasks": 60,
+      "mean_diff": -1.4333333333333333,
+      "mean_diff_ci95": [
+        -2.1,
+        -0.8
+      ],
+      "ratio_gm": 0.8524896081374543,
+      "ratio_gm_ci95": [
+        0.7898284943068327,
+        0.9266585864542292
+      ],
+      "weave_better_tasks": 39
+    },
+    "wall": {
+      "pairs": 60,
+      "tasks": 60,
+      "mean_diff": -0.6951428969701131,
+      "mean_diff_ci95": [
+        -1.2179749011993408,
+        -0.21646480162938436
+      ],
+      "ratio_gm": 0.9120663985406955,
+      "ratio_gm_ci95": [
+        0.8442803651715598,
+        0.9862522017435127
+      ],
+      "weave_better_tasks": 39
+    },
+    "tokens": {
+      "pairs": 60,
+      "tasks": 60,
+      "mean_diff": -7551.6,
+      "mean_diff_ci95": [
+        -10194.783333333333,
+        -5171.633333333333
+      ],
+      "ratio_gm": 0.736618060864402,
+      "ratio_gm_ci95": [
+        0.6779007634259692,
+        0.8092935992474065
+      ],
+      "weave_better_tasks": 51
+    },
+    "usd": {
+      "pairs": 60,
+      "tasks": 60,
+      "mean_diff": -0.0007132825,
+      "mean_diff_ci95": [
+        -0.0012665474999999998,
+        -0.00019636500000000008
+      ],
+      "ratio_gm": 0.8801265450568191,
+      "ratio_gm_ci95": [
+        0.8156005598073071,
+        0.952678752943089
+      ],
+      "weave_better_tasks": 44
+    },
+    "weave_scripts": 299,
+    "weave_script_errors": 19,
+    "weave_tool_calls": 438,
+    "error_types": {
+      "weave": {
+        "multi_turn:instance_state_mismatch": 29,
+        "multi_turn:empty_turn_model_response": 7,
+        "pass": 18,
+        "multi_turn:execution_response_mismatch": 6
+      },
+      "native": {
+        "pass": 27,
+        "multi_turn:empty_turn_model_response": 6,
+        "multi_turn:instance_state_mismatch": 25,
+        "multi_turn:execution_response_mismatch": 2
+      }
+    },
+    "skipped_for_budget": [],
+    "run_usd_all_trials": 0.77214315,
+    "run_tokens_all_trials": 3131804
+  },
+  "pooled": {
+    "pairs": 120,
+    "mcnemar": {
+      "weave_only": 11,
+      "native_only": 17,
+      "p": 0.34492845088243484
+    },
+    "weave": {
+      "passed": 56,
+      "wilson95": [
+        0.3798276424616983,
+        0.5555737089420304
+      ],
+      "usd": 1.7983050999999999,
+      "tokens": 2739162,
+      "calls": 1012
+    },
+    "native": {
+      "passed": 62,
+      "wilson95": [
+        0.42813421852868033,
+        0.6041651057694554
+      ],
+      "usd": 2.0808800499999998,
+      "tokens": 3594033,
+      "calls": 1176
+    },
+    "pass_diff": {
+      "pairs": 120,
+      "tasks": 120,
+      "mean_diff": -0.05,
+      "mean_diff_ci95": [
+        -0.14166666666666666,
+        0.03333333333333333
+      ],
+      "ratio_gm": 1.0,
+      "ratio_gm_ci95": [
+        1.0,
+        1.0
+      ],
+      "weave_better_tasks": 17
+    },
+    "calls": {
+      "pairs": 120,
+      "tasks": 120,
+      "mean_diff": -1.3666666666666667,
+      "mean_diff_ci95": [
+        -1.825,
+        -0.9166666666666666
+      ],
+      "ratio_gm": 0.85946859980295,
+      "ratio_gm_ci95": [
+        0.8176656096514737,
+        0.9022365391952697
+      ],
+      "weave_better_tasks": 78
+    },
+    "wall": {
+      "pairs": 120,
+      "tasks": 120,
+      "mean_diff": -0.458099893728892,
+      "mean_diff_ci95": [
+        -0.8346110204855601,
+        -0.08930448691050212
+      ],
+      "ratio_gm": 0.9395563658566971,
+      "ratio_gm_ci95": [
+        0.8936558011997144,
+        0.986719361591068
+      ],
+      "weave_better_tasks": 73
+    },
+    "tokens": {
+      "pairs": 120,
+      "tasks": 120,
+      "mean_diff": -7123.925,
+      "mean_diff_ci95": [
+        -8935.05,
+        -5441.525
+      ],
+      "ratio_gm": 0.7472124585697683,
+      "ratio_gm_ci95": [
+        0.7058779660045197,
+        0.7924191639312698
+      ],
+      "weave_better_tasks": 102
+    },
+    "usd": {
+      "pairs": 120,
+      "tasks": 120,
+      "mean_diff": -0.00235479125,
+      "mean_diff_ci95": [
+        -0.0034593229166666665,
+        -0.00134460125
+      ],
+      "ratio_gm": 0.8641030462577045,
+      "ratio_gm_ci95": [
+        0.819609112769634,
+        0.910368576742755
+      ],
+      "weave_better_tasks": 88
+    },
+    "weave_scripts": 640,
+    "weave_script_errors": 41,
+    "weave_tool_calls": 896,
+    "error_types": {
+      "weave": {
+        "pass": 56,
+        "multi_turn:instance_state_mismatch": 47,
+        "multi_turn:execution_response_mismatch": 9,
+        "multi_turn:empty_turn_model_response": 8
+      },
+      "native": {
+        "pass": 62,
+        "multi_turn:execution_response_mismatch": 7,
+        "multi_turn:instance_state_mismatch": 45,
+        "multi_turn:empty_turn_model_response": 6
+      }
+    }
+  }
+}

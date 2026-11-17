@@ -530,3 +530,139 @@ $4.70 stop.
 |---|---|---|---|
 | BFCL v4 multi_turn_base (`bfcl-eval==2026.3.23`) | gpt-4.1-2025-04-14 (temperature 0.001) | mtb40 | weave, native |
 | BFCL v4 multi_turn_base (`bfcl-eval==2026.3.23`) | gpt-5.4-mini-2026-03-17 (effort none) | mtb40 | weave, native |
+
+## Addendum 9: round 9, a cheaper and checked Weave arm (written and committed before any evidence trial on `mtb60r9` or `confirm9`)
+
+**Why.** Round 8 showed Weave costing 1.36× native on BFCL `multi_turn_base`. The diagnosis
+(`docs/research/round9-notes.md`, `bench/bfcl/diagnose.py`) found a description billed ~850 tokens larger than the
+native schemas on every request, repeated doc text, a GPT-4.1 cache-hit gap (57 % vs 72 %), result types that did
+not match the backends, and a harness defect (Python-literal results passed to scripts as strings).
+
+**Techniques** (ablated on train tasks only; rows in `bench/results/v12/*-dev-*`): compact description with shared
+doc sentences factored out (`WeaveTool(compact=True)`), return shapes learned from train-split ground-truth
+executions (`bench/bfcl/learn_shapes.py`, `shapes.json`; evidence tasks excluded), Python-literal result parsing, a
+call trace in the script output, checked arguments (refused once on a simple type mismatch), `reply()` with a guard,
+hybrid routing, and `prompt_cache_key` per trial.
+
+**Dev results, 40 train tasks** (`dev40r9` = 20 tasks of mtb40 + 20 other train tasks; one run each; native with the
+cache key):
+
+| config | GPT-4.1 pass / $ per task | GPT-5.4 mini pass / $ per task |
+|---|---|---|
+| native | 25/40, $0.0257 | 18/40, $0.0064 |
+| **W3** compact, learned, trace, typecheck | **28/40, $0.0215** | **22/40, $0.0054** |
+| W4 = W3 + reply, guard | 18/40, $0.0168 | 23/40, $0.0042 |
+| W5 hybrid, learned, trace, typecheck | — | 19/40, $0.0064 |
+
+`reply()` saves a model call per turn but made GPT-4.1 end turns before doing the requested change (18/40), so it is
+not used. Hybrid matched native in cost and success. **W3 is the evidence configuration for both models.**
+
+**BFCL evidence subset.**
+
+| subset | manifest hash | tasks |
+|---|---|---|
+| **mtb60r9** | `dd3384a5132d2183` | `multi_turn_base` ids 0, 1, 3, 11, 12, 22, 23, 31, 32, 33, 40, 50, 55, 56, 58, 60, 62, 64, 66, 69, 72, 76, 78, 79, 83, 84, 86, 90, 94, 97, 99, 106, 113, 115, 117, 123, 125, 128, 130, 141, 142, 147, 150, 152, 157, 160, 166, 167, 169, 170, 171, 174, 175, 179, 180, 183, 184, 185, 189, 195 = `sorted(random.Random("weave-round9-bfcl-evidence").sample(R9_POOL, 60))`, R9_POOL = ids not in dev6 or mtb40; never used for tuning or shape learning |
+
+**Settings.** `bfcl-eval==2026.3.23`, tasks and grader unchanged; native arm = BFCL's `OpenAICompletionsHandler`
+loop. Both arms: `prompt_cache_key=<arm>-<task>`, OpenAI default `parallel_tool_calls`, `store: false`.
+GPT-4.1 at temperature 0.001; GPT-5.4 mini with `reasoning_effort: none`. Weave config
+`compact,learned,trace,typecheck`. One repeat, 4 workers, runs concurrent.
+
+**Hypotheses** (paired by task; 95 % cluster-bootstrap CIs; per model and pooled over 120 pairs):
+
+- **C1 (success).** Pass counts, exact McNemar p, paired pass-rate difference. No harm if the CI lower bound is above
+  −0.10. We predict a pooled point estimate ≥ 0 (dev: +7 tasks of 80); significance is not expected at this size.
+- **C2 (cost).** Geometric-mean ratio of list-price dollars per task, Weave/native. We predict a pooled CI entirely
+  below 1.
+- **C3 (tokens)** ratio, **C4 (model calls)** difference, **C5 (wall time)** difference: reported, predicted ≤ 1,
+  < 0 and ≈ 0.
+- **C6 (descriptive).** Script errors, type-check refusals, cached share, error types per arm.
+
+**Fan-out reconfirm, `confirm9`** (hash `a7ef5eb5aac5cd26`; the `confirm4` recipe with seeds + 500; real SQLite, git,
+files, HTTP and PyPI; latency 0): modes `weave_compact` (`WeaveTool(compact=True)`), `weave` (round-4 listing) and
+`native`, 2 repeats, GPT-4.1 (temperature 0) and GPT-5.4 mini (effort low).
+- **F1.** `weave_compact` vs native: pass ≥, wall time and tokens lower (as in rounds 2–5).
+- **F2.** `weave_compact` vs `weave`: fewer tokens, pass within noise.
+
+**Caps** (list prices; in-flight guard): BFCL GPT-4.1 $3.40 (reserve $0.08 per trial), GPT-5.4 mini $0.95 (reserve
+$0.03); `confirm9` 600k tokens per model. Round 9 dev spend before evidence: $6.07 (8.74M tokens). Round total at most
+$12.1, under the $14 stop. Skipped trials are listed and their pairs dropped.
+
+**Release rule** (from the owner's brief): release v1.1.0 and make the repository public only if BFCL shows Weave ≥
+native on success and ≤ native on cost (point estimates, with no-harm met), or clear wins elsewhere with no hidden
+losses.
+
+## Addendum 10 (2026-11-16): the write gate on BFCL categories never run before
+
+Written before any evidence trial of this round. Round 9 found GPT-5.4 mini losing on BFCL when a script batched
+writes on a wrong assumption. Round 10 adds an opt-in **write gate** (`WeaveTool(write_gate=...)`): a script stops
+before a write whose arguments were picked from a list the model has not seen (`choice`), or that follows a call that
+failed (all modes), and the model gets the results so far. Read/write classes for BFCL come from differential
+execution of train ground truth (`bench/bfcl/learn_effects.py`: 37 reads, 41 writes).
+
+**Dev (train scenario ids only; GPT-5.4 mini, effort none, one run each; not evidence).** `dev40r9`, base category:
+native 18/40 ($0.0064/task, round 9 rows), W3 22/40 ($0.0054), W3 + `flow` gate 20/40 ($0.0057; 13 pauses), **W3 +
+`choice` gate 24/40 ($0.0048; 10 pauses)**. `devMP20r10` (miss_param): native 6/20, W3 5/20, W3 + `flow` 5/20.
+`devMF10r10` (miss_func): native 3/10, W3 + `flow` 3/10. The `flow` gate paused on harmless single-value lookups and
+once the model ended the turn after a pause; the pause text now says the request is not finished. Three runs were
+accidentally run on `multi_turn_base` (a `--category` bug, fixed in `818fe94`) and are kept in
+`bench/results/v13/mislabeled/`. **Chosen: W3 + `choice` gate** (`--weave-config compact,learned,trace,typecheck,gatechoice`).
+
+**Evidence.** BFCL v4 categories `multi_turn_miss_param` and `multi_turn_miss_func` (`bfcl-eval==2026.3.23`, tasks,
+backends and grader unchanged; never run in any earlier round). Scenario ids: the 60 of `R9_EVIDENCE`, which were never
+train (no shapes or effects were learned from them) and never used for tuning.
+- `mp60r10`: miss_param, 60 ids, hash `881d1f18b6aa5ce8`; `mf60r10`: miss_func, 60 ids, hash `1c0e404e20dee1d4` —
+  GPT-5.4 mini (`reasoning_effort: none`).
+- `mp20r10`: miss_param, a seeded 20 of those ids, hash `533996f83ad87686` — GPT-4.1 (temperature 0.001).
+- Arms: native (BFCL's handler) and Weave (config above); `prompt_cache_key` in both; one repeat; 4 workers.
+
+**Hypotheses** (paired by task; 95 % cluster-bootstrap CIs; exact McNemar):
+- **D1 (success).** Pooled over the 120 mini pairs: Weave pass rate − native ≥ 0 (point estimate), no harm if the CI
+  lower bound is above −0.10. Reported per category and for GPT-4.1.
+- **D2 (cost).** Geometric-mean $ ratio Weave/native below 1 (pooled mini CI entirely below 1).
+- **D3** tokens, **D4** model calls, **D5** wall time; **D6** descriptive: gate pauses, error types.
+
+**Caps** (list prices, in-flight guard): mp60r10 $0.85, mf60r10 $0.95 (reserve $0.03 per trial), mp20r10 $1.05
+(reserve $0.10). Skipped trials are listed and their pairs dropped. Round 10 spend before evidence: $1.18.
+
+**Release rule** unchanged from Addendum 9; this round does not release or change visibility (owner's instruction).
+
+## Addendum 11 (2026-11-17): Azure endpoint; completing round 10; a fresh confirmation
+
+Written before any trial of this addendum. The OpenAI account ran out of credits during round 10. The rest of the
+work runs on Azure AI Foundry deployments (Global Standard) of the same model versions, through the OpenAI-compatible
+`/openai/v1` Chat Completions endpoint. Both arms use the same endpoint, client and settings (`--base-url`,
+`--deployment`; `bench/bfcl/run.py`). A probe on 2026-11-17 returned `model = gpt-4.1-2025-04-14` (fingerprint
+`fp_d362bfbada`) and `gpt-5.4-mini-2026-03-17`. It also accepted `prompt_cache_key`, `parallel_tool_calls`,
+`reasoning_effort: none`, `store: false` and tools, and reported cached prompt tokens (prefix caching worked on the
+second identical request). No parameter is dropped. Each row records the endpoint and the served model version. Costs
+are computed at OpenAI list prices, as before; Azure's billing may differ.
+
+**Part A: completing round 10 (a disclosed deviation).** The incomplete round-10 pairs are rerun on Azure, both arms
+for each pair; orphan single-arm OpenAI rows stay unpaired. The pairs are: `mp60r10c` (mini, miss_param ids 31, 58,
+72, 113, 185; hash `9522823274846d85`), `mf60r10c` (mini, miss_func ids 23, 31, 58, 72, 86, 113, 130, 141, 147, 185;
+hash `bbdb204d53aba5fb`), and `mp20r10c` (GPT-4.1, miss_param ids 32, 117, 157, 175; hash `cdf61fa18942870a`; these 4
+were budget skips). Round 10 is reported both as pre-registered (completed pairs only) and with these pairs added,
+the latter labelled as mixed-endpoint.
+
+**Part B: confirmation.** Same configuration as Addendum 10 (Weave = `compact,learned,trace,typecheck,gatechoice`;
+native = BFCL's handler; `prompt_cache_key` in both arms; one repeat; GPT-5.4 mini at effort `none`, GPT-4.1 at
+temperature 0.001). Nothing is tuned on these tasks. Task ids are the 63 scenario ids never run live in any category
+or round (`R11_FRESH` in `bench/bfcl/subsets.py`). They are train ids, so round 9's learned return shapes and round
+10's learned read/write classes include executions of their ground truth (API-level metadata only).
+- `mtbfresh63r11` (multi_turn_base, hash `841b3aade6d644fc`), `mpfresh63r11` (miss_param, `71659cd456b87c86`),
+  `mffresh63r11` (miss_func, `297acaa475fe6e32`). GPT-5.4 mini runs all three. GPT-4.1 runs all three if the budget
+  allows, in the order base, miss_param, miss_func.
+
+**Hypotheses** (paired by task; 95 % cluster-bootstrap CIs; exact McNemar; pooled over categories per model):
+- **E1 (success).** Mini pooled (189 pairs): Weave − native ≥ 0 (point), no harm if the CI lower bound > −0.10.
+  The same is reported for GPT-4.1, plus each category.
+- **E2 (cost).** The pooled geometric-mean $ ratio Weave/native is ≤ 1 (point).
+- **E3–E5:** tokens, model calls, wall time. **E6:** gate pauses, error types.
+
+**Caps** (list prices, in-flight guard; whole job ≤ $25): Part A mini $0.40 (both), GPT-4.1 $0.40. Part B mini base
+$1.30, miss_param $1.60, miss_func $1.60 (reserve $0.03); GPT-4.1 base $4.50, miss_param $4.80, miss_func $4.80
+(reserve $0.10). Spent on this job before evidence: $0.07 (probe and a 2-task smoke run on train ids 5 and 6).
+
+**Release rule** (owner's brief): Weave ≥ native on success and ≤ native on cost on BFCL, or clear wins elsewhere with
+no hidden losses. This addendum only reports whether it is met; the owner decides.

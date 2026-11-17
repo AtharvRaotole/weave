@@ -21,6 +21,12 @@ sys.path.insert(0, ROOT)
 from bench.v4.stats import mcnemar_exact, paired, wilson  # noqa: E402
 
 OUT = os.path.join(ROOT, "bench", "results", "v11")
+CHART = "benchmark-v11-bfcl"
+TITLE = "BFCL v4 multi_turn_base, 40 pre-registered tasks (GPT-4.1: 38 paired, 2 skipped for budget); 95% cluster-bootstrap CIs"
+if "--round9" in sys.argv:
+    OUT = os.path.join(ROOT, "bench", "results", "v12")
+    CHART = "benchmark-v12-bfcl"
+    TITLE = "Round 9: BFCL v4 multi_turn_base, 60 fresh pre-registered tasks; 95% cluster-bootstrap CIs"
 
 
 def load():
@@ -92,7 +98,8 @@ def table(summary):
     return "\n".join(lines)
 
 
-def chart(summary, name="benchmark-v11-bfcl"):
+def chart(summary, name=None):
+    name = name or CHART
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -116,7 +123,7 @@ def chart(summary, name="benchmark-v11-bfcl"):
         ax.set_ylim(-0.6, len(labels) - 0.4)
         ax.invert_yaxis()
         ax.set_title(title, fontsize=10)
-    fig.suptitle("BFCL v4 multi_turn_base, 40 pre-registered tasks (GPT-4.1: 38 paired, 2 skipped for budget); 95% cluster-bootstrap CIs", fontsize=11)
+    fig.suptitle(TITLE, fontsize=11)
     fig.tight_layout()
     for ext in ("png", "svg"):
         fig.savefig(os.path.join(ROOT, "assets", f"{name}.{ext}"), dpi=150)

@@ -47,6 +47,25 @@ RULES = (
     "what the script printed, or the error with a hint so you can fix the script."
 )
 
+# `compact=True`: the same rules in fewer tokens. The description is sent with every request, so on short tasks it is
+# most of what Weave adds to the bill (round 8, BFCL: about 850 more billed input tokens per request than the native
+# tool schemas).
+COMPACT_RULES = (
+    "Run a Weave script (Python subset) that calls the functions below by bare name. Put a turn's dependent calls in "
+    "ONE script; independent calls and loop iterations run in parallel. No imports, classes, while or with; use "
+    "`for _ in range(N):` + break. Allowed: if/for/try/except, def, comprehensions, lambda, f-strings, str/list/dict "
+    "methods, common builtins, parse_json. A failing call raises ToolError. print() only what you need; you get the "
+    "printed text or an error with a hint."
+)
+
+REPLY_RULE = (
+    " If the printed results fully answer the user, end the script with reply(text), e.g. "
+    "reply(f\"Moved {n} files to {dest}.\"): the turn then ends with that text and you will not see the output. "
+    "Call reply() only when this script has already done everything the user asked in this turn (every requested "
+    "change made, every requested value fetched), never to report partial progress; do not call it when you need to "
+    "look at results first."
+)
+
 # For hosts where a person replies between turns (support agents, assistants): every script is a model
 # round trip the person waits for, so a script should fetch everything the next reply needs. Writes still
 # wait for the person's explicit go-ahead, which is the host policy's job to require; these rules only
@@ -138,7 +157,7 @@ def echo_last_expression(source: str) -> str:
         return source
     node = tree.body[-1].value
     if isinstance(node, ast.Constant) or (
-        isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "print"
+        isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in ("print", "reply")
     ):
         return source
     lines = source.splitlines(keepends=True)
@@ -231,6 +250,49 @@ def tool_line(func: Callable) -> str:
     return f"{func.__name__}({_signature(func)}){arrow}, effect {effect}. {doc}".rstrip()
 
 
+def _sentences(text: str) -> list:
+    import re
+
+    return [x.strip() for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x.strip()]
+
+
+def compact_listing(functions: list) -> str:
+    """Function lines with shared text factored out, for `compact=True`.
+
+    Tool docs generated from one API often repeat the same sentences in every entry ("This tool belongs to the
+    vehicle control system, ...", "Note that the provided function is in Python 3 syntax."). Any sentence of 40+
+    characters that appears in 3 or more docs is written once as a note `[A] ...` and each line cites its notes.
+    The effect is printed once when every function has the same one."""
+    metas = [(getattr(f, "__weave__", None) or {}).get("effect") or "irreversible" for f in functions]
+    same_effect = len(set(metas)) == 1
+    docs = [_sentences(" ".join((inspect.getdoc(f) or "").split())) for f in functions]
+    counts: dict = {}
+    for d in docs:
+        for sent in dict.fromkeys(d):
+            counts[sent] = counts.get(sent, 0) + 1
+    shared = [x for x, c in counts.items() if c >= 3 and len(x) >= 40]
+    labels = {x: chr(65 + i) if i < 26 else f"N{i}" for i, x in enumerate(shared)}
+    lines = []
+    if same_effect:
+        lines.append(f"Every function has effect {metas[0]}.")
+    lines += [f"[{labels[x]}] {x}" for x in shared]
+    owns = [" ".join(x for x in d if x not in labels) for d in docs]
+    # A label every remaining doc starts with ("Tool description: ...") says nothing; drop it.
+    import os as _os
+
+    prefix = _os.path.commonprefix(owns) if len(owns) >= 3 else ""
+    prefix = prefix[: prefix.find(":") + 1] if ":" in prefix[:40] else ""
+    for f, effect, d, own in zip(functions, metas, docs, owns):
+        returns = _returns(f)
+        head = f"{f.__name__}({_signature(f)})" + (f" -> {returns}" if returns else "")
+        if not same_effect:
+            head += f", effect {effect}"
+        own = own[len(prefix):].strip() if prefix else own
+        refs = "".join(f"[{labels[x]}]" for x in dict.fromkeys(d) if x in labels)
+        lines.append(f"{head}. {own} {refs}".rstrip())
+    return "\n".join(lines)
+
+
 def _literal(value: Any, depth: int = 0) -> str | None:
     """Weave source for a plain value, or None when it has no literal form."""
     if depth > 40:
@@ -264,6 +326,184 @@ def _shift_lines(text: str, prelude: str) -> str:
     return re.sub(r"\bL(\d+):", lambda m: f"L{max(1, int(m.group(1)) - 1)}:", text)
 
 
+
+GATE_RULE = (
+    " A write whose arguments were computed from results you have not seen (or that follows a call that failed) is "
+    "paused before it runs: the tool returns the results so far, and you send the writes again in the next script."
+)
+
+_WRITE_EFFECTS = ("reversible", "irreversible")
+
+
+def _leaves(value, out: list, depth: int = 0) -> list:
+    """Scalar leaves of a value (strings, numbers), for value provenance."""
+    if depth > 6 or len(out) > 2000:
+        return out
+    if isinstance(value, dict):
+        for k, v in value.items():
+            _leaves(k, out, depth + 1)
+            _leaves(v, out, depth + 1)
+    elif isinstance(value, (list, tuple, set)):
+        for v in value:
+            _leaves(v, out, depth + 1)
+    elif isinstance(value, (str, int, float)) and not isinstance(value, bool):
+        out.append(value)
+    return out
+
+
+def _choice_leaves(value, out: set, depth: int = 0, in_list: bool = False) -> set:
+    """Scalar leaves that sit inside a list of two or more items: values a script can *pick* among."""
+    if depth > 6 or len(out) > 2000:
+        return out
+    if isinstance(value, dict):
+        for v in value.values():
+            _choice_leaves(v, out, depth + 1, in_list)
+    elif isinstance(value, (list, tuple, set)):
+        many = in_list or len(value) >= 2
+        for v in value:
+            _choice_leaves(v, out, depth + 1, many)
+    elif in_list and isinstance(value, (str, int, float)) and not isinstance(value, bool):
+        out.add(repr(value))
+    return out
+
+
+def default_is_error(value) -> bool:
+    """A result that reports a failure as a value, e.g. `{"error": "..."}`."""
+    return isinstance(value, dict) and "error" in value
+
+
+class WriteGate:
+    """Pauses a script before a write the model has not effectively seen the inputs of.
+
+    A script batches calls the model never looks at one by one. That saves round trips, but a write can then act on
+    a value the model never saw: an id picked out of a list, a directory name from a listing, or a step that follows
+    a call that failed. Native function calling never does this, because the model sees every result before its next
+    call. The gate restores that guarantee only where it matters, at writes:
+
+    * **Value provenance (`flow`).** Every argument of a `reversible` or `irreversible` call is split into scalar
+      leaves. A leaf is *known* when it appears literally in text the model has seen: its own scripts, what the tool
+      returned to it, and anything the host adds with `note_shown` (the user's messages). A write with an unknown
+      leaf, made after this script received any result, was computed from data the model has not seen.
+    * **Choices (`choice`, the default).** As `flow`, but only for a leaf that the script picked out of a list of
+      two or more items it has not seen (which order, which file, which flight). A value read from a single field,
+      such as a price or an id looked up by name, passes: the model asked for exactly that value.
+    * **Failures (all modes; `errors` is this rule alone).** A write after a call of this script that raised a ToolError the script caught, or
+      returned an error value (`is_error`), is control-dependent on an outcome the model has not seen.
+
+    The paused write is refused before it runs (its function is never called), every later write of the script is
+    refused too, and reads may continue. The tool then returns the printed output plus every call and result of the
+    script, which become known, so the same writes go through in the next script. Nothing is undone and nothing runs
+    twice: refused writes never started. The refusal is an ordinary tool error, so traces and replay record it like
+    any other. Writes wait for all earlier observable calls (effect ordering), so by the time a write reaches the
+    gate every result it could depend on has been seen by the gate.
+
+    Matching is by value, not by tracking the interpreter: a computed value that happens to equal known text passes
+    (a miss), and short numbers usually appear somewhere, so they pass. It never pauses a write whose arguments
+    are all literals in the script.
+    """
+
+    def __init__(self, mode: str = "choice", is_error: Callable[[Any], bool] | None = None,
+                 read_names: Iterable[str] = ()):
+        if mode not in ("flow", "choice", "errors"):
+            raise ValueError("write_gate must be 'choice', 'flow', 'errors' or None")
+        self.mode = mode
+        self.is_error = is_error or default_is_error
+        self.read_names = set(read_names)
+        self._shown: list[str] = []
+        self._lock = threading.Lock()
+        self.pauses = 0
+        self.begin("")
+
+    def note_shown(self, text: str) -> None:
+        if text:
+            with self._lock:
+                self._shown.append(str(text))
+
+    def begin(self, source: str) -> None:
+        with self._lock:
+            self._calls: list[tuple[str, str]] = []
+            self._results = 0
+            self._choices: set = set()
+            self._failed: str | None = None
+            self._held: str | None = None
+            self._reason = ""
+        self.note_shown(source)
+
+    def _known(self, leaf) -> bool:
+        text = leaf if isinstance(leaf, str) else repr(leaf)
+        if isinstance(leaf, str) and len(leaf.strip()) < 2:
+            return True
+        return any(text in chunk for chunk in self._shown) or (
+            isinstance(leaf, str) and any(json.dumps(leaf)[1:-1] in chunk for chunk in self._shown))
+
+    def wrap(self, func: Callable) -> Callable:
+        import functools
+
+        from weave.errors import ToolError
+
+        meta = getattr(func, "__weave__", None) or {}
+        name = getattr(func, "__name__", "tool")
+        is_write = (meta.get("effect") or "irreversible") in _WRITE_EFFECTS and name not in self.read_names
+        gate = self
+
+        @functools.wraps(func)
+        def gated(*args, **kwargs):
+            shown_call = f"{name}({', '.join([repr(a) for a in args] + [f'{k}={v!r}' for k, v in kwargs.items()])})"
+            if is_write:
+                with gate._lock:
+                    if gate._held is None:
+                        if gate._failed is not None:
+                            gate._held, gate._reason = shown_call, f"it follows {gate._failed}, which failed"
+                        elif gate._results and gate.mode != "errors":
+                            unknown = [x for x in _leaves([list(args), kwargs], []) if not gate._known(x)]
+                            if gate.mode == "choice":
+                                unknown = [x for x in unknown if repr(x) in gate._choices]
+                            if unknown:
+                                gate._held = shown_call
+                                gate._reason = (f"{unknown[0]!r} was picked from a list you have not seen"
+                                                if gate.mode == "choice" else
+                                                f"{unknown[0]!r} came from results you have not seen")
+                    held = gate._held
+                if held is not None:
+                    raise ToolError(f"paused before {shown_call}: check the results first")
+            try:
+                value = func(*args, **kwargs)
+            except ToolError as exc:
+                with gate._lock:
+                    gate._calls.append((shown_call, f"error: {exc}"))
+                    gate._failed = gate._failed or shown_call
+                raise
+            with gate._lock:
+                gate._results += 1
+                try:
+                    text = json.dumps(value, default=str)
+                except (TypeError, ValueError):
+                    text = repr(value)
+                gate._calls.append((shown_call, text))
+                if gate.mode == "choice":
+                    _choice_leaves(value, gate._choices)
+                if gate.is_error(value):
+                    gate._failed = gate._failed or shown_call
+            return value
+
+        return gated
+
+    def finish(self, out: str) -> str:
+        """The text to return for this run: `out`, or the pause report when a write was held."""
+        with self._lock:
+            held, reason, calls = self._held, self._reason, list(self._calls)
+        if held is not None:
+            self.pauses += 1
+            lines = [f"{c} -> {r if len(r) <= 400 else r[:400] + '...'}" for c, r in calls[:40]]
+            printed = out if out and not out.startswith("error:") else ""
+            out = (f"[paused before {held}: {reason}. It and any later writes did not run; the calls before it did.]\n"
+                   + (printed.rstrip("\n") + "\n" if printed.strip() else "")
+                   + "[results so far]\n" + "\n".join(lines) +
+                   "\nThe request is not finished. Check these results, then call this tool again now with the "
+                   "remaining steps (fixed if needed); do not repeat calls above that already ran.")
+        self.note_shown(out)
+        return out
+
 class WeaveTool:
     """A single function-calling tool that runs Weave scripts over `functions`."""
 
@@ -280,6 +520,12 @@ class WeaveTool:
         debug: bool = False,
         conversational: bool = False,
         persist_variables: bool = False,
+        compact: bool = False,
+        reply: bool = False,
+        listing: bool = True,
+        write_gate: str | None = None,
+        gate_is_error: Callable[[Any], bool] | None = None,
+        gate_read_names: Iterable[str] = (),
     ):
         """`worker_pool=N` runs every function in killable worker processes
         (`Engine(worker_pool=N, isolate_all=True)`): a tool timeout or the run
@@ -291,8 +537,40 @@ class WeaveTool:
         `persist_variables=True` keeps the variables of earlier scripts, like a notebook: a later script
         can use `order` from the script before instead of fetching it again. Values are snapshots taken
         when the earlier script ended; they reach the engine as literal assignments, so effect analysis
-        and scheduling see plain constants."""
+        and scheduling see plain constants.
+        `compact=True` sends shorter rules and a listing with repeated doc sentences factored out
+        (`compact_listing`); the description is part of every request.
+        `listing=False` (with `compact=True`) leaves the function list out of the description, for hosts that
+        also send every function as its own native tool (a hybrid: one call directly, several in a script).
+        `reply=True` adds a `reply(text)` function: a script that succeeds and calls it ends the turn with that
+        text, saving the model call that would only restate the output. After `run`, `take_reply()` returns the
+        text (or None); the host decides whether to end the turn with it.
+        `write_gate="choice"` pauses a script before a write whose arguments were picked from a list the model has not
+        seen, or that follows a failed call (`"flow"`: any argument computed from unseen results; `"errors"`: failures only), and returns those results instead (see `WriteGate`). `gate_is_error` decides
+        which results count as failures (default: a dict with an "error" key); `gate_read_names` lists functions the
+        gate treats as reads although they are declared writes (e.g. for scheduling). Call `note_shown(text)` with
+        other text the model sees, such as the user's messages. Not available with `worker_pool` or an `engine`."""
         self.functions = list(functions)
+        self.gate = WriteGate(write_gate, gate_is_error, gate_read_names) if write_gate else None
+        if self.gate is not None and (engine is not None or worker_pool is not None):
+            raise ValueError("write_gate wraps the functions in-process; it cannot be used with engine= or worker_pool=")
+        self.compact = compact
+        self.reply = reply
+        self.listing = listing
+        self._reply_text = None
+        if reply:
+            box = self
+
+            def reply_fn(text):
+                """End the turn with this text for the user."""
+                box._pending_reply = str(text)
+                return None
+
+            reply_fn.__name__ = "reply"
+            from weave import declare as _declare
+
+            self._reply_fn = _declare(effect="pure", arity=1)(reply_fn)
+            self._pending_reply = None
         self.conversational = conversational
         self.persist_variables = persist_variables
         self.variables: dict = {}
@@ -307,7 +585,10 @@ class WeaveTool:
                 if worker_limits is not None:
                     raise ValueError("worker_limits needs worker_pool=N")
                 engine = Engine(debug=debug)
-            engine.install(self.functions)
+            installed = [self.gate.wrap(f) for f in self.functions] if self.gate is not None else self.functions
+            engine.install(installed + ([self._reply_fn] if reply else []))
+        elif reply:
+            engine.install([self._reply_fn])
         self.engine = engine
         if max_wall_time_ms is not None:
             self.engine.set_limits(max_wall_time_ms=max_wall_time_ms)
@@ -315,8 +596,23 @@ class WeaveTool:
     # ---- tool definitions -------------------------------------------------
     @property
     def description(self) -> str:
+        if self.compact:
+            rules = COMPACT_RULES + (REPLY_RULE if self.reply else "") + (GATE_RULE if self.gate else "")
+            if self.persist_variables:
+                rules += " Variables persist between scripts."
+            if self.conversational:
+                rules = f"{rules} {CONVERSATION_RULES}"
+            if not self.listing:
+                # Hybrid hosts also send each function as its own tool; the script calls the same functions by name.
+                return (rules.replace("the functions below", "the other tools in this request") +
+                        " Call a single tool directly; use this tool for two or more calls, loops or dependent calls.")
+            return f"{rules}\nFunctions:\n{compact_listing(self.functions)}"
         lines = "\n".join(tool_line(f) for f in self.functions)
         rules = RULES
+        if self.reply:
+            rules += REPLY_RULE
+        if self.gate is not None:
+            rules += GATE_RULE
         if self.persist_variables:
             rules = rules.replace("(scripts do not share variables)", "(each script sees the variables earlier scripts set)")
             rules += (" Variables persist between scripts, like a notebook: reuse values you already fetched instead "
@@ -356,9 +652,26 @@ class WeaveTool:
         return {"type": "function", "name": self.name, "description": self.description, "parameters": self.parameters, "strict": True}
 
     # ---- running ----------------------------------------------------------
+    def note_shown(self, text: str) -> None:
+        """Tell the write gate about text the model has seen outside this tool (e.g. the user's message)."""
+        if self.gate is not None:
+            self.gate.note_shown(text)
+
     def run(self, source: str, _cancel: dict | None = None) -> str:
         """Check and run a script. Returns text for the model: printed output
         on success, or `error: ...` lines it can repair from."""
+        if self.gate is None:
+            return self._run(source, _cancel)
+        self.gate.begin(source if isinstance(source, str) else "")
+        out = self.gate.finish(self._run(source, _cancel))
+        if out.startswith("[paused"):
+            self._reply_text = None
+        return out
+
+    def _run(self, source: str, _cancel: dict | None = None) -> str:
+        self._reply_text = None
+        if self.reply:
+            self._pending_reply = None
         if not isinstance(source, str):
             return 'error: source must be a string'
         if not source.endswith("\n"):
@@ -388,7 +701,15 @@ class WeaveTool:
             return f"error: {_shift_lines(str(exc), prelude)}"
         if len(out) > self.max_output_chars:
             out = out[: self.max_output_chars] + f"\n[truncated to {self.max_output_chars} characters]"
+        if self.reply and self._pending_reply is not None:
+            self._reply_text = self._pending_reply
+            return out if out.strip() else "(replied)"
         return out if out.strip() else "(the script printed nothing; print the values you need)"
+
+    def take_reply(self) -> str | None:
+        """The text the last successful script passed to `reply()`, once; None if it did not reply or failed."""
+        text, self._reply_text = self._reply_text, None
+        return text
 
     def _prelude(self, source: str) -> str:
         """Literal assignments for the earlier variables this script reads, on one line."""

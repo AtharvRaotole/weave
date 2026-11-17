@@ -198,6 +198,126 @@ def test_conversational_rules_are_opt_in():
     assert "A person is waiting" in weave.WeaveTool([look], conversational=True).description
 
 
+def test_compact_listing_factors_shared_sentences():
+    """Round 9: compact=True prints a sentence repeated in 3+ docs once, as a lettered note."""
+    shared = "This tool belongs to the vehicle control system, which lets users drive."
+
+    def mk(name):
+        def f(x: str) -> str:
+            return x
+        f.__name__ = name
+        f.__doc__ = f"Do {name}. {shared}"
+        return weave.declare(effect="read")(f)
+
+    fns = [mk("a"), mk("b"), mk("c")]
+    full, small = weave.WeaveTool(fns), weave.WeaveTool(fns, compact=True)
+    assert full.description.count(shared) == 3
+    assert small.description.count(shared) == 1 and "[A]" in small.description
+    assert len(small.description) < len(full.description)
+    assert small.run('print(a("x") + b("y"))') == "xy\n"
+
+
+def test_reply_ends_the_turn_with_its_text():
+    @weave.declare(effect="read")
+    def look(k: str) -> str:
+        return k.upper()
+
+    tool = weave.WeaveTool([look], reply=True)
+    assert "reply(" in tool.description
+    assert tool.run('reply("got " + look("a"))') == "(replied)"
+    assert tool.take_reply() == "got A"
+    out = tool.run('print(look("b"))')
+    assert out == "B\n" and tool.take_reply() is None
+    assert "reply(" not in weave.WeaveTool([look]).description
+
+
+def test_listing_false_omits_function_lines():
+    """With compact=True, listing=False leaves the function list to native schemas the host sends."""
+    @weave.declare(effect="read")
+    def very_specific_name(k: str) -> str:
+        return k
+
+    assert "very_specific_name" in weave.WeaveTool([very_specific_name]).description
+    hybrid = weave.WeaveTool([very_specific_name], compact=True, listing=False)
+    assert "very_specific_name(" not in hybrid.description
+    assert hybrid.run('print(very_specific_name("z"))') == "z\n"
+
+
+def _gate_tools():
+    log = []
+
+    @weave.declare(effect="read")
+    def ls() -> list:
+        return ["a.txt", "report_2026.txt"]
+
+    @weave.declare(effect="reversible")
+    def rm(name: str) -> dict:
+        log.append(name)
+        return {"ok": True}
+
+    @weave.declare(effect="reversible")
+    def cd(d: str) -> dict:
+        return {"error": "no such dir"} if d == "nope" else {"cwd": d}
+
+    return log, [ls, rm, cd]
+
+
+def test_write_gate_pauses_writes_computed_from_unseen_results():
+    log, fns = _gate_tools()
+    tool = weave.WeaveTool(fns, write_gate="flow")
+    assert "paused" in tool.description
+    tool.run('rm("a.txt")')
+    assert log == ["a.txt"]  # a literal argument is never paused
+    out = tool.run('for f in ls():\n    if "report" in f:\n        rm(f)\n        rm("a.txt")')
+    assert out.startswith("[paused before rm('report_2026.txt')"), out
+    assert 'ls() -> ["a.txt", "report_2026.txt"]' in out
+    assert log == ["a.txt"]  # the held write and every later write did not run
+    # The model has now seen the listing: the same data-dependent write goes through.
+    tool.run('x = ls()\nrm(x[1])')
+    assert log == ["a.txt", "report_2026.txt"]
+
+
+def test_write_gate_pauses_after_a_failed_call_and_counts_user_text():
+    log, fns = _gate_tools()
+    tool = weave.WeaveTool(fns, write_gate="flow")
+    out = tool.run('try:\n    cd("nope")\nexcept Exception:\n    pass\nrm("a.txt")')
+    assert "it follows cd('nope'), which failed" in out and log == []
+    tool2 = weave.WeaveTool(_gate_tools()[1], write_gate="flow")
+    tool2.note_shown("please delete report_2026.txt")
+    assert not tool2.run('rm(ls()[1])').startswith("[paused")
+    with_reads = weave.WeaveTool(_gate_tools()[1], write_gate="flow", gate_read_names=["rm"])
+    assert not with_reads.run('rm(ls()[1])').startswith("[paused")  # rm treated as a read: never gated
+
+
+def test_write_gate_is_opt_in_and_replays():
+    log, fns = _gate_tools()
+    assert not weave.WeaveTool(fns).run('rm(ls()[1])').startswith("[paused")
+    assert log == ["report_2026.txt"]
+    tool = weave.WeaveTool(fns, write_gate="flow")
+    src = 'x = ls()\ntry:\n    rm(x[1])\nexcept ToolError:\n    print("held")\n'
+    result = tool.engine.run(src)
+    assert result.stdout == "held\n" and log == ["report_2026.txt"]
+    replayed = tool.engine.replay(src, result.trace_json())  # the refusal is recorded like any tool error
+    assert replayed.stdout == result.stdout and log == ["report_2026.txt"]
+
+
+def test_write_gate_choice_mode_pauses_only_picks_from_lists():
+    @weave.declare(effect="read")
+    def price(symbol: str) -> dict:
+        return {"price": 227.16}
+
+    @weave.declare(effect="reversible")
+    def buy(p: float) -> dict:
+        return {"ok": True}
+
+    log, fns = _gate_tools()
+    tool = weave.WeaveTool(fns + [price, buy], write_gate="choice")
+    assert tool.run('print(buy(price("A")["price"]))') == "{'ok': True}\n"  # a single looked-up value passes
+    out = tool.run('rm(ls()[1])')
+    assert "was picked from a list you have not seen" in out and log == []
+    assert "The request is not finished" in out
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

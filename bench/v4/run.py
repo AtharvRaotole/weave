@@ -86,7 +86,7 @@ def main(argv=None):
     ap.add_argument("--max-tokens", type=int, default=4096)
     ap.add_argument("--suite", choices=sorted(SUITES), default="dev")
     ap.add_argument("--tasks", help="comma-separated task ids (subset)")
-    ap.add_argument("--modes", default="weave,native", help="weave,native[,weave_nopipe,weave_nofp,weave_ptc,native_noptc]")
+    ap.add_argument("--modes", default="weave,native", help="weave,native[,weave_nopipe,weave_nofp,weave_ptc,native_noptc,weave_compact]")
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--latency-ms", default="200", help="comma-separated per-call latency means")
     ap.add_argument("--workers", type=int, default=4, help="trials in flight")
@@ -174,7 +174,7 @@ def main(argv=None):
         ptc = {"weave_ptc": True, "native_noptc": False}.get(mode)  # round-5 parallel_tool_calls ablation arms
         row = trial(task, real_mode, client_for(task, mode), latency_ms=lat, repeat=rep,
                     pipeline_loops=(mode != "weave_nopipe"), footprints=(mode != "weave_nofp"), seed=hash((task.id, rep, lat)) & 0xFFFF,
-                    parallel_tool_calls=ptc)
+                    parallel_tool_calls=ptc, compact=(mode == "weave_compact"))
         row["mode"] = mode
         row["schedule_index"] = i
         with lock:

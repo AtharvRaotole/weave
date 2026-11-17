@@ -1,0 +1,1045 @@
+{
+  "protocol": "weave-benchmark-protocol-v4",
+  "kind": "live",
+  "started_utc": "2026-11-16T05:46:20Z",
+  "source_commit": "1826ffb9657a6d140bece8e89fd06e1c5ea4c017",
+  "source_dirty": false,
+  "weave_version": "0.0.0",
+  "python": "3.13.5",
+  "provider": "openai",
+  "model": "gpt-4.1-2025-04-14",
+  "effort": null,
+  "temperature": 0.0,
+  "max_tokens": 4096,
+  "suite": "confirm9",
+  "manifest": {
+    "suite": "confirm9",
+    "tasks": [
+      {
+        "id": "pypi_major-n10-s801",
+        "family": "pypi_major",
+        "size": 10,
+        "fingerprint": "819e849f5cdae869"
+      },
+      {
+        "id": "pypi_major-n16-s802",
+        "family": "pypi_major",
+        "size": 16,
+        "fingerprint": "28979babccac2af4"
+      },
+      {
+        "id": "sqlite_triage-n12-s801",
+        "family": "sqlite_triage",
+        "size": 12,
+        "fingerprint": "68379219ca594801"
+      },
+      {
+        "id": "sqlite_triage-n20-s802",
+        "family": "sqlite_triage",
+        "size": 20,
+        "fingerprint": "fce8fabcc410e78b"
+      },
+      {
+        "id": "git_review-n8-s801",
+        "family": "git_review",
+        "size": 8,
+        "fingerprint": "2519f5799358b718"
+      },
+      {
+        "id": "git_review-n14-s802",
+        "family": "git_review",
+        "size": 14,
+        "fingerprint": "a1da152a8eeb2e5d"
+      },
+      {
+        "id": "warehouse_shortfall-n10-s801",
+        "family": "warehouse_shortfall",
+        "size": 10,
+        "fingerprint": "35b4aca2dce7c5c8"
+      },
+      {
+        "id": "warehouse_shortfall-n16-s802",
+        "family": "warehouse_shortfall",
+        "size": 16,
+        "fingerprint": "1e9eaaca0b63d725"
+      },
+      {
+        "id": "git_review-n10-s803",
+        "family": "git_review",
+        "size": 10,
+        "fingerprint": "8539d9e913689714"
+      },
+      {
+        "id": "git_review-n18-s804",
+        "family": "git_review",
+        "size": 18,
+        "fingerprint": "a563ddd297492a2d"
+      }
+    ],
+    "hash": "a7ef5eb5aac5cd26"
+  },
+  "task_subset": null,
+  "modes": [
+    "weave_compact",
+    "weave",
+    "native"
+  ],
+  "repeats": 2,
+  "latency_ms": [
+    0.0
+  ],
+  "concurrency_cap": 8,
+  "max_turns": 16,
+  "system_prompt": "You are an operations agent with access to tools. Use them to complete the user's task; tool results are authoritative. When the task is complete, reply with only the final answer in the requested format and no other text.",
+  "planned_trials": 60,
+  "workers": 4,
+  "min_interval_s": 0.0,
+  "token_budget": 600000,
+  "seed": 2026,
+  "finished_utc": "2026-11-16T05:47:09Z",
+  "completed_trials": 60,
+  "skipped_for_budget": 0,
+  "tokens_spent": 168260,
+  "summary": {
+    "confirm9@0.0ms": {
+      "native": {
+        "trials": 20,
+        "passed": 14,
+        "pass_rate": 0.7,
+        "pass_wilson95": [
+          0.4810232237710206,
+          0.854524726031006
+        ],
+        "statuses": {
+          "answered": 20
+        },
+        "answer_wrong": 6,
+        "state_wrong": 2,
+        "unexpected_write_trials": 2,
+        "mean_turns": 3.4,
+        "mean_turns_ci95": [
+          3.0,
+          3.85
+        ],
+        "mean_wall_s": 4.3165505888482585,
+        "mean_wall_s_ci95": [
+          3.797823609048282,
+          4.843021432199384
+        ],
+        "p50_wall_s": 4.15151745199546,
+        "p95_wall_s": 6.001412540994352,
+        "mean_tokens": 4574.7,
+        "mean_tokens_ci95": [
+          3825.35,
+          5346.5
+        ],
+        "mean_input_tokens": 4118.2,
+        "mean_output_tokens": 456.5,
+        "sum_tokens": {
+          "input": 82364,
+          "output": 9130,
+          "cached": 31616,
+          "reasoning": 0
+        },
+        "unknown_usage_turns": 0,
+        "mean_backend_calls": 20.8,
+        "script_error_trials": 0,
+        "retry_wait_s": 0.0
+      },
+      "weave": {
+        "trials": 20,
+        "passed": 20,
+        "pass_rate": 1.0,
+        "pass_wilson95": [
+          0.8388698745050667,
+          1.0
+        ],
+        "statuses": {
+          "answered": 20
+        },
+        "answer_wrong": 0,
+        "state_wrong": 0,
+        "unexpected_write_trials": 0,
+        "mean_turns": 2.0,
+        "mean_turns_ci95": [
+          2.0,
+          2.0
+        ],
+        "mean_wall_s": 2.0627147459996196,
+        "mean_wall_s_ci95": [
+          1.9519936909502575,
+          2.1757482208999135
+        ],
+        "p50_wall_s": 2.09986040500371,
+        "p95_wall_s": 2.4799516540006152,
+        "mean_tokens": 2241.9,
+        "mean_tokens_ci95": [
+          2197.4,
+          2284.6
+        ],
+        "mean_input_tokens": 2103.85,
+        "mean_output_tokens": 138.05,
+        "sum_tokens": {
+          "input": 42077,
+          "output": 2761,
+          "cached": 2048,
+          "reasoning": 0
+        },
+        "unknown_usage_turns": 0,
+        "mean_backend_calls": 20.8,
+        "script_error_trials": 0,
+        "retry_wait_s": 0.0
+      },
+      "weave_compact": {
+        "trials": 20,
+        "passed": 20,
+        "pass_rate": 1.0,
+        "pass_wilson95": [
+          0.8388698745050667,
+          1.0
+        ],
+        "statuses": {
+          "answered": 20
+        },
+        "answer_wrong": 0,
+        "state_wrong": 0,
+        "unexpected_write_trials": 0,
+        "mean_turns": 2.0,
+        "mean_turns_ci95": [
+          2.0,
+          2.0
+        ],
+        "mean_wall_s": 2.063975186600146,
+        "mean_wall_s_ci95": [
+          1.9012318561999564,
+          2.2578403453506324
+        ],
+        "p50_wall_s": 1.9830460695011425,
+        "p95_wall_s": 2.709101626998745,
+        "mean_tokens": 1596.4,
+        "mean_tokens_ci95": [
+          1553.2,
+          1641.9
+        ],
+        "mean_input_tokens": 1473.1,
+        "mean_output_tokens": 123.3,
+        "sum_tokens": {
+          "input": 29462,
+          "output": 2466,
+          "cached": 0,
+          "reasoning": 0
+        },
+        "unknown_usage_turns": 0,
+        "mean_backend_calls": 20.8,
+        "script_error_trials": 0,
+        "retry_wait_s": 0.0
+      },
+      "paired": {
+        "wall_s": {
+          "pairs": 20,
+          "tasks": 10,
+          "mean_diff": -2.253835842848639,
+          "mean_diff_ci95": [
+            -3.049626224799431,
+            -1.4778928666994033
+          ],
+          "ratio_gm": 0.492717657592356,
+          "ratio_gm_ci95": [
+            0.4002659202346035,
+            0.6052420459911266
+          ],
+          "weave_better_tasks": 10,
+          "per_task": {
+            "git_review-n10-s803": {
+              "diff": -0.5937688595040527,
+              "ratio_gm": 0.788384295193078,
+              "n": 2,
+              "weave": 2.260364539499278,
+              "native": 2.854133399003331
+            },
+            "git_review-n14-s802": {
+              "diff": -2.2915997949967277,
+              "ratio_gm": 0.48402946270972846,
+              "n": 2,
+              "weave": 2.1413737229995604,
+              "native": 4.432973517996288
+            },
+            "git_review-n18-s804": {
+              "diff": -1.9838634034967981,
+              "ratio_gm": 0.5001121037096277,
+              "n": 2,
+              "weave": 1.990883896000014,
+              "native": 3.974747299496812
+            },
+            "git_review-n8-s801": {
+              "diff": -1.4838438574988686,
+              "ratio_gm": 0.5540078884348923,
+              "n": 2,
+              "weave": 1.8673383339992142,
+              "native": 3.351182191498083
+            },
+            "pypi_major-n10-s801": {
+              "diff": -0.9327782495020074,
+              "ratio_gm": 0.6915699511625648,
+              "n": 2,
+              "weave": 2.1641564714955166,
+              "native": 3.096934720997524
+            },
+            "pypi_major-n16-s802": {
+              "diff": -0.6103190299982089,
+              "ratio_gm": 0.7930588668241347,
+              "n": 2,
+              "weave": 2.3707322964983177,
+              "native": 2.9810513264965266
+            },
+            "sqlite_triage-n12-s801": {
+              "diff": -3.512883702496765,
+              "ratio_gm": 0.3467497512770785,
+              "n": 2,
+              "weave": 1.8667019805034215,
+              "native": 5.379585683000187
+            },
+            "sqlite_triage-n20-s802": {
+              "diff": -4.106399988497287,
+              "ratio_gm": 0.29347994589956594,
+              "n": 2,
+              "weave": 1.7059005044975493,
+              "native": 5.8123004929948365
+            },
+            "warehouse_shortfall-n10-s801": {
+              "diff": -3.03691114249159,
+              "ratio_gm": 0.41913065562658824,
+              "n": 2,
+              "weave": 2.194145021505392,
+              "native": 5.231056163996982
+            },
+            "warehouse_shortfall-n16-s802": {
+              "diff": -3.985990400004084,
+              "ratio_gm": 0.3409593721565991,
+              "n": 2,
+              "weave": 2.065550692997931,
+              "native": 6.051541093002015
+            }
+          }
+        },
+        "total_tokens": {
+          "pairs": 20,
+          "tasks": 10,
+          "mean_diff": -2332.8,
+          "mean_diff_ci95": [
+            -3397.0,
+            -1257.4
+          ],
+          "ratio_gm": 0.5315934933496554,
+          "ratio_gm_ci95": [
+            0.4100878895264542,
+            0.6867319041621207
+          ],
+          "weave_better_tasks": 9,
+          "per_task": {
+            "git_review-n10-s803": {
+              "diff": -1133.0,
+              "ratio_gm": 0.6683255269320844,
+              "n": 2,
+              "weave": 2283.0,
+              "native": 3416.0
+            },
+            "git_review-n14-s802": {
+              "diff": -1988.0,
+              "ratio_gm": 0.5404530249981488,
+              "n": 2,
+              "weave": 2338.0,
+              "native": 4326.0
+            },
+            "git_review-n18-s804": {
+              "diff": -2529.0,
+              "ratio_gm": 0.4874280628665843,
+              "n": 2,
+              "weave": 2405.0,
+              "native": 4934.0
+            },
+            "git_review-n8-s801": {
+              "diff": -1233.0,
+              "ratio_gm": 0.6471093302804808,
+              "n": 2,
+              "weave": 2261.0,
+              "native": 3494.0
+            },
+            "pypi_major-n10-s801": {
+              "diff": 225.0,
+              "ratio_gm": 1.1171875,
+              "n": 2,
+              "weave": 2145.0,
+              "native": 1920.0
+            },
+            "pypi_major-n16-s802": {
+              "diff": -126.0,
+              "ratio_gm": 0.9464968152866242,
+              "n": 2,
+              "weave": 2229.0,
+              "native": 2355.0
+            },
+            "sqlite_triage-n12-s801": {
+              "diff": -2927.0,
+              "ratio_gm": 0.41553514376996803,
+              "n": 2,
+              "weave": 2081.0,
+              "native": 5008.0
+            },
+            "sqlite_triage-n20-s802": {
+              "diff": -4567.0,
+              "ratio_gm": 0.3130264741275572,
+              "n": 2,
+              "weave": 2081.0,
+              "native": 6648.0
+            },
+            "warehouse_shortfall-n10-s801": {
+              "diff": -3725.0,
+              "ratio_gm": 0.3817424138551749,
+              "n": 2,
+              "weave": 2300.0,
+              "native": 6025.0
+            },
+            "warehouse_shortfall-n16-s802": {
+              "diff": -5325.0,
+              "ratio_gm": 0.3012713986673004,
+              "n": 2,
+              "weave": 2296.0,
+              "native": 7621.0
+            }
+          }
+        },
+        "turns": {
+          "pairs": 20,
+          "tasks": 10,
+          "mean_diff": -1.4,
+          "mean_diff_ci95": [
+            -2.0,
+            -0.8
+          ],
+          "ratio_gm": 0.6162678270732357,
+          "ratio_gm_ci95": [
+            0.5097751034143186,
+            0.7450070278871527
+          ],
+          "weave_better_tasks": 8,
+          "per_task": {
+            "git_review-n10-s803": {
+              "diff": -1.0,
+              "ratio_gm": 0.6666666666666666,
+              "n": 2,
+              "weave": 2.0,
+              "native": 3.0
+            },
+            "git_review-n14-s802": {
+              "diff": -1.0,
+              "ratio_gm": 0.6666666666666666,
+              "n": 2,
+              "weave": 2.0,
+              "native": 3.0
+            },
+            "git_review-n18-s804": {
+              "diff": -1.0,
+              "ratio_gm": 0.6666666666666666,
+              "n": 2,
+              "weave": 2.0,
+              "native": 3.0
+            },
+            "git_review-n8-s801": {
+              "diff": -1.0,
+              "ratio_gm": 0.6666666666666666,
+              "n": 2,
+              "weave": 2.0,
+              "native": 3.0
+            },
+            "pypi_major-n10-s801": {
+              "diff": 0.0,
+              "ratio_gm": 1.0,
+              "n": 2,
+              "weave": 2.0,
+              "native": 2.0
+            },
+            "pypi_major-n16-s802": {
+              "diff": 0.0,
+              "ratio_gm": 1.0,
+              "n": 2,
+              "weave": 2.0,
+              "native": 2.0
+            },
+            "sqlite_triage-n12-s801": {
+              "diff": -2.0,
+              "ratio_gm": 0.5,
+              "n": 2,
+              "weave": 2.0,
+              "native": 4.0
+            },
+            "sqlite_triage-n20-s802": {
+              "diff": -2.0,
+              "ratio_gm": 0.5,
+              "n": 2,
+              "weave": 2.0,
+              "native": 4.0
+            },
+            "warehouse_shortfall-n10-s801": {
+              "diff": -3.0,
+              "ratio_gm": 0.4,
+              "n": 2,
+              "weave": 2.0,
+              "native": 5.0
+            },
+            "warehouse_shortfall-n16-s802": {
+              "diff": -3.0,
+              "ratio_gm": 0.4,
+              "n": 2,
+              "weave": 2.0,
+              "native": 5.0
+            }
+          }
+        },
+        "pass_mcnemar": {
+          "weave_only": 6,
+          "native_only": 0,
+          "p": 0.03125
+        }
+      },
+      "by_family": {
+        "git_review": {
+          "native": {
+            "trials": 8,
+            "passed": 8,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.6755843804891231,
+              1.0
+            ],
+            "statuses": {
+              "answered": 8
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 3.0,
+            "mean_turns_ci95": [
+              3.0,
+              3.0
+            ],
+            "mean_wall_s": 3.6532591019986285,
+            "mean_wall_s_ci95": [
+              3.2269843373760523,
+              4.086633369496667
+            ],
+            "p50_wall_s": 3.6632378599970252,
+            "p95_wall_s": 4.71839966999687,
+            "mean_tokens": 4042.5,
+            "mean_tokens_ci95": [
+              3635.0,
+              4488.25
+            ],
+            "mean_input_tokens": 3642.25,
+            "mean_output_tokens": 400.25,
+            "sum_tokens": {
+              "input": 29138,
+              "output": 3202,
+              "cached": 12160,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 16.5,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 8,
+            "passed": 8,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.6755843804891231,
+              1.0
+            ],
+            "statuses": {
+              "answered": 8
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.0649901231245167,
+            "mean_wall_s_ci95": [
+              1.9014684151243273,
+              2.2216599111252435
+            ],
+            "p50_wall_s": 2.1042440825003723,
+            "p95_wall_s": 2.4799516540006152,
+            "mean_tokens": 2321.75,
+            "mean_tokens_ci95": [
+              2284.5,
+              2360.5
+            ],
+            "mean_input_tokens": 2167.375,
+            "mean_output_tokens": 154.375,
+            "sum_tokens": {
+              "input": 17339,
+              "output": 1235,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 16.5,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave_compact": {
+            "trials": 8,
+            "passed": 8,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.6755843804891231,
+              1.0
+            ],
+            "statuses": {
+              "answered": 8
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.25869487449836,
+            "mean_wall_s_ci95": [
+              1.9416039859970624,
+              2.648582266124322
+            ],
+            "p50_wall_s": 2.0191496104998805,
+            "p95_wall_s": 3.3897592010034714,
+            "mean_tokens": 1702.75,
+            "mean_tokens_ci95": [
+              1667.75,
+              1739.25
+            ],
+            "mean_input_tokens": 1549.875,
+            "mean_output_tokens": 152.875,
+            "sum_tokens": {
+              "input": 12399,
+              "output": 1223,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 16.5,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        },
+        "pypi_major": {
+          "native": {
+            "trials": 4,
+            "passed": 0,
+            "pass_rate": 0.0,
+            "pass_wilson95": [
+              0.0,
+              0.48990002040399916
+            ],
+            "statuses": {
+              "answered": 4
+            },
+            "answer_wrong": 4,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 3.0389930237470253,
+            "mean_wall_s_ci95": [
+              2.9810513264965266,
+              3.113211323496216
+            ],
+            "p50_wall_s": 3.0216546919982648,
+            "p95_wall_s": 3.150851337995846,
+            "mean_tokens": 2137.5,
+            "mean_tokens_ci95": [
+              1920.0,
+              2355.0
+            ],
+            "mean_input_tokens": 1899.5,
+            "mean_output_tokens": 238.0,
+            "sum_tokens": {
+              "input": 7598,
+              "output": 952,
+              "cached": 2304,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 13.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 4,
+            "passed": 4,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.5100999795960008,
+              1.0
+            ],
+            "statuses": {
+              "answered": 4
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.267444383996917,
+            "mean_wall_s_ci95": [
+              2.007724875744316,
+              2.5124805265004397
+            ],
+            "p50_wall_s": 2.335271432995796,
+            "p95_wall_s": 2.5479413900029613,
+            "mean_tokens": 2187.0,
+            "mean_tokens_ci95": [
+              2145.0,
+              2229.0
+            ],
+            "mean_input_tokens": 2064.0,
+            "mean_output_tokens": 123.0,
+            "sum_tokens": {
+              "input": 8256,
+              "output": 492,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 13.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave_compact": {
+            "trials": 4,
+            "passed": 4,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.5100999795960008,
+              1.0
+            ],
+            "statuses": {
+              "answered": 4
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.0541057780028495,
+            "mean_wall_s_ci95": [
+              1.9762346020033874,
+              2.1850086302529235
+            ],
+            "p50_wall_s": 1.998874272503599,
+            "p95_wall_s": 2.25155997100228,
+            "mean_tokens": 1534.5,
+            "mean_tokens_ci95": [
+              1516.5,
+              1551.0
+            ],
+            "mean_input_tokens": 1429.75,
+            "mean_output_tokens": 104.75,
+            "sum_tokens": {
+              "input": 5719,
+              "output": 419,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 13.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        },
+        "sqlite_triage": {
+          "native": {
+            "trials": 4,
+            "passed": 4,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.5100999795960008,
+              1.0
+            ],
+            "statuses": {
+              "answered": 4
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 4.0,
+            "mean_turns_ci95": [
+              4.0,
+              4.0
+            ],
+            "mean_wall_s": 5.595943087997512,
+            "mean_wall_s_ci95": [
+              5.255134758999702,
+              5.906856516994594
+            ],
+            "p50_wall_s": 5.6258379879982385,
+            "p95_wall_s": 6.001412540994352,
+            "mean_tokens": 5828.0,
+            "mean_tokens_ci95": [
+              5008.0,
+              6648.0
+            ],
+            "mean_input_tokens": 5171.0,
+            "mean_output_tokens": 657.0,
+            "sum_tokens": {
+              "input": 20684,
+              "output": 2628,
+              "cached": 7296,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 30.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 4,
+            "passed": 4,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.5100999795960008,
+              1.0
+            ],
+            "statuses": {
+              "answered": 4
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 1.7863012425004854,
+            "mean_wall_s_ci95": [
+              1.6765537647461315,
+              1.922424271253476
+            ],
+            "p50_wall_s": 1.7599256915018486,
+            "p95_wall_s": 1.9781465620035306,
+            "mean_tokens": 2081.0,
+            "mean_tokens_ci95": [
+              2081.0,
+              2081.0
+            ],
+            "mean_input_tokens": 1989.0,
+            "mean_output_tokens": 92.0,
+            "sum_tokens": {
+              "input": 7956,
+              "output": 368,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 30.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave_compact": {
+            "trials": 4,
+            "passed": 4,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.5100999795960008,
+              1.0
+            ],
+            "statuses": {
+              "answered": 4
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.012774892249581,
+            "mean_wall_s_ci95": [
+              1.7974144844993134,
+              2.228135299999849
+            ],
+            "p50_wall_s": 2.0232654204992286,
+            "p95_wall_s": 2.296512098997482,
+            "mean_tokens": 1459.0,
+            "mean_tokens_ci95": [
+              1459.0,
+              1459.0
+            ],
+            "mean_input_tokens": 1370.0,
+            "mean_output_tokens": 89.0,
+            "sum_tokens": {
+              "input": 5480,
+              "output": 356,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 30.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        },
+        "warehouse_shortfall": {
+          "native": {
+            "trials": 4,
+            "passed": 2,
+            "pass_rate": 0.5,
+            "pass_wilson95": [
+              0.15003570882017148,
+              0.8499642911798285
+            ],
+            "statuses": {
+              "answered": 4
+            },
+            "answer_wrong": 2,
+            "state_wrong": 2,
+            "unexpected_write_trials": 2,
+            "mean_turns": 5.0,
+            "mean_turns_ci95": [
+              5.0,
+              5.0
+            ],
+            "mean_wall_s": 5.641298628499499,
+            "mean_wall_s_ci95": [
+              5.231056163996982,
+              6.051541093002015
+            ],
+            "p50_wall_s": 5.627255334999063,
+            "p95_wall_s": 6.104618604003917,
+            "mean_tokens": 6823.0,
+            "mean_tokens_ci95": [
+              6025.0,
+              7621.0
+            ],
+            "mean_input_tokens": 6236.0,
+            "mean_output_tokens": 587.0,
+            "sum_tokens": {
+              "input": 24944,
+              "output": 2348,
+              "cached": 9856,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 28.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave": {
+            "trials": 4,
+            "passed": 4,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.5100999795960008,
+              1.0
+            ],
+            "statuses": {
+              "answered": 4
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 2.1298478572516615,
+            "mean_wall_s_ci95": [
+              2.016822042998683,
+              2.2369917872547376
+            ],
+            "p50_wall_s": 2.1357297415015637,
+            "p95_wall_s": 2.2798385530040832,
+            "mean_tokens": 2298.0,
+            "mean_tokens_ci95": [
+              2292.5,
+              2303.0
+            ],
+            "mean_input_tokens": 2131.5,
+            "mean_output_tokens": 166.5,
+            "sum_tokens": {
+              "input": 8526,
+              "output": 666,
+              "cached": 2048,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 28.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          },
+          "weave_compact": {
+            "trials": 4,
+            "passed": 4,
+            "pass_rate": 1.0,
+            "pass_wilson95": [
+              0.5100999795960008,
+              1.0
+            ],
+            "statuses": {
+              "answered": 4
+            },
+            "answer_wrong": 0,
+            "state_wrong": 0,
+            "unexpected_write_trials": 0,
+            "mean_turns": 2.0,
+            "mean_turns_ci95": [
+              2.0,
+              2.0
+            ],
+            "mean_wall_s": 1.7356055137515796,
+            "mean_wall_s_ci95": [
+              1.54372444350156,
+              1.9274865840015991
+            ],
+            "p50_wall_s": 1.7447687595049501,
+            "p95_wall_s": 1.9807375309974304,
+            "mean_tokens": 1583.0,
+            "mean_tokens_ci95": [
+              1583.0,
+              1583.0
+            ],
+            "mean_input_tokens": 1466.0,
+            "mean_output_tokens": 117.0,
+            "sum_tokens": {
+              "input": 5864,
+              "output": 468,
+              "cached": 0,
+              "reasoning": 0
+            },
+            "unknown_usage_turns": 0,
+            "mean_backend_calls": 28.0,
+            "script_error_trials": 0,
+            "retry_wait_s": 0.0
+          }
+        }
+      }
+    }
+  }
+}
