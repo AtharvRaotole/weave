@@ -47,7 +47,7 @@ the model sees them. Skip it when each step waits for a person, or when a small 
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AtharvRaotole/weave/main/scripts/install.sh | sh   # prebuilt wheels
-# or from source (needs Rust):  pip install "git+https://github.com/AtharvRaotole/weave@v1.1.0"
+# or from source (needs Rust):  pip install "git+https://github.com/AtharvRaotole/weave@v1.1.1"
 ```
 
 The package is `weave-lang` (import `weave`); it is not on PyPI yet. Python 3.9–3.13, Linux, macOS and Windows.

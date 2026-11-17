@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-16
+
+Packaging: first PyPI release; wheels limited to tested CPython 3.9–3.13; no code changes.
+
 ## [1.1.0] - 2026-11-16
 
 Compact tool listings, a write gate that pauses before a write computed from unseen results,

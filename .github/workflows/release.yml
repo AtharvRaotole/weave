@@ -1,9 +1,10 @@
 name: release
 
 # Builds wheels and an sdist when a version tag is pushed, and on manual runs.
-# Artifacts are attached to the workflow run. The `pypi` job publishes to PyPI
-# only when the repository variable PYPI_PUBLISH is "true"; it is off by
-# default. See docs/releasing.md for the one-time PyPI setup.
+# Only official CPython 3.9-3.13 wheels are kept (runners may also have 3.14+,
+# free-threaded, or PyPy interpreters; those wheels are discarded). The `pypi`
+# job publishes to PyPI only when the repository variable PYPI_PUBLISH is
+# "true" and the run is a v* tag. See docs/releasing.md.
 
 on:
   push:
@@ -52,6 +53,26 @@ jobs:
           python -c "import weave; e = weave.Engine(); assert e.run('print(1 + 1)\n').stdout == '2\n'; print('wheel ok')"
           # Cross-platform isolation gate: runaway tools are killed on this OS.
           python tests/python/test_isolation.py
+      - name: keep only official CPython 3.9-3.13 wheels
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, sys
+          official = re.compile(r"^weave_lang-.+-cp(39|310|311|312|313)-cp(39|310|311|312|313)-.+\.whl$")
+          kept, removed = [], []
+          for p in Path("dist").glob("*.whl"):
+              if official.match(p.name):
+                  kept.append(p.name)
+              else:
+                  p.unlink()
+                  removed.append(p.name)
+          print("kept:", *sorted(kept), sep="\n  ")
+          print("removed:", *sorted(removed), sep="\n  ")
+          if not kept:
+              sys.exit("no official CPython 3.9-3.13 wheels left in dist")
+          PY
+
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}-${{ matrix.target }}
@@ -88,6 +109,29 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: keep only official CPython 3.9-3.13 wheels and the sdist
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, sys
+          official = re.compile(r"^weave_lang-.+-cp(39|310|311|312|313)-cp(39|310|311|312|313)-.+\.whl$")
+          sdist = re.compile(r"^weave_lang-.+\.tar\.gz$")
+          kept, removed = [], []
+          for p in Path("dist").iterdir():
+              if not p.is_file():
+                  continue
+              if official.match(p.name) or sdist.match(p.name):
+                  kept.append(p.name)
+              else:
+                  p.unlink()
+                  removed.append(p.name)
+          print("kept:", *sorted(kept), sep="\n  ")
+          print("removed:", *sorted(removed), sep="\n  ")
+          wheels = [n for n in kept if n.endswith(".whl")]
+          sdists = [n for n in kept if n.endswith(".tar.gz")]
+          if not wheels or not sdists:
+              sys.exit("expected official wheels and an sdist in dist")
+          PY
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
