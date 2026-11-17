@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+Docs: contributing guide now points at the good-first-issue and help-wanted labels, and the roadmap
+links the open newcomer issues (dropping `key=` and nested comprehensions, which already shipped).
+
 ## [1.1.2] - 2026-11-16
 
 Docs: absolute image and documentation URLs in the README so the demo GIF and results chart render on PyPI. No code changes.
