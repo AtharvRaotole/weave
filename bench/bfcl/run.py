@@ -51,7 +51,7 @@ def manifest(ids):
 def endpoint_client(args):
     """An OpenAI-compatible client for `--base-url` (e.g. an Azure AI Foundry `/openai/v1` endpoint), or None for
     BFCL's default client. Both arms get the same client settings; the key is read from the named env variable."""
-    if not args.base_url:
+    if not getattr(args, "base_url", None):
         return None
     from openai import OpenAI
     key = os.environ.get(args.api_key_env)
@@ -104,7 +104,8 @@ def one_trial(args, arm, entry, gt, repeat):
     if client is not None:
         handler.client = client
     meter = {"calls": 0, "input": 0, "output": 0, "cached": 0, "reasoning": 0, "llm_s": 0.0}
-    metered(handler, meter, args.effort, f"{tag}-{entry['id']}" if args.cache_key else None, args.deployment)
+    metered(handler, meter, args.effort, f"{tag}-{entry['id']}" if args.cache_key else None,
+            getattr(args, "deployment", None))
     t0 = time.time()
     error, extra, result = None, {}, None
     try:
@@ -133,7 +134,7 @@ def one_trial(args, arm, entry, gt, repeat):
         "usd": usd(args.model, toks), "wall_s": wall, "llm_s": meter["llm_s"],
         "weave": extra.get("weave"), "force_quit": extra.get("force_quit"),
         "weave_config": args.weave_config if arm == "weave" else None, "cache_key": bool(args.cache_key),
-        "endpoint": args.base_url.split("/")[2] if args.base_url else "api.openai.com",
+        "endpoint": args.base_url.split("/")[2] if getattr(args, "base_url", None) else "api.openai.com",
         "served_models": meter.get("served_models", []),
     }, {"result": result, "messages": json.loads(json.dumps(messages, default=lambda o: getattr(o, "model_dump", str)()))
         if messages is not None else None}

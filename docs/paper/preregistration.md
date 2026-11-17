@@ -626,3 +626,43 @@ train (no shapes or effects were learned from them) and never used for tuning.
 (reserve $0.10). Skipped trials are listed and their pairs dropped. Round 10 spend before evidence: $1.18.
 
 **Release rule** unchanged from Addendum 9; this round does not release or change visibility (owner's instruction).
+
+## Addendum 11 (2026-11-17): Azure endpoint; completing round 10; a fresh confirmation
+
+Written before any trial of this addendum. The OpenAI account ran out of credits during round 10. The rest of the
+work runs on Azure AI Foundry deployments (Global Standard) of the same model versions, through the OpenAI-compatible
+`/openai/v1` Chat Completions endpoint. Both arms use the same endpoint, client and settings (`--base-url`,
+`--deployment`; `bench/bfcl/run.py`). A probe on 2026-11-17 returned `model = gpt-4.1-2025-04-14` (fingerprint
+`fp_d362bfbada`) and `gpt-5.4-mini-2026-03-17`. It also accepted `prompt_cache_key`, `parallel_tool_calls`,
+`reasoning_effort: none`, `store: false` and tools, and reported cached prompt tokens (prefix caching worked on the
+second identical request). No parameter is dropped. Each row records the endpoint and the served model version. Costs
+are computed at OpenAI list prices, as before; Azure's billing may differ.
+
+**Part A: completing round 10 (a disclosed deviation).** The incomplete round-10 pairs are rerun on Azure, both arms
+for each pair; orphan single-arm OpenAI rows stay unpaired. The pairs are: `mp60r10c` (mini, miss_param ids 31, 58,
+72, 113, 185; hash `9522823274846d85`), `mf60r10c` (mini, miss_func ids 23, 31, 58, 72, 86, 113, 130, 141, 147, 185;
+hash `bbdb204d53aba5fb`), and `mp20r10c` (GPT-4.1, miss_param ids 32, 117, 157, 175; hash `cdf61fa18942870a`; these 4
+were budget skips). Round 10 is reported both as pre-registered (completed pairs only) and with these pairs added,
+the latter labelled as mixed-endpoint.
+
+**Part B: confirmation.** Same configuration as Addendum 10 (Weave = `compact,learned,trace,typecheck,gatechoice`;
+native = BFCL's handler; `prompt_cache_key` in both arms; one repeat; GPT-5.4 mini at effort `none`, GPT-4.1 at
+temperature 0.001). Nothing is tuned on these tasks. Task ids are the 63 scenario ids never run live in any category
+or round (`R11_FRESH` in `bench/bfcl/subsets.py`). They are train ids, so round 9's learned return shapes and round
+10's learned read/write classes include executions of their ground truth (API-level metadata only).
+- `mtbfresh63r11` (multi_turn_base, hash `841b3aade6d644fc`), `mpfresh63r11` (miss_param, `71659cd456b87c86`),
+  `mffresh63r11` (miss_func, `297acaa475fe6e32`). GPT-5.4 mini runs all three. GPT-4.1 runs all three if the budget
+  allows, in the order base, miss_param, miss_func.
+
+**Hypotheses** (paired by task; 95 % cluster-bootstrap CIs; exact McNemar; pooled over categories per model):
+- **E1 (success).** Mini pooled (189 pairs): Weave − native ≥ 0 (point), no harm if the CI lower bound > −0.10.
+  The same is reported for GPT-4.1, plus each category.
+- **E2 (cost).** The pooled geometric-mean $ ratio Weave/native is ≤ 1 (point).
+- **E3–E5:** tokens, model calls, wall time. **E6:** gate pauses, error types.
+
+**Caps** (list prices, in-flight guard; whole job ≤ $25): Part A mini $0.40 (both), GPT-4.1 $0.40. Part B mini base
+$1.30, miss_param $1.60, miss_func $1.60 (reserve $0.03); GPT-4.1 base $4.50, miss_param $4.80, miss_func $4.80
+(reserve $0.10). Spent on this job before evidence: $0.07 (probe and a 2-task smoke run on train ids 5 and 6).
+
+**Release rule** (owner's brief): Weave ≥ native on success and ≤ native on cost on BFCL, or clear wins elsewhere with
+no hidden losses. This addendum only reports whether it is met; the owner decides.
