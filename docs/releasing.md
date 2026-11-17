@@ -7,7 +7,10 @@
 2. Merge to `main` and wait for CI to pass.
 3. Tag and push: `git tag -a vX.Y.Z -m "Weave X.Y.Z" && git push origin vX.Y.Z`.
 4. `release.yml` builds wheels (Linux x86_64 and aarch64, macOS arm64 and x86_64,
-   Windows x64, Python 3.9–3.13) and an sdist, and uploads them as run artifacts.
+   Windows x64) and an sdist, then keeps only official CPython 3.9–3.13 wheels
+   (extra interpreters on the runners, such as 3.14+, free-threaded, or PyPy,
+   are discarded) and uploads those as run artifacts. The `pypi` job applies the
+   same filter before publishing.
 5. Create the GitHub Release from the tag with the changelog section as notes,
    and attach the wheels and sdist (`gh run download <run-id> -D dist`).
 

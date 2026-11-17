@@ -130,8 +130,8 @@ def test_version_matches_the_package():
     import weave
     from weave.cli import dispatch
 
-    assert weave.__version__ == "1.1.0"
-    assert dispatch(["--version"]) == "weave 1.1.0"
+    assert weave.__version__ == "1.1.1"
+    assert dispatch(["--version"]) == "weave 1.1.1"
 
 
 def test_a_final_bare_expression_is_printed():
