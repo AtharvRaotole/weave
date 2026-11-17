@@ -97,6 +97,7 @@ No API key? `python examples/demo.py` and `python examples/quickstart.py` run of
 - [Benchmarks](https://github.com/AtharvRaotole/weave/blob/main/docs/benchmarks.md) and the [paper](https://github.com/AtharvRaotole/weave/blob/main/docs/paper/weave.md): every round, every loss, pre-registrations.
 - [Full reference](https://github.com/AtharvRaotole/weave/blob/main/docs/reference.md): the long-form guide. [Architecture](https://github.com/AtharvRaotole/weave/blob/main/docs/architecture.md), [roadmap](https://github.com/AtharvRaotole/weave/blob/main/ROADMAP.md),
   [contributing](https://github.com/AtharvRaotole/weave/blob/main/CONTRIBUTING.md), [security](https://github.com/AtharvRaotole/weave/blob/main/SECURITY.md), [citation](https://github.com/AtharvRaotole/weave/blob/main/CITATION.cff).
+- Want to help? Start with issues labeled [`good first issue`](https://github.com/AtharvRaotole/weave/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
 [MIT](https://github.com/AtharvRaotole/weave/blob/main/LICENSE). The speculative cache draws on Nichols et al.,
 [Optimizing Agentic Language Model Inference via Speculative Tool Calls](https://arxiv.org/abs/2512.15834).
