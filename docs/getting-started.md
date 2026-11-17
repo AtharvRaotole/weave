@@ -37,11 +37,11 @@ step debugger. See [production](production.md) for the full support statement.
 The distribution is **`weave-lang`**; you `import weave`.
 
 ```bash
-# Intended public command, once the package is on PyPI (it is not yet):
 pip install weave-lang
 ```
 
-One command, from the latest GitHub release's wheels (needs the repository to be public):
+Or from the latest GitHub release's wheels:
+
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AtharvRaotole/weave/main/scripts/install.sh | sh

@@ -162,10 +162,10 @@ Run the example below with `.\.venv\Scripts\python`.
 </details>
 
 **Package name:** the distribution is `weave-lang` (import name `weave`).
-`pip install weave-lang` is the intended public command, but the package is not
-on PyPI yet: today, install a release wheel as above, or build from the tagged
-source with `pip install "git+https://github.com/AtharvRaotole/weave@v1.1.1"`
-(needs Rust). `pip install weave` installs
+`pip install weave-lang` is the public command. You can also install a release
+wheel as above, or build from the tagged source with
+`pip install "git+https://github.com/AtharvRaotole/weave@v1.1.1"` (needs Rust).
+`pip install weave` installs
 [Weights & Biases Weave](https://github.com/wandb/weave), a different project
 with the same import name, so do not install both in one environment.
 
