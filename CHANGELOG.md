@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-16
+
+Compact tool listings, a write gate that pauses before a write computed from unseen results,
+conversational mode, LangChain and MCP integrations, and an OpenAI-compatible benchmark
+endpoint (Azure AI Foundry). The package is still **not on PyPI**.
+
+Measured against native function calling with the same model, tools and settings
+(full tables: `docs/benchmarks.md`):
+
+- Fan-out on real services (round 9 `confirm9`): **40/40 vs 27/40** at **0.45–0.50× the cost**.
+- BFCL v4 multi-turn (round 9): **0.86× cost** pooled; GPT-4.1 **38/60 vs 35/60**;
+  **GPT-5.4 mini 18/60 vs 27/60, a significant loss**.
+- BFCL miss_param / miss_func with `write_gate="choice"` (round 10): GPT-5.4 mini **30/105 vs 24/105**
+  (not significant) at equal cost; **GPT-4.1 3/16 vs 5/16, a loss** (5/20 vs 7/20 once the remaining
+  pairs were completed on Azure).
+- BFCL fresh confirmation with the write gate (round 11, Azure, 63 unused scenarios × base,
+  miss_param, miss_func): **159/378 vs 140/378** (p = 0.07, not significant) at **0.91× the cost**;
+  GPT-4.1 92 vs 81, GPT-5.4 mini 67 vs 59.
+- tau-bench retail (rounds 6–7): a draw.
+
 ### Benchmarks (round 11)
 - `bench/bfcl/run.py --base-url/--deployment/--api-key-env`: any OpenAI-compatible endpoint (Azure AI Foundry), the
   same client for both arms; rows record the endpoint and the served model version.
