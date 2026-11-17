@@ -42,7 +42,6 @@ pip install weave-lang
 
 Or from the latest GitHub release's wheels:
 
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AtharvRaotole/weave/main/scripts/install.sh | sh
 ```
