@@ -6,11 +6,11 @@
 
 [![CI](https://github.com/AtharvRaotole/weave/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AtharvRaotole/weave/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AtharvRaotole/weave)](https://github.com/AtharvRaotole/weave/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/AtharvRaotole/weave/blob/main/LICENSE)
 
-[Quickstart](#quickstart) · [Getting started](docs/getting-started.md) · [Benchmarks](docs/benchmarks.md) · [Paper](docs/paper/weave.md) · [Production](docs/production.md) · [Full reference](docs/reference.md)
+[Quickstart](#quickstart) · [Getting started](https://github.com/AtharvRaotole/weave/blob/main/docs/getting-started.md) · [Benchmarks](https://github.com/AtharvRaotole/weave/blob/main/docs/benchmarks.md) · [Paper](https://github.com/AtharvRaotole/weave/blob/main/docs/paper/weave.md) · [Production](https://github.com/AtharvRaotole/weave/blob/main/docs/production.md) · [Full reference](https://github.com/AtharvRaotole/weave/blob/main/docs/reference.md)
 
-<img src="assets/demo.gif" alt="Terminal recording of python examples/demo.py: one Weave script makes 13 tool calls in 4 overlapping waves in 1.2 s" width="720">
+<img src="https://raw.githubusercontent.com/AtharvRaotole/weave/main/assets/demo.gif" alt="Terminal recording of python examples/demo.py: one Weave script makes 13 tool calls in 4 overlapping waves in 1.2 s" width="720">
 
 </div>
 
@@ -21,10 +21,10 @@ returns only what the script printed.
 
 ## Results
 
-<img src="assets/results.png" alt="Round 9 results: tasks passed and cost per task, Weave vs native, on a real-services fan-out suite and on BFCL multi-turn" width="860">
+<img src="https://raw.githubusercontent.com/AtharvRaotole/weave/main/assets/results.png" alt="Round 9 results: tasks passed and cost per task, Weave vs native, on a real-services fan-out suite and on BFCL multi-turn" width="860">
 
 Pre-registered, on fresh tasks, against native function calling with the same model, tools and settings
-([paper §5.17–5.19](docs/paper/weave.md), [all rounds](docs/benchmarks.md)):
+([paper §5.17–5.19](https://github.com/AtharvRaotole/weave/blob/main/docs/paper/weave.md), [all rounds](https://github.com/AtharvRaotole/weave/blob/main/docs/benchmarks.md)):
 
 - **Fan-out on real services** (SQLite, git, files, HTTP, PyPI): **40/40 vs 27/40** passed, **2.1–2.7 s vs 4.3 s** per
   task, at **0.45–0.50× the cost** (GPT-4.1 and GPT-5.4 mini).
@@ -48,11 +48,11 @@ the model sees them. Skip it when each step waits for a person, or when a small 
 ```bash
 pip install weave-lang
 # or a GitHub release wheel:  curl -fsSL https://raw.githubusercontent.com/AtharvRaotole/weave/main/scripts/install.sh | sh
-# or from source (needs Rust):  pip install "git+https://github.com/AtharvRaotole/weave@v1.1.1"
+# or from source (needs Rust):  pip install "git+https://github.com/AtharvRaotole/weave@v1.1.2"
 ```
 
 The package is `weave-lang` (import `weave`). Python 3.9–3.13, Linux, macOS and Windows.
-More options: [getting started](docs/getting-started.md).
+More options: [getting started](https://github.com/AtharvRaotole/weave/blob/main/docs/getting-started.md).
 
 ## Quickstart
 
@@ -88,15 +88,15 @@ No API key? `python examples/demo.py` and `python examples/quickstart.py` run of
 | OpenAI Agents SDK | `Agent(tools=[tool.agents_tool()])` |
 | LangChain / LangGraph | `tool.langchain_tool()` |
 | Claude Desktop, Cursor, any MCP client | `weave mcp-config --client claude --config tools.json --write` |
-| Rust hosts, the `weave` CLI | [runtime reference](docs/runtime.html), [CLI](docs/cli.html) |
+| Rust hosts, the `weave` CLI | [runtime reference](https://github.com/AtharvRaotole/weave/blob/main/docs/runtime.html), [CLI](https://github.com/AtharvRaotole/weave/blob/main/docs/cli.html) |
 
 ## Learn more
 
-- [Getting started](docs/getting-started.md): recipes for each stack, chat assistants, MCP servers.
-- [Running in production](docs/production.md): guarantees with their tests, isolation, budgets, privacy.
-- [Benchmarks](docs/benchmarks.md) and the [paper](docs/paper/weave.md): every round, every loss, pre-registrations.
-- [Full reference](docs/reference.md): the long-form guide. [Architecture](docs/architecture.md), [roadmap](ROADMAP.md),
-  [contributing](CONTRIBUTING.md), [security](SECURITY.md), [citation](CITATION.cff).
+- [Getting started](https://github.com/AtharvRaotole/weave/blob/main/docs/getting-started.md): recipes for each stack, chat assistants, MCP servers.
+- [Running in production](https://github.com/AtharvRaotole/weave/blob/main/docs/production.md): guarantees with their tests, isolation, budgets, privacy.
+- [Benchmarks](https://github.com/AtharvRaotole/weave/blob/main/docs/benchmarks.md) and the [paper](https://github.com/AtharvRaotole/weave/blob/main/docs/paper/weave.md): every round, every loss, pre-registrations.
+- [Full reference](https://github.com/AtharvRaotole/weave/blob/main/docs/reference.md): the long-form guide. [Architecture](https://github.com/AtharvRaotole/weave/blob/main/docs/architecture.md), [roadmap](https://github.com/AtharvRaotole/weave/blob/main/ROADMAP.md),
+  [contributing](https://github.com/AtharvRaotole/weave/blob/main/CONTRIBUTING.md), [security](https://github.com/AtharvRaotole/weave/blob/main/SECURITY.md), [citation](https://github.com/AtharvRaotole/weave/blob/main/CITATION.cff).
 
-[MIT](LICENSE). The speculative cache draws on Nichols et al.,
+[MIT](https://github.com/AtharvRaotole/weave/blob/main/LICENSE). The speculative cache draws on Nichols et al.,
 [Optimizing Agentic Language Model Inference via Speculative Tool Calls](https://arxiv.org/abs/2512.15834).

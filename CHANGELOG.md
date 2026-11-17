@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-11-16
+
+Docs: absolute image and documentation URLs in the README so the demo GIF and results chart render on PyPI. No code changes.
+
 ## [1.1.1] - 2026-11-16
 
 Packaging: first PyPI release; wheels limited to tested CPython 3.9–3.13; no code changes.
