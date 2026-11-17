@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Benchmarks (round 11)
+- `bench/bfcl/run.py --base-url/--deployment/--api-key-env`: any OpenAI-compatible endpoint (Azure AI Foundry), the
+  same client for both arms; rows record the endpoint and the served model version.
+- Addendum 11 results (Azure): `bench/results/v14/`, `bench/bfcl/report_r11.py`. Fresh confirmation: 159/378 vs
+  140/378 (p = 0.07) at 0.91× the cost.
+
 ### Agent tool (round 10)
 - `WeaveTool(write_gate="choice" | "flow" | "errors")` and `weave.agent_tool.WriteGate`: pause a script before a
   write whose argument was picked from a list the model has not seen (`choice`), or computed from any unseen

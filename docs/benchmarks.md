@@ -1,5 +1,29 @@
 # Benchmarks
 
+## Round 11: fresh confirmation of the write gate on BFCL (Azure, 2026-11-17)
+
+Pre-registered in Addendum 11. Weave = W3 + `write_gate="choice"` against BFCL's native handler, on 63 scenario ids
+never run live in any round, in the base, miss_param and miss_func categories. It ran on Azure deployments of
+`gpt-4.1-2025-04-14` and `gpt-5.4-mini-2026-03-17` (same endpoint and settings for both arms). Details:
+[paper §5.19](paper/weave.md).
+
+| group | pairs | pass W / N | Δ pass rate [95% CI] | W-only / N-only (p) | Δ calls | token ratio [CI] | $ ratio [CI] | $ W / N | gate pauses |
+|---|---|---|---|---|---|---|---|---|---|
+| fresh GPT-5.4 mini, base | 63 | 31 / 26 | +0.079 [-0.063, +0.222] | 14 / 9 (0.40) | -1.27 | 0.76 [0.70, 0.82] | 0.94 [0.89, 0.99] | 0.425 / 0.451 | 6 |
+| fresh GPT-5.4 mini, pooled | 189 | 67 / 59 | +0.042 [-0.037, +0.122] | 35 / 27 (0.37) | -1.21 | 0.78 [0.74, 0.81] | 0.94 [0.91, 0.98] | 1.480 / 1.560 | 18 |
+| fresh both models, pooled | 378 | 159 / 140 | +0.050 [+0.000, +0.103] | 59 / 40 (0.07) | -1.36 | 0.77 [0.75, 0.80] | 0.91 [0.89, 0.94] | 6.296 / 6.729 | 35 |
+| fresh GPT-5.4 mini, miss_func | 63 | 15 / 15 | +0.000 [-0.111, +0.111] | 7 / 7 (1.00) | -1.16 | 0.79 [0.73, 0.85] | 0.95 [0.89, 1.00] | 0.563 / 0.592 | 7 |
+| fresh GPT-5.4 mini, miss_param | 63 | 21 / 18 | +0.048 [-0.111, +0.206] | 14 / 11 (0.69) | -1.21 | 0.78 [0.73, 0.84] | 0.94 [0.88, 1.01] | 0.492 / 0.518 | 5 |
+| fresh GPT-4.1, base | 63 | 39 / 34 | +0.079 [+0.000, +0.159] | 6 / 1 (0.12) | -1.49 | 0.77 [0.71, 0.83] | 0.89 [0.82, 1.00] | 1.571 / 1.491 | 5 |
+| fresh GPT-4.1, pooled | 189 | 92 / 81 | +0.058 [-0.005, +0.122] | 24 / 13 (0.10) | -1.51 | 0.77 [0.73, 0.80] | 0.89 [0.85, 0.93] | 4.816 / 5.168 | 17 |
+| fresh GPT-4.1, miss_param | 63 | 25 / 22 | +0.048 [-0.063, +0.159] | 8 / 5 (0.58) | -1.48 | 0.77 [0.71, 0.82] | 0.88 [0.83, 0.95] | 1.494 / 1.693 | 6 |
+| fresh GPT-4.1, miss_func | 63 | 28 / 25 | +0.048 [-0.079, +0.175] | 10 / 7 (0.63) | -1.56 | 0.76 [0.70, 0.83] | 0.88 [0.82, 0.94] | 1.751 / 1.984 | 6 |
+
+**Result:** Weave passed more tasks for both models in every category (one tie) at 0.89–0.94× the cost. Pooled
+159/378 vs 140/378, p = 0.07, which is not significant. **Losses that still stand:** round 9 GPT-5.4 mini on BFCL
+base (18/60 vs 27/60, no gate), and round 10 GPT-4.1 on miss_param (5/20 vs 7/20 including the completion pairs).
+Spend $13.54.
+
 ## Round 10: the write gate on BFCL miss_param / miss_func (2026-11-16)
 
 Pre-registered in Addendum 10. Weave = round 9's W3 + `write_gate="choice"`. These categories had not been run in any

@@ -14,7 +14,9 @@ prices. In round 9 a compact description, learned result types and a cache key m
 tasks (0.86× pooled list-price cost, 25 % fewer tokens), with +3 tasks for GPT-4.1 but **−9 tasks for GPT-5.4 mini, a
 significant loss**; on a real-services fan-out reconfirm it passed 40/40 against native's 27/40 at about half the cost. In round 10
 an opt-in write gate brought GPT-5.4 mini to 30/105 against 24/105 on two BFCL categories never run before (not
-significant, no-harm met) at equal cost; GPT-4.1 had 3/16 against 5/16.
+significant, no-harm met) at equal cost; GPT-4.1 had 3/16 against 5/16. In round 11, on 63 fresh scenario ids in three
+categories (Azure, same model versions), Weave with the gate passed 159/378 against 140/378 (p = 0.07) at 0.91× the
+cost: +8 tasks for GPT-5.4 mini and +11 for GPT-4.1, neither significant on its own.
 The rest of this abstract gives
 the details by round.
 
@@ -921,6 +923,60 @@ credits (HTTP 429) at 112/120 and 102/120 trials. Incomplete pairs are dropped, 
 
 Round 10 cost **$3.85** at list prices and 12.5M tokens (dev $1.18, including $0.20 for the mislabeled runs;
 evidence $2.67). Reproduce: `python bench/bfcl/report_r10.py`.
+
+### 5.19 Round 11: completing round 10 and a fresh confirmation (Azure)
+
+Pre-registered in Addendum 11 (commit `80deeb1`). The OpenAI account had run out of credits, so these trials ran on
+Azure AI Foundry deployments of the same model versions. Every response reported `gpt-4.1-2025-04-14` or
+`gpt-5.4-mini-2026-03-17`, through the OpenAI-compatible Chat Completions endpoint. Both arms used the same endpoint,
+client and parameters. Every parameter worked (`prompt_cache_key`, `parallel_tool_calls`, `reasoning_effort`,
+`store`), and cached prompt tokens were reported. Costs are at OpenAI list prices.
+
+The Azure deployments hit token-rate limits (HTTP 429). BFCL's backoff retried them, which inflates wall time
+unevenly, so wall time is not reported for this round. One native GPT-4.1 trial (base, task 68) ended in a client
+timeout and is graded as a failure. Weave failed that task too, so dropping the pair changes nothing (pooled
++0.050 [−0.003, +0.101], p = 0.07).
+
+**Round 10 completed.** This adds the 19 incomplete pairs, rerun on Azure; incomplete OpenAI pairs are not paired
+with Azure rows. Endpoints are mixed, and the pre-registered round-10 analysis remains §5.18.
+
+| group | pairs | pass W / N | Δ pass rate [95% CI] | W-only / N-only (p) | Δ calls | token ratio [CI] | $ ratio [CI] | $ W / N | gate pauses |
+|---|---|---|---|---|---|---|---|---|---|
+| R10+A GPT-5.4 mini, miss_func | 60 | 18 / 14 | +0.067 [-0.033, +0.167] | 7 / 3 (0.34) | -1.18 | 0.79 [0.72, 0.86] | 0.96 [0.91, 1.02] | 0.521 / 0.538 | 5 |
+| R10+A GPT-5.4 mini, pooled | 120 | 34 / 27 | +0.058 [-0.017, +0.133] | 15 / 8 (0.21) | -1.22 | 0.79 [0.75, 0.83] | 1.00 [0.96, 1.05] | 0.953 / 0.959 | 10 |
+| R10+A GPT-4.1, miss_param | 20 | 5 / 7 | -0.100 [-0.300, +0.100] | 1 / 3 (0.62) | -1.95 | 0.76 [0.70, 0.83] | 0.95 [0.85, 1.07] | 0.538 / 0.580 | 3 |
+| R10+A GPT-4.1, pooled | 20 | 5 / 7 | -0.100 [-0.300, +0.100] | 1 / 3 (0.62) | -1.95 | 0.76 [0.70, 0.83] | 0.95 [0.85, 1.07] | 0.538 / 0.580 | 3 |
+| R10+A GPT-5.4 mini, miss_param | 60 | 16 / 13 | +0.050 [-0.067, +0.167] | 8 / 5 (0.58) | -1.25 | 0.80 [0.75, 0.85] | 1.05 [0.99, 1.11] | 0.432 / 0.421 | 5 |
+
+**Fresh confirmation.** 63 scenario ids never run live in any round, in three categories, with nothing tuned on them.
+No trial was skipped.
+
+| group | pairs | pass W / N | Δ pass rate [95% CI] | W-only / N-only (p) | Δ calls | token ratio [CI] | $ ratio [CI] | $ W / N | gate pauses |
+|---|---|---|---|---|---|---|---|---|---|
+| fresh GPT-5.4 mini, base | 63 | 31 / 26 | +0.079 [-0.063, +0.222] | 14 / 9 (0.40) | -1.27 | 0.76 [0.70, 0.82] | 0.94 [0.89, 0.99] | 0.425 / 0.451 | 6 |
+| fresh GPT-5.4 mini, pooled | 189 | 67 / 59 | +0.042 [-0.037, +0.122] | 35 / 27 (0.37) | -1.21 | 0.78 [0.74, 0.81] | 0.94 [0.91, 0.98] | 1.480 / 1.560 | 18 |
+| fresh both models, pooled | 378 | 159 / 140 | +0.050 [+0.000, +0.103] | 59 / 40 (0.07) | -1.36 | 0.77 [0.75, 0.80] | 0.91 [0.89, 0.94] | 6.296 / 6.729 | 35 |
+| fresh GPT-5.4 mini, miss_func | 63 | 15 / 15 | +0.000 [-0.111, +0.111] | 7 / 7 (1.00) | -1.16 | 0.79 [0.73, 0.85] | 0.95 [0.89, 1.00] | 0.563 / 0.592 | 7 |
+| fresh GPT-5.4 mini, miss_param | 63 | 21 / 18 | +0.048 [-0.111, +0.206] | 14 / 11 (0.69) | -1.21 | 0.78 [0.73, 0.84] | 0.94 [0.88, 1.01] | 0.492 / 0.518 | 5 |
+| fresh GPT-4.1, base | 63 | 39 / 34 | +0.079 [+0.000, +0.159] | 6 / 1 (0.12) | -1.49 | 0.77 [0.71, 0.83] | 0.89 [0.82, 1.00] | 1.571 / 1.491 | 5 |
+| fresh GPT-4.1, pooled | 189 | 92 / 81 | +0.058 [-0.005, +0.122] | 24 / 13 (0.10) | -1.51 | 0.77 [0.73, 0.80] | 0.89 [0.85, 0.93] | 4.816 / 5.168 | 17 |
+| fresh GPT-4.1, miss_param | 63 | 25 / 22 | +0.048 [-0.063, +0.159] | 8 / 5 (0.58) | -1.48 | 0.77 [0.71, 0.82] | 0.88 [0.83, 0.95] | 1.494 / 1.693 | 6 |
+| fresh GPT-4.1, miss_func | 63 | 28 / 25 | +0.048 [-0.079, +0.175] | 10 / 7 (0.63) | -1.56 | 0.76 [0.70, 0.83] | 0.88 [0.82, 0.94] | 1.751 / 1.984 | 6 |
+
+- **E1 (success): supported for both models.** GPT-5.4 mini pooled 67/189 vs 59/189 (+0.042 [−0.037, +0.122],
+  p = 0.37). GPT-4.1 pooled 92/189 vs 81/189 (+0.058 [−0.005, +0.122], p = 0.10). Both lower bounds are above
+  −0.10, and every category's point estimate is ≥ 0 (mini miss_func is a tie, 15/15). Across both models, 159/378 vs
+  140/378 (+0.050 [+0.000, +0.103], McNemar 59/40, p = 0.07). The difference is not significant at 0.05.
+- **E2 (cost): supported.** The pooled $ ratio is 0.94 [0.91, 0.98] for mini and 0.89 [0.85, 0.93] for GPT-4.1, with
+  0.77–0.78× the tokens. One exception: on GPT-4.1 base, Weave's summed cost was higher ($1.571 vs $1.491) although
+  its per-task geometric-mean ratio is 0.89. A few long Weave trials dominate the sum.
+- **E4:** 1.2–1.5 fewer model calls per task. **E6:** 35 gate pauses over 378 Weave trials. Weave had fewer
+  `instance_state_mismatch` failures (119 vs 142) and more empty-turn failures (63 vs 58).
+- **Earlier losses still stand.** Round 9 (BFCL base, OpenAI): GPT-5.4 mini 18/60 vs 27/60 without the gate.
+  Round 10 (miss_param, OpenAI + Azure completion): GPT-4.1 5/20 vs 7/20 with the gate.
+
+Spend for this round: $13.54 at list prices ($0.07 probe and smoke; $0.44 completion; $13.02 confirmation).
+Reproduce with `python bench/bfcl/report_r11.py`.
 
 ## 6. Threats to validity
 

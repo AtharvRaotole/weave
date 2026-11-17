@@ -24,17 +24,21 @@ returns only what the script printed.
 <img src="assets/results.png" alt="Round 9 results: tasks passed and cost per task, Weave vs native, on a real-services fan-out suite and on BFCL multi-turn" width="860">
 
 Pre-registered, on fresh tasks, against native function calling with the same model, tools and settings
-([paper §5.17–5.18](docs/paper/weave.md), [all rounds](docs/benchmarks.md)):
+([paper §5.17–5.19](docs/paper/weave.md), [all rounds](docs/benchmarks.md)):
 
 - **Fan-out on real services** (SQLite, git, files, HTTP, PyPI): **40/40 vs 27/40** passed, **2.1–2.7 s vs 4.3 s** per
   task, at **0.45–0.50× the cost** (GPT-4.1 and GPT-5.4 mini).
 - **BFCL v4 multi-turn** (round 9, public tasks and grader): **0.86× the cost** and 25 % fewer tokens. Success: **+3 tasks with
   GPT-4.1 (38 vs 35 of 60), but −9 with GPT-5.4 mini (18 vs 27), a significant loss.**
+- **BFCL multi-turn, fresh confirmation with the write gate** (round 11; 63 unused scenarios × base, miss_param,
+  miss_func): **159/378 vs 140/378** passed (p = 0.07, not significant) at **0.91× the cost**. GPT-4.1 92 vs 81 and
+  GPT-5.4 mini 67 vs 59, each not significant on its own; run on Azure deployments of the same model versions.
 - **BFCL miss_param / miss_func with the write gate** (round 10, `write_gate="choice"`): GPT-5.4 mini **30/105 vs
-  24/105** (not significant) at **equal cost**; GPT-4.1 **3/16 vs 5/16**.
+  24/105** (not significant) at **equal cost**; GPT-4.1 **3/16 vs 5/16, a loss** (5/20 vs 7/20 with the pairs
+  completed on Azure).
 - **tau-bench retail** (a conversation, one confirmation per write): a draw.
 
-Round 9 used `WeaveTool(compact=True)`; round 10 added `write_gate="choice"`. Neither is in a release yet.
+Round 9 used `WeaveTool(compact=True)`; rounds 10–11 added `write_gate="choice"`. Both are on `main` but not in a release yet. The chart shows round 9.
 
 Use Weave for fan-out (the same lookup over many items), chains of dependent lookups, and filtering results before
 the model sees them. Skip it when each step waits for a person, or when a small model must think after every result.
