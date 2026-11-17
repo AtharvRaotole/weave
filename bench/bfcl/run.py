@@ -48,11 +48,25 @@ def manifest(ids):
             "hash": hashlib.sha256(blob.encode()).hexdigest()[:16]}
 
 
-def metered(handler, meter, effort, cache_key=None):
+def endpoint_client(args):
+    """An OpenAI-compatible client for `--base-url` (e.g. an Azure AI Foundry `/openai/v1` endpoint), or None for
+    BFCL's default client. Both arms get the same client settings; the key is read from the named env variable."""
+    if not args.base_url:
+        return None
+    from openai import OpenAI
+    key = os.environ.get(args.api_key_env)
+    if not key:
+        raise SystemExit(f"--base-url needs ${args.api_key_env}")
+    return OpenAI(base_url=args.base_url, api_key=key, max_retries=2)
+
+
+def metered(handler, meter, effort, cache_key=None, deployment=None):
     """Patch the handler's client so every request is metered and carries the same settings in both arms."""
     real = handler.client.chat.completions.create
 
     def create(**kw):
+        if deployment:
+            kw["model"] = deployment  # the endpoint's name for the same model version (recorded per response)
         if effort:
             kw.pop("temperature", None)
             kw["reasoning_effort"] = effort
@@ -68,6 +82,9 @@ def metered(handler, meter, effort, cache_key=None):
         pd, cd = getattr(u, "prompt_tokens_details", None), getattr(u, "completion_tokens_details", None)
         meter["cached"] += (getattr(pd, "cached_tokens", 0) or 0) if pd else 0
         meter["reasoning"] += (getattr(cd, "reasoning_tokens", 0) or 0) if cd else 0
+        served = getattr(res, "model", None)
+        if served and served not in meter.setdefault("served_models", []):
+            meter["served_models"].append(served)
         return res
 
     handler.client.chat.completions.create = create
@@ -83,8 +100,11 @@ def one_trial(args, arm, entry, gt, repeat):
     handler = OpenAICompletionsHandler(args.model, args.temperature, args.model + "-FC", True)
     tag = f"{handler.model_name_underline_replaced}_{arm}_r{repeat}"
     handler.model_name_underline_replaced = tag  # instance namespace for this arm's backends
+    client = endpoint_client(args)
+    if client is not None:
+        handler.client = client
     meter = {"calls": 0, "input": 0, "output": 0, "cached": 0, "reasoning": 0, "llm_s": 0.0}
-    metered(handler, meter, args.effort, f"{tag}-{entry['id']}" if args.cache_key else None)
+    metered(handler, meter, args.effort, f"{tag}-{entry['id']}" if args.cache_key else None, args.deployment)
     t0 = time.time()
     error, extra, result = None, {}, None
     try:
@@ -113,6 +133,8 @@ def one_trial(args, arm, entry, gt, repeat):
         "usd": usd(args.model, toks), "wall_s": wall, "llm_s": meter["llm_s"],
         "weave": extra.get("weave"), "force_quit": extra.get("force_quit"),
         "weave_config": args.weave_config if arm == "weave" else None, "cache_key": bool(args.cache_key),
+        "endpoint": args.base_url.split("/")[2] if args.base_url else "api.openai.com",
+        "served_models": meter.get("served_models", []),
     }, {"result": result, "messages": json.loads(json.dumps(messages, default=lambda o: getattr(o, "model_dump", str)()))
         if messages is not None else None}
 
@@ -125,6 +147,11 @@ def main(argv=None):
     ap.add_argument("--temperature", type=float, default=0.001)
     ap.add_argument("--category", default="multi_turn_base",
                     choices=["multi_turn_base", "multi_turn_miss_func", "multi_turn_miss_param", "multi_turn_long_context"])
+    ap.add_argument("--base-url", default=os.environ.get("WEAVE_BENCH_BASE_URL"),
+                    help="OpenAI-compatible endpoint for both arms (default: $WEAVE_BENCH_BASE_URL, else api.openai.com)")
+    ap.add_argument("--api-key-env", default="AZURE_OPENAI_API_KEY", help="env variable holding the key for --base-url")
+    ap.add_argument("--deployment", help="model name the endpoint expects (e.g. an Azure deployment); --model stays "
+                                         "the model version recorded and priced")
     ap.add_argument("--tasks", required=True, help="comma-separated indices, or @name of a frozen subset")
     ap.add_argument("--arms", default="weave,native")
     ap.add_argument("--repeats", type=int, default=1)
@@ -183,7 +210,9 @@ def main(argv=None):
             "temperature": None if args.effort else args.temperature, "arms": arms, "repeats": args.repeats,
             "planned": len(plan), "usd_budget": args.usd_budget, "reserve_usd": args.reserve_usd, "seed": args.seed,
             "handler": "bfcl_eval OpenAICompletionsHandler (FC)", "weave_config": args.weave_config,
-            "cache_key": bool(args.cache_key)}
+            "cache_key": bool(args.cache_key),
+            "endpoint": (args.base_url.split("/")[2] if args.base_url else "api.openai.com"),
+            "deployment": args.deployment}
     (out / "run.json").write_text(json.dumps(meta, indent=2) + "\n")
     rows_f, traces_f = (out / "rows.jsonl").open("a"), (out / "traces.jsonl").open("a")
     room = threading.Condition()
