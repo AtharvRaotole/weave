@@ -24,17 +24,17 @@ returns only what the script printed.
 <img src="assets/results.png" alt="Round 9 results: tasks passed and cost per task, Weave vs native, on a real-services fan-out suite and on BFCL multi-turn" width="860">
 
 Pre-registered, on fresh tasks, against native function calling with the same model, tools and settings
-([paper §5.17](docs/paper/weave.md), [all rounds](docs/benchmarks.md)):
+([paper §5.17–5.18](docs/paper/weave.md), [all rounds](docs/benchmarks.md)):
 
 - **Fan-out on real services** (SQLite, git, files, HTTP, PyPI): **40/40 vs 27/40** passed, **2.1–2.7 s vs 4.3 s** per
   task, at **0.45–0.50× the cost** (GPT-4.1 and GPT-5.4 mini).
-- **BFCL v4 multi-turn** (public tasks and grader): **0.86× the cost** and 25 % fewer tokens. Success: **+3 tasks with
+- **BFCL v4 multi-turn** (round 9, public tasks and grader): **0.86× the cost** and 25 % fewer tokens. Success: **+3 tasks with
   GPT-4.1 (38 vs 35 of 60), but −9 with GPT-5.4 mini (18 vs 27), a significant loss.**
 - **BFCL miss_param / miss_func with the write gate** (round 10, `write_gate="choice"`): GPT-5.4 mini **30/105 vs
   24/105** (not significant) at **equal cost**; GPT-4.1 **3/16 vs 5/16**.
 - **tau-bench retail** (a conversation, one confirmation per write): a draw.
 
-Rounds 9–10 used `WeaveTool(compact=True)` and `write_gate`, which are not yet in a release.
+Round 9 used `WeaveTool(compact=True)`; round 10 added `write_gate="choice"`. Neither is in a release yet.
 
 Use Weave for fan-out (the same lookup over many items), chains of dependent lookups, and filtering results before
 the model sees them. Skip it when each step waits for a person, or when a small model must think after every result.
