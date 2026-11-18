@@ -87,7 +87,7 @@ No API key? `python examples/demo.py` and `python examples/quickstart.py` run of
 | OpenAI Chat Completions / Responses | `tool.chat_tool()`, `tool.responses_tool()` |
 | OpenAI Agents SDK | `Agent(tools=[tool.agents_tool()])` |
 | LangChain / LangGraph | `tool.langchain_tool()` |
-| Claude Desktop, Cursor, any MCP client | `weave mcp-config --client claude --config tools.json --write` |
+| Claude Desktop, Cursor, VS Code, Claude Code | `weave mcp-config --client claude --config tools.json --write` (or `cursor`, `vscode`, `claude-code`) |
 | Rust hosts, the `weave` CLI | [runtime reference](https://github.com/AtharvRaotole/weave/blob/main/docs/runtime.html), [CLI](https://github.com/AtharvRaotole/weave/blob/main/docs/cli.html) |
 
 ## Learn more

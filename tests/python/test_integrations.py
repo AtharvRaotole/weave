@@ -138,6 +138,11 @@ def test_new_mcp_client_config_paths():
              patch("weave.integrations.platform.system", return_value="Linux"), \
              patch.dict(os.environ, clear=True):
             assert mcp_config_path("vscode") == root / ".config" / "Code" / "User" / "mcp.json"
+        with patch("weave.integrations.Path.home", return_value=root), \
+             patch("weave.integrations.platform.system", return_value="Windows"), \
+             patch.dict(os.environ, {"APPDATA": ""}, clear=True):
+            assert mcp_config_path("vscode") == root / "AppData" / "Roaming" / "Code" / "User" / "mcp.json"
+            assert mcp_config_path("claude") == root / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"
 
 
 def test_new_mcp_clients_print_and_merge():
@@ -162,6 +167,34 @@ def test_new_mcp_clients_print_and_merge():
             assert json.loads(path.read_text(encoding="utf-8")) == expected
             backup = path.with_name(path.name + ".bak")
             assert json.loads(backup.read_text(encoding="utf-8")) == original
+
+
+def test_install_keeps_original_backup_and_rejects_non_object_servers():
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        path = root / "mcp.json"
+        original = {"servers": {"other": {"command": "x"}}, "extra": 1}
+        path.write_text(json.dumps(original), encoding="utf-8")
+        install_mcp_config("vscode", {"command": "/bin/first"}, "weave", path=path)
+        backup = path.with_name("mcp.json.bak")
+        assert json.loads(backup.read_text(encoding="utf-8")) == original
+        first = json.loads(path.read_text(encoding="utf-8"))
+        install_mcp_config("vscode", {"command": "/bin/second"}, "weave", path=path)
+        assert json.loads(backup.read_text(encoding="utf-8")) == original
+        second = json.loads(path.read_text(encoding="utf-8"))
+        assert second["servers"]["weave"]["command"] == "/bin/second"
+        assert second["servers"]["other"] == {"command": "x"}
+        assert first != second
+
+        bad = root / "bad.json"
+        bad.write_text(json.dumps({"servers": []}), encoding="utf-8")
+        try:
+            install_mcp_config("vscode", {"command": "/bin/x"}, "weave", path=bad)
+        except ValueError as exc:
+            message = str(exc)
+            assert "servers" in message and "list" in message and "JSON object" in message
+        else:
+            raise AssertionError("list servers accepted")
 
 
 if __name__ == "__main__":

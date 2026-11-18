@@ -278,7 +278,7 @@ with `--live` against a real model.
 | OpenAI Chat Completions / Responses | `tools=[tool.chat_tool()]` or `[tool.responses_tool()]` | [`run_weave_tool.py`](../examples/run_weave_tool.py) |
 | OpenAI Agents SDK | `Agent(..., tools=[tool.agents_tool()])` | [`agents_sdk_agent.py`](../examples/agents_sdk_agent.py) |
 | LangChain / LangGraph | `ToolNode([tool.langchain_tool()])`, `model.bind_tools([...])`, `create_react_agent` | [`langgraph_agent.py`](../examples/langgraph_agent.py) |
-| Claude Desktop, Cursor (MCP) | `weave mcp-config --client claude --config tools.json --write` | [below](#connect-mcp-servers) |
+| Claude Desktop, Cursor, VS Code, Claude Code (MCP) | `weave mcp-config --client claude --config tools.json --write` (or `cursor`, `vscode`, `claude-code`) | [below](#connect-mcp-servers) |
 
 **Demo apps** ([`examples/apps/`](../examples/apps/)): a [dependency auditor](../examples/apps/dep_audit.py) that checks
 every pinned package of a requirements file against PyPI and OSV.dev in one script (offline: synthetic packages), and a
@@ -314,11 +314,12 @@ directory you intend to expose. This example requires Node.js/npx:
 https://github.com/AtharvRaotole/weave weave-mcp`), run
 
 ```bash
-weave mcp-config --client claude --config upstreams.json --write   # or --client cursor
+weave mcp-config --client claude --config upstreams.json --write   # or cursor, vscode, claude-code
 ```
 
 It merges a `weave` entry with absolute paths into the client's config (Claude Desktop's
-`claude_desktop_config.json` for your OS, or `~/.cursor/mcp.json`), keeps your other servers and writes a `.bak` copy.
+`claude_desktop_config.json` for your OS, `~/.cursor/mcp.json`, VS Code's user-profile `mcp.json`, or
+project-local `.mcp.json` for Claude Code), keeps your other servers and writes a `.bak` copy.
 Without `--write` it prints the JSON to paste by hand. Restart the client afterwards.
 
 Or configure the client by hand, with absolute paths:

@@ -6,6 +6,12 @@ String `startswith` and `endswith` accept a list of strings as well as one strin
 Empty lists return false; non-string elements produce a runtime error.
 
 `weave mcp-config` can print and install entries for VS Code and Claude Code.
+An empty `APPDATA` falls back to the default Windows profile path; an existing `.bak` is left in place
+on re-run; and a non-object `servers` / `mcpServers` value is a clear error. README and reference docs
+list the new clients.
+
+`startswith` / `endswith` mention start/end slices only when extra arguments are passed, and the
+language docs note that every list element is type-checked before matching.
 
 Docs: contributing guide now points at the good-first-issue and help-wanted labels, and the roadmap
 links the open newcomer issues (dropping `key=` and nested comprehensions, which already shipped).

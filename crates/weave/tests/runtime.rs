@@ -72,6 +72,17 @@ fn string_affix_lists_match_any_string_and_reject_bad_arguments() {
             assert!(error.contains(method), "{error}");
             assert!(!error.contains('\n'), "{error}");
         }
+        let zero = Engine::new()
+            .run(&format!("answer = \"aba\".{method}()\n"))
+            .unwrap_err()
+            .to_string();
+        assert!(zero.contains(&format!("{method}() takes 1 argument")), "{zero}");
+        assert!(!zero.contains("slice"), "{zero}");
+        let extra = Engine::new()
+            .run(&format!("answer = \"aba\".{method}(\"a\", 0)\n"))
+            .unwrap_err()
+            .to_string();
+        assert!(extra.contains("start/end slices are not supported"), "{extra}");
     }
 }
 

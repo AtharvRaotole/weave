@@ -53,7 +53,7 @@ def mcp_config_path(client: str) -> Path:
         if system == "Darwin":
             config_dir = home / "Library" / "Application Support"
         elif system == "Windows":
-            config_dir = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
+            config_dir = Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming")
         else:
             config_dir = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
         return config_dir / "Code" / "User" / "mcp.json"
@@ -61,7 +61,7 @@ def mcp_config_path(client: str) -> Path:
         if system == "Darwin":
             return home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
         if system == "Windows":
-            return Path(os.environ.get("APPDATA", home / "AppData" / "Roaming")) / "Claude" / "claude_desktop_config.json"
+            return Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming") / "Claude" / "claude_desktop_config.json"
         return home / ".config" / "Claude" / "claude_desktop_config.json"
     choices = ", ".join(MCP_CLIENTS)
     raise ValueError(f"unknown MCP client `{client}`; choose from {choices}")
@@ -93,15 +93,22 @@ def mcp_config_fragment(client: str | None, name: str, entry: dict[str, Any]) ->
 
 def install_mcp_config(client: str, entry: dict[str, Any], name: str = "weave", path: Path | None = None) -> Path:
     """Merge `entry` into the client's config file, keeping every other server and setting.
-    The previous file is kept next to it as `<file>.bak`."""
+    A `.bak` copy of the previous file is written if that backup does not already exist."""
     path = path or mcp_config_path(client)
     data: dict[str, Any] = {}
     if path.exists():
         text = path.read_text(encoding="utf-8")
         data = json.loads(text) if text.strip() else {}
-        path.with_name(path.name + ".bak").write_text(text, encoding="utf-8")
+        backup = path.with_name(path.name + ".bak")
+        if not backup.exists():
+            backup.write_text(text, encoding="utf-8")
     for key, servers in mcp_config_fragment(client, name, entry).items():
-        data.setdefault(key, {}).update(servers)
+        existing = data.setdefault(key, {})
+        if not isinstance(existing, dict):
+            raise ValueError(
+                f"{path} has `{key}` as {type(existing).__name__}, expected a JSON object of servers"
+            )
+        existing.update(servers)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     return path

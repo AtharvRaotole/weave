@@ -3403,6 +3403,9 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
             Ok(Value::List(parts.into_iter().map(Value::str).collect()))
         }
         (Value::Str(s), method @ ("startswith" | "endswith")) => {
+            if args.is_empty() {
+                return Err(format!("{method}() takes 1 argument"));
+            }
             if args.len() != 1 {
                 return Err(format!(
                     "{method}() takes 1 argument; start/end slices are not supported"
