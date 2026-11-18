@@ -3402,13 +3402,32 @@ fn call_method(recv: &Value, name: &str, args: &[Value]) -> Result<Value, String
             let parts = split_str(s, sep, maxsplit, method == "rsplit");
             Ok(Value::List(parts.into_iter().map(Value::str).collect()))
         }
-        (Value::Str(s), "startswith") => {
-            let prefix = one_str("startswith", args)?;
-            Ok(Value::Bool(s.starts_with(&prefix)))
-        }
-        (Value::Str(s), "endswith") => {
-            let suffix = one_str("endswith", args)?;
-            Ok(Value::Bool(s.ends_with(&suffix)))
+        (Value::Str(s), method @ ("startswith" | "endswith")) => {
+            if args.len() != 1 {
+                return Err(format!(
+                    "{method}() takes 1 argument; start/end slices are not supported"
+                ));
+            }
+            let matches = |affix: &str| {
+                if method == "startswith" {
+                    s.starts_with(affix)
+                } else {
+                    s.ends_with(affix)
+                }
+            };
+            let bad_type = || format!("{method}() expects str or a list of str");
+            match &args[0] {
+                Value::Str(affix) => Ok(Value::Bool(matches(affix))),
+                Value::List(affixes) => {
+                    if affixes.iter().any(|item| !matches!(item, Value::Str(_))) {
+                        return Err(bad_type());
+                    }
+                    Ok(Value::Bool(affixes.iter().any(
+                        |item| matches!(item, Value::Str(affix) if matches(affix)),
+                    )))
+                }
+                _ => Err(bad_type()),
+            }
         }
         (Value::Str(s), "splitlines") => no_args(name, args)
             .map(|_| Value::List(s.lines().map(|line| Value::Str(line.to_string())).collect())),

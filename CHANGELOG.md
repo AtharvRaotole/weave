@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+String `startswith` and `endswith` accept a list of strings as well as one string.
+Empty lists return false; non-string elements produce a runtime error.
+
 Docs: contributing guide now points at the good-first-issue and help-wanted labels, and the roadmap
 links the open newcomer issues (dropping `key=` and nested comprehensions, which already shipped).
 

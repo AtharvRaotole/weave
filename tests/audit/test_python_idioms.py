@@ -175,6 +175,14 @@ def gen_program(rng):
     return "".join(src)
 
 
+# CPython's tuple is Weave's list; exercise the same any-match programs in both.
+FIXTURES += [
+    f'answer = "aba".{method}(tuple({affixes!r}))\nprint(answer)\n'
+    for method in ("startswith", "endswith")
+    for affixes in (["aba"], ["no", "aba"], ["no", "missing"], [], [""])
+]
+
+
 def main():
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 600
     for source in FIXTURES:
