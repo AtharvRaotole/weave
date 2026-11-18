@@ -2,8 +2,8 @@
 
 - `langchain_tool(tool)`: a LangChain `StructuredTool` (LangChain, LangGraph).
 - `WeaveTool.agents_tool()`: an OpenAI Agents SDK `FunctionTool` (defined on the class).
-- `mcp_server_entry(...)` / `install_mcp_config(...)`: the `mcpServers` entry that makes Claude Desktop, Cursor or any
-  stdio MCP client launch `weave-mcp`; `weave mcp-config` on the command line.
+- `mcp_server_entry(...)` / `install_mcp_config(...)`: configure stdio MCP clients to launch `weave-mcp`;
+  `weave mcp-config` on the command line.
 
 Every optional dependency is imported lazily, so `import weave` never needs them.
 """
@@ -38,19 +38,33 @@ def langchain_tool(tool):
 
 # ---- MCP clients ---------------------------------------------------------------------------------------------------
 
+MCP_CLIENTS = ("claude", "cursor", "vscode", "claude-code")
+
+
 def mcp_config_path(client: str) -> Path:
-    """Where `client` ("claude" for Claude Desktop, "cursor") reads its MCP servers on this OS."""
+    """Return the client's profile config, or the project config for Claude Code."""
     home = Path.home()
     if client == "cursor":
         return home / ".cursor" / "mcp.json"
+    if client == "claude-code":
+        return Path.cwd() / ".mcp.json"
+    system = platform.system()
+    if client == "vscode":
+        if system == "Darwin":
+            config_dir = home / "Library" / "Application Support"
+        elif system == "Windows":
+            config_dir = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
+        else:
+            config_dir = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
+        return config_dir / "Code" / "User" / "mcp.json"
     if client == "claude":
-        system = platform.system()
         if system == "Darwin":
             return home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
         if system == "Windows":
             return Path(os.environ.get("APPDATA", home / "AppData" / "Roaming")) / "Claude" / "claude_desktop_config.json"
         return home / ".config" / "Claude" / "claude_desktop_config.json"
-    raise ValueError(f"unknown MCP client `{client}`; use `claude` or `cursor`")
+    choices = ", ".join(MCP_CLIENTS)
+    raise ValueError(f"unknown MCP client `{client}`; choose from {choices}")
 
 
 def mcp_server_entry(config: str | os.PathLike | None = None, binary: str | None = None) -> dict[str, Any]:
@@ -70,8 +84,15 @@ def mcp_server_entry(config: str | os.PathLike | None = None, binary: str | None
     return entry
 
 
+def mcp_config_fragment(client: str | None, name: str, entry: dict[str, Any]) -> dict[str, Any]:
+    """Wrap an entry in the client's configuration schema."""
+    if client == "vscode":
+        return {"servers": {name: {**entry, "type": "stdio"}}}
+    return {"mcpServers": {name: entry}}
+
+
 def install_mcp_config(client: str, entry: dict[str, Any], name: str = "weave", path: Path | None = None) -> Path:
-    """Merge `entry` into the client's config file as `mcpServers[name]`, keeping every other server and setting.
+    """Merge `entry` into the client's config file, keeping every other server and setting.
     The previous file is kept next to it as `<file>.bak`."""
     path = path or mcp_config_path(client)
     data: dict[str, Any] = {}
@@ -79,7 +100,8 @@ def install_mcp_config(client: str, entry: dict[str, Any], name: str = "weave", 
         text = path.read_text(encoding="utf-8")
         data = json.loads(text) if text.strip() else {}
         path.with_name(path.name + ".bak").write_text(text, encoding="utf-8")
-    data.setdefault("mcpServers", {})[name] = entry
+    for key, servers in mcp_config_fragment(client, name, entry).items():
+        data.setdefault(key, {}).update(servers)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     return path
