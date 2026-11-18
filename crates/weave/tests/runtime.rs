@@ -53,6 +53,29 @@ pair = {"city": city, "n": total}
 }
 
 #[test]
+fn string_affix_lists_match_any_string_and_reject_bad_arguments() {
+    for method in ["startswith", "endswith"] {
+        for (argument, expected) in [
+            ("\"aba\"", true),
+            ("[\"no\", \"aba\"]", true),
+            ("[\"no\", \"missing\"]", false),
+            ("[]", false),
+            ("[\"\"]", true),
+        ] {
+            let source = format!("answer = \"aba\".{method}({argument})\n");
+            let result = Engine::new().run(&source).unwrap();
+            assert_eq!(result.bindings["answer"], Value::Bool(expected), "{source}");
+        }
+        for argument in ["[1]", "[\"no\", 1]", "1", "None", "\"a\", 1"] {
+            let source = format!("answer = \"aba\".{method}({argument})\n");
+            let error = Engine::new().run(&source).unwrap_err().to_string();
+            assert!(error.contains(method), "{error}");
+            assert!(!error.contains('\n'), "{error}");
+        }
+    }
+}
+
+#[test]
 fn static_errors_are_short() {
     let mut engine = Engine::new();
     engine.register("fetch", ToolSpec::effect(Effect::Read).with_arity(1), |_, _| Ok(Value::Null));
