@@ -195,9 +195,17 @@ Then point your MCP client at the binary (absolute paths):
 }
 ```
 
-Or let Weave write that entry for you: `weave mcp-config --client claude --config upstreams.json --write` (or
-`--client cursor`). It finds `weave-mcp` on your `PATH` (or pass `--binary`), merges into the client's config file and
-keeps a `.bak`.
+Use `weave mcp-config --client NAME --config upstreams.json --write` to merge the entry into a client's
+JSON file and keep a `.bak`. Existing configuration files must use standard JSON. Weave finds
+`weave-mcp` on your `PATH`, or you can pass `--binary`.
+Omit `--write` to print the entry for manual configuration.
+
+| `NAME` | Configuration |
+| --- | --- |
+| `claude` | Claude Desktop's user configuration |
+| `cursor` | Cursor's `~/.cursor/mcp.json` |
+| `vscode` | VS Code's default user-profile `mcp.json`, using the `servers` key. For another VS Code profile or a native GitHub Copilot configuration, see the [VS Code MCP reference](https://code.visualstudio.com/docs/agents/reference/mcp-configuration). |
+| `claude-code` | `.mcp.json` in the current directory. Run the command from your project root and approve the server when prompted. The entry uses local absolute paths. Review them before sharing the file. See the [Claude Code MCP guide](https://code.claude.com/docs/en/mcp). |
 
 A script sent to `weave_run` can now call `fs_read_text_file(...)`,
 `fs_list_directory(...)` and so on. CI runs `weave-mcp` against the official

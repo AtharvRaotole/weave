@@ -16,7 +16,7 @@ weave check FILE [--tool name=...,effect=read,arity=1]
 weave run FILE [--tool name=...,effect=read,behavior=echo] [--trace-out PATH]
 weave replay FILE --trace PATH [--tool ...]
 weave trace PATH
-weave mcp-config [--client claude|cursor] [--config FILE] [--binary PATH] [--name weave] [--write]
+weave mcp-config [--client claude|cursor|vscode|claude-code] [--config FILE] [--binary PATH] [--name weave] [--write]
 
 --tool fields: name, effect (pure|read|reversible|irreversible), arity,
 behavior (echo|const), result (a string, required for const).
@@ -154,9 +154,8 @@ def cmd_replay(args: list[str]) -> str:
 
 
 def cmd_mcp_config(args: list[str]) -> str:
-    """`weave mcp-config [--client claude|cursor] [--config FILE] [--binary PATH] [--name NAME] [--write]`:
-    print the MCP client entry that launches weave-mcp, or merge it into the client's config with --write."""
-    from weave.integrations import install_mcp_config, mcp_config_path, mcp_server_entry
+    """Print the weave-mcp entry, or merge it into the client's config with --write."""
+    from weave.integrations import MCP_CLIENTS, install_mcp_config, mcp_config_fragment, mcp_config_path, mcp_server_entry
 
     opts = {"--client": None, "--config": None, "--binary": None, "--name": "weave"}
     write, i = False, 0
@@ -168,14 +167,15 @@ def cmd_mcp_config(args: list[str]) -> str:
         else:
             raise RuntimeError(f"mcp-config: unexpected argument `{args[i]}`")
     entry = mcp_server_entry(opts["--config"], opts["--binary"])
+    client = opts["--client"]
     if write:
-        if not opts["--client"]:
-            raise RuntimeError("mcp-config --write needs --client claude or --client cursor")
-        path = install_mcp_config(opts["--client"], entry, opts["--name"])
+        if not client:
+            raise RuntimeError(f"mcp-config --write needs --client ({', '.join(MCP_CLIENTS)})")
+        path = install_mcp_config(client, entry, opts["--name"])
         return f"added `{opts['--name']}` to {path}; restart the client to load it"
-    out = json.dumps({"mcpServers": {opts["--name"]: entry}}, indent=2)
-    if opts["--client"]:
-        out += f"\n# paste into {mcp_config_path(opts['--client'])}, or rerun with --write"
+    out = json.dumps(mcp_config_fragment(client, opts["--name"], entry), indent=2)
+    if client:
+        out += f"\n# paste into {mcp_config_path(client)}, or rerun with --write"
     return out
 
 

@@ -7,10 +7,11 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import weave
 from weave.cli import dispatch
-from weave.integrations import install_mcp_config, mcp_server_entry
+from weave.integrations import install_mcp_config, mcp_config_path, mcp_server_entry
 
 
 @weave.declare(effect="read", arity=1)
@@ -115,6 +116,52 @@ def test_mcp_config_entry_and_merge():
             pass
         else:
             raise AssertionError("missing config accepted")
+
+
+def test_new_mcp_client_config_paths():
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        data = root / "appdata"
+        xdg = root / "xdg"
+        for system, config_dir in (
+            ("Linux", xdg),
+            ("Darwin", root / "Library" / "Application Support"),
+            ("Windows", data),
+        ):
+            with patch("weave.integrations.Path.home", return_value=root), \
+                 patch("weave.integrations.Path.cwd", return_value=root / "project"), \
+                 patch("weave.integrations.platform.system", return_value=system), \
+                 patch.dict(os.environ, {"XDG_CONFIG_HOME": str(xdg), "APPDATA": str(data)}):
+                assert mcp_config_path("vscode") == config_dir / "Code" / "User" / "mcp.json"
+                assert mcp_config_path("claude-code") == root / "project" / ".mcp.json"
+        with patch("weave.integrations.Path.home", return_value=root), \
+             patch("weave.integrations.platform.system", return_value="Linux"), \
+             patch.dict(os.environ, clear=True):
+            assert mcp_config_path("vscode") == root / ".config" / "Code" / "User" / "mcp.json"
+
+
+def test_new_mcp_clients_print_and_merge():
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        binary = root / "weave-mcp"
+        binary.write_text("")
+        command = str(binary.resolve())
+        for client, key, path, entry in (
+            ("vscode", "servers", root / "mcp.json", {"command": command, "type": "stdio"}),
+            ("claude-code", "mcpServers", root / ".mcp.json", {"command": command}),
+        ):
+            original = {key: {"other": {"command": "x"}}, "extra": {"keep": True}}
+            path.write_text(json.dumps(original), encoding="utf-8")
+            args = ["mcp-config", "--client", client, "--binary", str(binary), "--name", "my-weave"]
+            with patch("weave.integrations.mcp_config_path", return_value=path):
+                printed = dispatch(args).split("\n# paste", 1)[0]
+                assert json.loads(printed) == {key: {"my-weave": entry}}
+                assert json.loads(path.read_text(encoding="utf-8")) == original
+                assert str(path) in dispatch(args + ["--write"])
+            expected = {**original, key: {**original[key], "my-weave": entry}}
+            assert json.loads(path.read_text(encoding="utf-8")) == expected
+            backup = path.with_name(path.name + ".bak")
+            assert json.loads(backup.read_text(encoding="utf-8")) == original
 
 
 if __name__ == "__main__":
