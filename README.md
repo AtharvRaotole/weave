@@ -19,6 +19,28 @@ into context. With Weave, the model writes one script in a restricted Python sub
 helpers). A Rust runtime runs the script's independent reads together, orders writes by their declared effects, and
 returns only what the script printed.
 
+```bash
+pip install weave-lang
+```
+
+Say the model is asked which of three cities is warmest. Instead of three tool calls and three round trips, it sends
+one script:
+
+```python
+temps = {c: get_weather(c) for c in ["Paris", "Tokyo", "Lima"]}
+warmest = max(temps, key=lambda c: temps[c])
+print(warmest, temps[warmest])
+```
+
+Weave runs the three `get_weather` calls at the same time and hands back one line: `Tokyo 22`.
+
+Does it help? On a pre-registered fan-out suite against real services it passed 40/40 tasks vs 27/40 for plain
+function calling, at about half the cost. It's not a win everywhere though: on BFCL multi-turn it was a small,
+not significant gain in one round (159/378 vs 140/378), a clear loss with GPT-5.4 mini in another (18/60 vs 27/60),
+and a draw on tau-bench. Details below.
+
+If this looks useful, a star helps other people find it. Issues and PRs are very welcome too.
+
 ## Results
 
 <img src="https://raw.githubusercontent.com/AtharvRaotole/weave/main/assets/results.png" alt="Round 9 results: tasks passed and cost per task, Weave vs native, on a real-services fan-out suite and on BFCL multi-turn" width="860">
