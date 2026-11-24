@@ -7,6 +7,7 @@
 [![CI](https://github.com/AtharvRaotole/weave/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AtharvRaotole/weave/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/AtharvRaotole/weave)](https://github.com/AtharvRaotole/weave/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/AtharvRaotole/weave/blob/main/LICENSE)
+[![AtharvRaotole/weave MCP server](https://glama.ai/mcp/servers/AtharvRaotole/weave/badges/score.svg)](https://glama.ai/mcp/servers/AtharvRaotole/weave)
 
 [Quickstart](#quickstart) · [Getting started](https://github.com/AtharvRaotole/weave/blob/main/docs/getting-started.md) · [Benchmarks](https://github.com/AtharvRaotole/weave/blob/main/docs/benchmarks.md) · [Paper](https://github.com/AtharvRaotole/weave/blob/main/docs/paper/weave.md) · [Production](https://github.com/AtharvRaotole/weave/blob/main/docs/production.md) · [Full reference](https://github.com/AtharvRaotole/weave/blob/main/docs/reference.md)
 
