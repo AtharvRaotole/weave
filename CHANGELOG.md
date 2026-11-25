@@ -12,6 +12,12 @@ is sent (a mismatch is a catchable `ToolError`). Opt out with `check_args=False`
 Rust hosts can use `ToolSpec::with_params` and `weave::Params`. A script that used to fail at run
 time with a Python `TypeError` for a bad call now fails the static check before any tool runs.
 
+Fix: a Python process could abort at exit ("PyGILState_Release: thread state must be current",
+exit code 134 or 139) when an in-process tool that had timed out or been cancelled was still
+finishing on its thread. An `atexit` hook now waits up to 3 s, with the GIL released, for those
+threads to return. New offline example `examples/failing_branch.py`: a 12-way fan-out where one
+call raises and one hangs past its timeout, and the other ten results still come back.
+
 String `startswith` and `endswith` accept a list of strings as well as one string.
 Empty lists return false; non-string elements produce a runtime error.
 

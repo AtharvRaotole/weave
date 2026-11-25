@@ -32,7 +32,7 @@ the host before trying a write again. There is no durable completion ledger.
 | --- | --- | --- |
 | Queued / not-yet-started tool calls | yes, never started | — |
 | Isolated Python tool running in an owned worker | yes: worker process group SIGKILLed | `tests/python/test_isolation.py` |
-| In-process Python tool already running | no; its result is discarded | finishes on its own; use isolation |
+| In-process Python tool already running | no; its result is discarded | finishes on its own; at interpreter exit Weave waits up to 3 s for it (`test_exit_after_timeout.py`); use isolation |
 | Upstream MCP call in flight | cooperative: `notifications/cancelled` sent | upstream may ignore it |
 | Parse and static check | no | 1 MiB source cap, nesting cap; `test_bounded_phases.py` (1 MiB check ≈ 0.02 s release) |
 | Replay | no (runs on the calling thread) | trace byte cap; linear in calls, checked by `test_bounded_phases.py` |

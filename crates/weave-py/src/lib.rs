@@ -177,7 +177,7 @@ impl PyEngine {
             self.in_process_tools.push(name.clone());
             let debug = self.debug;
             self.inner.register_cooperative(&name, spec, move |args, kwargs, token| {
-                match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, Some(token), debug)) {
+                match attach_tool_thread(|py| call_python(py, &func, &args, &kwargs, Some(token), debug)) {
                     Some(result) => result,
                     None => Err("Python interpreter is unavailable".to_string()),
                 }
@@ -188,7 +188,7 @@ impl PyEngine {
             self.in_process_tools.push(name.clone());
             let debug = self.debug;
             self.inner.register(&name, spec, move |args, kwargs| {
-                match Python::try_attach(|py| call_python(py, &func, &args, &kwargs, None, debug)) {
+                match attach_tool_thread(|py| call_python(py, &func, &args, &kwargs, None, debug)) {
                     Some(result) => result,
                     None => Err("Python interpreter is unavailable".to_string()),
                 }
@@ -704,13 +704,13 @@ fn start_isolated(
         let wait_job = job.clone_ref(py);
         let kill_job = job;
         Ok(IsolatedJob::new(
-            move || match Python::try_attach(|py| read_job(py, &wait_job)) {
+            move || match attach_tool_thread(|py| read_job(py, &wait_job)) {
                 Some(Ok(value)) => Ok(value),
                 Some(Err(err)) => Err(err.to_string()),
                 None => Err("Python interpreter is unavailable".into()),
             },
             move || {
-                Python::try_attach(|py| {
+                attach_tool_thread(|py| {
                     let _ = kill_job.call_method0(py, "kill");
                 });
             },
@@ -969,6 +969,53 @@ fn py_to_value_depth(obj: &Bound<'_, PyAny>, depth: usize) -> PyResult<Value> {
     )))
 }
 
+/// Tool threads currently running Python code.
+///
+/// A timed-out or cancelled in-process tool keeps running on its own thread
+/// after the run returns. If the interpreter starts shutting down while that
+/// thread is still inside Python, CPython aborts the process ("PyGILState_Release:
+/// thread state must be current"). An `atexit` hook waits for these threads.
+static TOOL_THREADS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// How long the exit hook waits for running tool threads.
+const EXIT_WAIT: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// `Python::try_attach`, counted in [`TOOL_THREADS`] for its whole duration.
+fn attach_tool_thread<R>(f: impl FnOnce(Python<'_>) -> R) -> Option<R> {
+    struct Counted;
+    impl Drop for Counted {
+        fn drop(&mut self) {
+            TOOL_THREADS.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    TOOL_THREADS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let _counted = Counted;
+    Python::try_attach(f)
+}
+
+/// Registered with `atexit`: wait up to `timeout_s` (with the GIL released)
+/// for tool threads still running Python, so a cancelled or timed-out tool
+/// can return before the interpreter shuts down. Returns how many were still
+/// running when it gave up (0 when all finished).
+#[pyfunction]
+#[pyo3(signature = (timeout_s=None))]
+fn _wait_for_tool_threads(py: Python<'_>, timeout_s: Option<f64>) -> usize {
+    let limit = timeout_s
+        .filter(|s| s.is_finite() && *s >= 0.0)
+        .map(std::time::Duration::from_secs_f64)
+        .unwrap_or(EXIT_WAIT);
+    py.detach(|| {
+        let started = std::time::Instant::now();
+        loop {
+            let running = TOOL_THREADS.load(std::sync::atomic::Ordering::SeqCst);
+            if running == 0 || started.elapsed() >= limit {
+                return running;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+    })
+}
+
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCancelToken>()?;
@@ -978,5 +1025,8 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyRun>()?;
     m.add_class::<PySpecCache>()?;
     m.add_function(wrap_pyfunction!(declare, m)?)?;
+    let wait = wrap_pyfunction!(_wait_for_tool_threads, m)?;
+    m.add_function(wait.clone())?;
+    m.py().import("atexit")?.call_method1("register", (wait,))?;
     Ok(())
 }
