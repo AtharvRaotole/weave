@@ -88,6 +88,10 @@ pub struct ToolSpec {
     /// irreversible tools). Default: every resource, so any write
     /// invalidates every cached speculative read.
     pub writes: Footprint,
+    /// Declared parameters. When set, the static check rejects unknown
+    /// keywords, missing required arguments, extra positional arguments and
+    /// literal arguments that do not match a parameter's schema.
+    pub params: Option<crate::params::Params>,
 }
 
 /// A set of named resources a tool touches.
@@ -163,6 +167,7 @@ impl Default for ToolSpec {
             timeout: None,
             reads: Footprint::All,
             writes: Footprint::All,
+            params: None,
         }
     }
 }
@@ -201,6 +206,13 @@ impl ToolSpec {
     /// Declare the resources this tool writes.
     pub fn with_writes(mut self, writes: Footprint) -> Self {
         self.writes = writes;
+        self
+    }
+
+    /// Declare the tool's parameters, checked before a script runs. When set,
+    /// they decide which keywords the tool takes, instead of `accepts_kwargs`.
+    pub fn with_params(mut self, params: crate::params::Params) -> Self {
+        self.params = Some(params);
         self
     }
 

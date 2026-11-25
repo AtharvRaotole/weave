@@ -116,8 +116,10 @@ def test_listing_shows_return_types_and_bad_calls_are_explained():
     assert "score(name: str) -> int, effect read." in tool.description
     out = tool.run('t = fs_read(path="a")\nprint("got " + t)')
     assert "cannot add str and dict with keys 'value'" in out, out
+    # Caught by the static check from the signature, before any tool runs.
     out = tool.run('t = fs_read("a")')
-    assert "bad call" in out and "fs_read(path=...)" in out and "single character" not in out, out
+    assert "did not pass the static check" in out and "takes no positional arguments" in out, out
+    assert "fs_read(path=...)" in out and "single character" not in out, out
     # An accumulator loop still overlaps its reads (loop prefetch).
     started = time.monotonic()
     out = tool.run("total = 0\nfor n in ['ab', 'cde', 'f', 'ghij', 'k', 'lm']:\n    total += score(n)\nprint(total)")

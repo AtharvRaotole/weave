@@ -87,3 +87,61 @@ fn structured_results_reach_scripts_and_direct_calls_unchanged() {
     let body: Json = serde_json::from_str(&text(&result)).unwrap_or_else(|_| panic!("{}", text(&result)));
     assert_eq!(body["stdout"], json!("True True\n"), "{body}");
 }
+
+fn config_with(extra: Json) -> ServerConfig {
+    let script = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fake_mcp_server.py");
+    let python = std::env::var("PYTHON").unwrap_or_else(|_| "python3".into());
+    let mut upstream = json!({"name": "notes", "command": python, "args": [script], "prefix": "n_"});
+    for (k, v) in extra.as_object().unwrap() {
+        upstream[k] = v.clone();
+    }
+    ServerConfig::from_json(&json!({"upstreams": [upstream]}).to_string()).unwrap()
+}
+
+#[test]
+fn weave_check_uses_the_upstream_input_schema() {
+    let config = config();
+    let ok = call(&config, "weave_check", json!({"source": "r = n_search_notes(\"a\", limit=3, mode=\"fuzzy\")\n"}));
+    assert_eq!(text(&ok), "ok");
+    let bad = call(&config, "weave_check", json!({"source": "r = n_search_notes(\"a\", limt=3)\ns = n_search_notes(\"a\", mode=\"regex\")\nt = n_search_notes(5)\n"}));
+    assert_eq!(bad["isError"], json!(true));
+    let message = text(&bad);
+    assert!(message.contains("tool `n_search_notes` has no parameter `limt` hint: did you mean `limit`?"), "{message}");
+    assert!(message.contains("argument `mode` of tool `n_search_notes` must be one of 'exact', 'fuzzy', got str 'regex'"), "{message}");
+    assert!(message.contains("argument `query` of tool `n_search_notes` should be str, got int 5"), "{message}");
+}
+
+#[test]
+fn a_bad_call_late_in_the_script_stops_an_earlier_write() {
+    let config = config();
+    let source = "n_write_note(\"early\", \"should not land\")\nr = n_read_note(kee=\"a\")\n";
+    let result = call(&config, "weave_run", json!({"source": source}));
+    assert_eq!(result["isError"], json!(true));
+    assert!(text(&result).contains("has no parameter `kee` hint: did you mean `key`?"), "{}", text(&result));
+    let probe = call(&config, "n_read_note", json!({"key": "early"}));
+    assert_eq!(probe["isError"], json!(true), "the write must not have happened: {probe}");
+}
+
+#[test]
+fn computed_values_are_checked_before_they_reach_the_upstream() {
+    let config = config();
+    let source = "n = str(2 + 3)\ntry:\n    r = n_search_notes(\"a\", limit=n)\nexcept ToolError as e:\n    r = \"caught: \" + str(e)\nok = n_search_notes(\"a\", limit=int(n))\nprint(r)\nprint(ok)\n";
+    let result = call(&config, "weave_run", json!({"source": source}));
+    let body: Json = serde_json::from_str(&text(&result)).unwrap_or_else(|_| panic!("{}", text(&result)));
+    let stdout = body["stdout"].as_str().unwrap();
+    assert!(stdout.contains("caught: ") && stdout.contains("argument `limit` of tool `n_search_notes` should be int, got str '5'"), "{stdout}");
+    assert!(stdout.contains(r#"{"limit": 5, "query": "a"}"#), "{stdout}");
+}
+
+#[test]
+fn check_args_false_turns_the_schema_checks_off() {
+    let config = config_with(json!({"check_args": false}));
+    let ok = call(&config, "weave_check", json!({"source": "r = n_search_notes(\"a\", limt=3)\n"}));
+    assert_eq!(text(&ok), "ok");
+    let result = call(&config, "weave_run", json!({"source": "print(n_search_notes(\"a\", limit=\"7\", extra=1))\n"}));
+    let body: Json = serde_json::from_str(&text(&result)).unwrap_or_else(|_| panic!("{}", text(&result)));
+    assert_eq!(body["stdout"], json!("{\"extra\": 1, \"limit\": \"7\", \"query\": \"a\"}\n"));
+    assert!(ServerConfig::from_json(&json!({"upstreams": [{"name": "x", "command": "true", "check_args": "no"}]}).to_string())
+        .unwrap_err()
+        .contains("check_args must be true or false"));
+}

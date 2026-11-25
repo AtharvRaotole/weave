@@ -132,6 +132,21 @@ def main():
             # A path outside the allowed root is refused by the upstream, not weave.
             outside = client.call("fs_read_text_file", {"path": str(tmp / "config.json")})
             assert outside.get("isError") is True, outside
+
+            # Calls are checked against the servers' real inputSchemas before
+            # anything runs: a typo in a later call stops an earlier write.
+            early = data / "early.txt"
+            bad = (
+                f'fs_write_file(path={str(early)!r}, content="should not land")\n'
+                'mem_create_entities(entities=[{"name": "X", "entityType": "file", "observations": "one"}])\n'
+                f'git_log(repo_path={str(data)!r}, max_cout=1)\n'
+            )
+            checked = client.call("weave_run", {"source": bad})
+            text = checked["content"][0]["text"]
+            assert checked.get("isError") is True, text
+            assert "item `entities[0]['observations']` should be a list, got str 'one'" in text, text
+            assert "tool `git_log` has no parameter `max_cout` hint: did you mean `max_count`?" in text, text
+            assert not early.exists(), "the write before the bad call must not run"
         finally:
             client.close()
     print("reference filesystem/git/memory servers: real writes, outputSchema and structured results passed")

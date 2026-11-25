@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+Tool arguments are checked before a script runs. With a tool's parameters known, the static check
+rejects a keyword the tool doesn't have (with a "did you mean"), a missing required argument, the
+same argument twice and too many positional arguments. Python tools get their parameters from the
+function signature; MCP upstream tools from `inputSchema`, where literal argument values are also
+checked against a subset of JSON Schema and computed values are checked again just before each call
+is sent (a mismatch is a catchable `ToolError`). Opt out with `check_args=False` in Python or
+`"check_args": false` on an upstream. Scripted `weave-mcp` tools accept an optional `inputSchema`.
+Rust hosts can use `ToolSpec::with_params` and `weave::Params`. A script that used to fail at run
+time with a Python `TypeError` for a bad call now fails the static check before any tool runs.
+
 String `startswith` and `endswith` accept a list of strings as well as one string.
 Empty lists return false; non-string elements produce a runtime error.
 

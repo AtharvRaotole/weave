@@ -225,6 +225,28 @@ flowchart LR
 The restricted language is implemented in Rust. Scripts are not evaluated with
 Python's `eval` or `exec`. Registered host tools provide external access.
 
+### What the check catches before anything runs
+
+The whole script is checked before the first tool call, so a mistake in the last line stops a write
+on the first line. The check reports unknown tools (with a "did you mean"), names used before they
+are assigned, a wrong argument count when a tool declares `arity`, and, when a tool's parameters are
+known:
+
+- a keyword the tool doesn't have (`search(q, limt=5)` gets "did you mean `limit`?"),
+- a missing required argument, the same argument passed twice, or too many positional arguments,
+- for tools with a JSON Schema (MCP upstreams, scripted tools with `inputSchema`, Rust
+  `ToolSpec::with_params`): literal arguments whose value doesn't match it, like `limit="5"` for an
+  integer or `mode="regex"` outside an `enum`, including inside literal lists and dicts.
+
+Parameters come from the Python function's signature for `engine.tool` / `WeaveTool` (annotations
+are not type-checked, since Python doesn't enforce them) and from `inputSchema` for MCP tools. Values
+the script computes are only known at run time; `weave-mcp` checks those against the schema just
+before each call is sent, and a mismatch is a `ToolError` the script can catch. Only part of JSON
+Schema is checked (`type`, `enum`, `const`, `anyOf`/`oneOf`/`allOf`, `items`, `properties`,
+`required`, `additionalProperties: false`, local `$ref`); other keywords such as `pattern` or
+`minimum` are left to the tool. `None` is always accepted for an optional argument. Turn it off with
+`check_args=False` (Python `engine.tool` / `weave.declare`) or `"check_args": false` (an MCP upstream).
+
 ## Give your agent one workflow tool
 
 `WeaveTool` exposes your Python functions through one function-calling tool:
@@ -348,7 +370,8 @@ Upstream `outputSchema`, titles and annotations are forwarded. See
 [privacy](privacy.md).
 
 Optional settings include `effects`, text-result shaping with `results` (`text`, `lines`
-or `json`), and `examples` that make sample read calls at startup. Without an
+or `json`), `examples` that make sample read calls at startup, and `check_args` (default `true`; see
+[what the check catches](#what-the-check-catches-before-anything-runs)). Without an
 override, `readOnlyHint` maps to `read`; other tools default to `irreversible`.
 Treat annotations as declarations from the server, not verified permissions.
 
