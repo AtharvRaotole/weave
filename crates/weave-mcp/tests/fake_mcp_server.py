@@ -23,6 +23,11 @@ TOOLS = [
      "inputSchema": {"type": "object", "properties": {}}, "annotations": {"readOnlyHint": True}},
     {"name": "rpc_fail", "description": "Fail with a secret in a JSON-RPC error.",
      "inputSchema": {"type": "object", "properties": {}}, "annotations": {"readOnlyHint": True}},
+    {"name": "search_notes", "description": "Search notes; echoes the arguments it got.",
+     "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer"},
+                                                      "mode": {"type": "string", "enum": ["exact", "fuzzy"]}},
+                     "required": ["query"]},
+     "annotations": {"readOnlyHint": True}},
     {"name": "env_probe", "description": "Return an environment variable from the server process.",
      "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
      "annotations": {"readOnlyHint": True}},
@@ -60,6 +65,8 @@ def handle(msg):
                 sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": msg_id,
                                              "error": {"code": -32000, "message": "RPC-SECRET"}}) + "\n")
                 sys.stdout.flush()
+        elif params["name"] == "search_notes":
+            reply(msg_id, {"content": [{"type": "text", "text": json.dumps(args, sort_keys=True)}]})
         elif params["name"] == "env_probe":
             reply(msg_id, {"content": [{"type": "text", "text": os.environ.get(args["name"], "absent")}]})
         elif params["name"] == "read_note":

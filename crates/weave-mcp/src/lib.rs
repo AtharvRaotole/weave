@@ -31,6 +31,8 @@ pub struct ScriptedTool {
     pub delay_ms: u64,
     pub reads: Option<weave::Footprint>,
     pub writes: Option<weave::Footprint>,
+    /// Optional JSON Schema for the arguments, checked before a script runs.
+    pub params: Option<weave::Params>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -326,7 +328,8 @@ fn tool_schema() -> Json {
             "arity": {"type": "integer"},
             "behavior": {"type": "string", "enum": ["echo", "const"]},
             "result": {"type": "object", "description": "Tagged Weave value used when behavior is const"},
-            "delay_ms": {"type": "integer"}
+            "delay_ms": {"type": "integer"},
+            "inputSchema": {"type": "object", "description": "JSON Schema for the arguments; calls are checked against it before the script runs"}
         },
         "required": ["name"]
     })
@@ -538,6 +541,13 @@ fn parse_scripted(tool: &Json) -> Result<ScriptedTool, String> {
     if behavior != "echo" && behavior != "const" {
         return Err(format!("unknown tool behavior `{behavior}`; use echo or const"));
     }
+    let params = match tool.get("inputSchema") {
+        None => None,
+        Some(schema) => Some(
+            weave::Params::from_json_schema(schema)
+                .ok_or_else(|| format!("tool `{name}` inputSchema needs a properties object"))?,
+        ),
+    };
     let reads = footprint_field(tool, "reads").map_err(|err| format!("tool `{name}`: {err}"))?;
     let writes = footprint_field(tool, "writes").map_err(|err| format!("tool `{name}`: {err}"))?;
     Ok(ScriptedTool {
@@ -554,6 +564,7 @@ fn parse_scripted(tool: &Json) -> Result<ScriptedTool, String> {
         delay_ms: tool.get("delay_ms").and_then(|v| v.as_u64()).unwrap_or(0),
         reads,
         writes,
+        params,
     })
 }
 
@@ -567,6 +578,9 @@ fn register_parsed(engine: &mut Engine, tool: &ScriptedTool) -> Result<(), Strin
     }
     if let Some(writes) = &tool.writes {
         spec = spec.with_writes(writes.clone());
+    }
+    if let Some(params) = &tool.params {
+        spec = spec.with_params(params.clone());
     }
     let behavior = tool.behavior.clone();
     let delay_ms = tool.delay_ms;
@@ -632,6 +646,19 @@ fn footprint_field(tool: &Json, key: &str) -> Result<Option<weave::Footprint>, S
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn scripted_tools_take_an_input_schema() {
+        let tools = json!([{"name": "lookup", "effect": "read", "behavior": "echo",
+            "inputSchema": {"type": "object", "properties": {"sku": {"type": "string"}, "qty": {"type": "integer"}}, "required": ["sku"]}}]);
+        let check = |source: &str| weave_check(&json!({"source": source, "tools": tools}), &ServerConfig::default());
+        assert_eq!(check("x = lookup(\"a1\", qty=2)").unwrap(), "ok");
+        let err = check("x = lookup(qyt=2)").unwrap_err();
+        assert!(err.contains("tool `lookup` has no parameter `qyt` hint: did you mean `qty`?"), "{err}");
+        assert!(err.contains("tool `lookup` is missing required argument(s): sku"), "{err}");
+        let bad = parse_scripted(&json!({"name": "t", "inputSchema": {"type": "object"}})).unwrap_err();
+        assert_eq!(bad, "tool `t` inputSchema needs a properties object");
+    }
 
     #[test]
     fn parsed_config_reads_footprints() {

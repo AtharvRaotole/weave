@@ -46,6 +46,7 @@ jobs:
           python examples/real_mcp_upstream.py
           python examples/run_weave_tool.py
           python tests/python/test_agent_tool.py
+          python tests/python/test_arg_check.py
           timeout 300 python tests/python/test_isolation.py
           timeout 120 python tests/python/test_privacy.py
           timeout 120 python tests/python/test_bounded_phases.py

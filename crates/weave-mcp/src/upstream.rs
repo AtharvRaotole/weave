@@ -44,6 +44,11 @@ pub struct UpstreamConfig {
     /// Let upstream error text (isError content, JSON-RPC error messages and
     /// failed example samples) reach scripts and listings. Default false.
     pub debug: bool,
+    /// Check script calls against each tool's `inputSchema`: before the
+    /// script runs (keyword names, required arguments, positional count,
+    /// literal argument types) and again on the real values before each
+    /// call is sent. Default true.
+    pub check_args: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -95,6 +100,10 @@ pub struct UpstreamTool {
     /// Parameter names in schema order; positional arguments map onto these.
     pub params: Vec<String>,
     pub required: Vec<String>,
+    /// What the static check and the call-time check enforce, from
+    /// `input_schema`. `None` when `check_args` is off or the schema has no
+    /// `properties`.
+    pub arg_check: Option<weave::Params>,
     pub effect: Effect,
     pub shape: Option<ResultShape>,
     /// `(arguments, output)` from one sample call made at startup.
@@ -200,7 +209,12 @@ impl UpstreamConfig {
         };
         let inherit_env = flag("inherit_env")?;
         let debug = flag("debug")?;
-        Ok(Self { name, command, args, prefix, effects, results, examples, stderr, env, inherit_env, debug })
+        let check_args = match value.get("check_args") {
+            None => true,
+            Some(Json::Bool(b)) => *b,
+            Some(_) => return Err(format!("upstream `{name}` check_args must be true or false")),
+        };
+        Ok(Self { name, command, args, prefix, effects, results, examples, stderr, env, inherit_env, debug, check_args })
     }
 }
 
@@ -387,7 +401,15 @@ impl Upstream {
             let spec_tool = tool.clone();
             let mut spec = ToolSpec::effect(tool.effect);
             spec.accepts_kwargs = true;
+            if let Some(params) = &tool.arg_check {
+                spec = spec.with_params(params.clone());
+            }
             engine.register_cooperative(&tool.name, spec, move |args, kwargs, token| {
+                // Values computed by the script are only known now; check them
+                // before anything reaches the upstream.
+                if let Some(params) = &spec_tool.arg_check {
+                    params.validate_call(&spec_tool.name, &args, &kwargs)?;
+                }
                 let arguments = arguments_for(&spec_tool, &args, &kwargs)?;
                 let result = upstream.request_interruptible("tools/call", json!({"name": spec_tool.upstream_name, "arguments": arguments}), || token.is_cancelled())?;
                 if result.get("isError").and_then(Json::as_bool) == Some(true) {
@@ -453,7 +475,9 @@ fn discover(config: &UpstreamConfig, tool: &Json) -> Result<UpstreamTool, String
         .get(&upstream_name)
         .copied()
         .unwrap_or(if read_only { Effect::Read } else { Effect::Irreversible });
+    let arg_check = if config.check_args { weave::Params::from_json_schema(&input_schema) } else { None };
     Ok(UpstreamTool {
+        arg_check,
         name: script_alias(&format!("{}{}", config.prefix, upstream_name)),
         description: tool.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
         input_schema,

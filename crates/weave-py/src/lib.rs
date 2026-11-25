@@ -100,7 +100,7 @@ impl PyEngine {
     /// `reads` / `writes` name the resources the tool touches (a list of
     /// strings, or `"*"`). They default to every resource, so any write drops
     /// every speculated read. Narrow them to keep unrelated cached reads.
-    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false))]
+    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true))]
     #[allow(clippy::too_many_arguments)]
     fn tool(
         &mut self,
@@ -115,6 +115,7 @@ impl PyEngine {
         reads: Option<Vec<String>>,
         writes: Option<Vec<String>>,
     retry_safe: bool,
+        check_args: bool,
     ) -> PyResult<()> {
         let effect = match effect.as_deref() {
             None => Effect::Irreversible,
@@ -126,6 +127,11 @@ impl PyEngine {
         };
         let mut spec = ToolSpec::effect(effect).with_retry_safe(retry_safe);
         spec.accepts_kwargs = accepts_keywords(py, &func).unwrap_or(false);
+        if check_args {
+            if let Some(params) = signature_params(py, &func) {
+                spec = spec.with_params(params);
+            }
+        }
         if let Some(reads) = reads {
             spec = spec.with_reads(footprint_from(py, &func, reads));
         }
@@ -272,7 +278,7 @@ impl PyEngine {
     }
 
     /// Decorator that registers the function on this engine.
-    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false))]
+    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true))]
     #[allow(clippy::too_many_arguments)]
     fn declare(
         slf: Bound<'_, Self>,
@@ -285,6 +291,7 @@ impl PyEngine {
         reads: Option<Vec<String>>,
         writes: Option<Vec<String>>,
     retry_safe: bool,
+        check_args: bool,
     ) -> PyResult<Py<EngineDecl>> {
         Py::new(
             py,
@@ -298,6 +305,7 @@ impl PyEngine {
                 reads,
                 writes,
                 retry_safe,
+                check_args,
             },
         )
     }
@@ -473,6 +481,7 @@ struct EngineDecl {
     reads: Option<Vec<String>>,
     writes: Option<Vec<String>>,
     retry_safe: bool,
+    check_args: bool,
 }
 
 #[pymethods]
@@ -491,6 +500,7 @@ impl EngineDecl {
             self.reads.clone(),
             self.writes.clone(),
             self.retry_safe,
+            self.check_args,
         )?;
         Ok(func)
     }
@@ -506,6 +516,7 @@ struct MarkDecl {
     reads: Option<Vec<String>>,
     writes: Option<Vec<String>>,
     retry_safe: bool,
+    check_args: bool,
 }
 
 #[pymethods]
@@ -520,13 +531,14 @@ impl MarkDecl {
         meta.set_item("reads", self.reads.clone())?;
         meta.set_item("writes", self.writes.clone())?;
         meta.set_item("retry_safe", self.retry_safe)?;
+        meta.set_item("check_args", self.check_args)?;
         func.setattr(py, "__weave__", meta)?;
         Ok(func)
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false))]
+#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true))]
 #[allow(clippy::too_many_arguments)]
 fn declare(
     effect: Option<String>,
@@ -537,6 +549,7 @@ fn declare(
     reads: Option<Vec<String>>,
     writes: Option<Vec<String>>,
     retry_safe: bool,
+    check_args: bool,
 ) -> MarkDecl {
     MarkDecl {
         effect,
@@ -547,6 +560,7 @@ fn declare(
         reads,
         writes,
         retry_safe,
+        check_args,
     }
 }
 
@@ -568,6 +582,11 @@ fn install_marked(engine: &mut PyEngine, py: Python<'_>, func: &Bound<'_, PyAny>
         dict_opt_strings(meta, "reads")?,
         dict_opt_strings(meta, "writes")?,
         dict_bool(meta, "retry_safe")?,
+        // Marked before `check_args` existed: keep the default.
+        match meta.get_item("check_args")? {
+            Some(value) if !value.is_none() => value.extract()?,
+            _ => true,
+        },
     )
 }
 
@@ -730,6 +749,42 @@ fn accepts_keywords(py: Python<'_>, func: &Py<PyAny>) -> PyResult<bool> {
         if name != "cancel" && matches!(kind, 1 | 3 | 4) { return Ok(true); }
     }
     Ok(false)
+}
+
+/// Parameters from the function's Python signature, so the static check can
+/// reject an unknown keyword, a missing required argument or too many
+/// positional arguments before any tool runs. Annotations are not used: Python
+/// does not enforce them, so a type check could reject a call that works.
+/// `cancel` is injected by the host and is not a script parameter. Returns
+/// `None` when the signature cannot be read.
+fn signature_params(py: Python<'_>, func: &Py<PyAny>) -> Option<weave_core::Params> {
+    let inspect = py.import("inspect").ok()?;
+    let sig = inspect.call_method1("signature", (func,)).ok()?;
+    let empty = inspect.getattr("Parameter").ok()?.getattr("empty").ok()?;
+    let mut out = weave_core::Params::default();
+    for param in sig.getattr("parameters").ok()?.call_method0("values").ok()?.try_iter().ok()? {
+        let param = param.ok()?;
+        let name: String = param.getattr("name").ok()?.extract().ok()?;
+        let kind: i32 = param.getattr("kind").ok()?.extract().ok()?;
+        if name == "cancel" {
+            continue;
+        }
+        let required = param.getattr("default").ok()?.is(&empty);
+        match kind {
+            // POSITIONAL_ONLY, POSITIONAL_OR_KEYWORD, KEYWORD_ONLY
+            0 | 1 | 3 => out.params.push(weave_core::Param {
+                name,
+                required,
+                positional: kind != 3,
+                keyword: kind != 0,
+                schema: None,
+            }),
+            2 => out.extra_positional = true,
+            4 => out.extra_keywords = true,
+            _ => return None,
+        }
+    }
+    Some(out)
 }
 
 fn wants_cancel(py: Python<'_>, func: &Py<PyAny>) -> PyResult<bool> {

@@ -4,6 +4,7 @@ use crate::analysis::is_builtin;
 use crate::ast::{Expr, ExprKind, Stmt, StmtKind, Target};
 use crate::error::Diagnostic;
 use crate::tools::ToolRegistry;
+use crate::value::Value;
 
 pub fn check_program(stmts: &[Stmt], tools: &ToolRegistry) -> Vec<Diagnostic> {
     let mut defined = HashSet::new();
@@ -268,9 +269,12 @@ fn check_call(
             if is_builtin(name) {
                 diags.extend(check_builtin(line, col, name, args.len(), keywords));
             } else if let Some(tool) = tools.get(name) {
+                let mut arity_failed = false;
                 if let Some(arity) = tool.spec.arity {
-                    let count = args.len() + if tool.spec.accepts_kwargs { keywords.len() } else { 0 };
+                    let takes_kwargs = tool.spec.accepts_kwargs || tool.spec.params.is_some();
+                    let count = args.len() + if takes_kwargs { keywords.len() } else { 0 };
                     if count != arity {
+                        arity_failed = true;
                         diags.push(Diagnostic::static_err(
                             line,
                             col,
@@ -278,7 +282,9 @@ fn check_call(
                         ).with_hint(format!("pass {arity} positional argument(s) to `{name}`")));
                     }
                 }
-                if !keywords.is_empty() && !tool.spec.accepts_kwargs {
+                if let Some(params) = &tool.spec.params {
+                    diags.extend(check_params(line, col, name, params, args, keywords, arity_failed));
+                } else if !keywords.is_empty() && !tool.spec.accepts_kwargs {
                     diags.push(Diagnostic::static_err(
                         line,
                         col,
@@ -369,6 +375,74 @@ fn suggest(name: &str, tools: &ToolRegistry) -> Option<String> {
         }
     }
     best.map(|(_, name)| name)
+}
+
+/// Check a tool call against the tool's declared parameters. Literal
+/// arguments are also checked against each parameter's schema; other
+/// arguments are only known at run time.
+fn check_params(
+    line: usize,
+    col: usize,
+    name: &str,
+    params: &crate::params::Params,
+    args: &[Expr],
+    keywords: &[crate::ast::Keyword],
+    arity_failed: bool,
+) -> Vec<Diagnostic> {
+    use crate::params::ArgRef;
+    let arg_values: Vec<Option<Value>> = args.iter().map(literal_value).collect();
+    let kw_values: Vec<(String, Option<Value>)> = keywords
+        .iter()
+        .filter_map(|kw| kw.name.clone().map(|n| (n, literal_value(&kw.value))))
+        .collect();
+    let mut out = Vec::new();
+    for problem in params.problems(name, &arg_values, &kw_values) {
+        // The arity check already reported a count problem.
+        if arity_failed && (problem.message.contains("positional argument(s)") || problem.message.contains("missing required")) {
+            continue;
+        }
+        let (l, c) = match &problem.at {
+            Some(ArgRef::Positional(i)) => args.get(*i).map(|a| (a.line, a.col)).unwrap_or((line, col)),
+            Some(ArgRef::Keyword(k)) => keywords
+                .iter()
+                .find(|kw| kw.name.as_deref() == Some(k.as_str()))
+                .map(|kw| (kw.value.line, kw.value.col))
+                .unwrap_or((line, col)),
+            None => (line, col),
+        };
+        let mut diag = Diagnostic::static_err(l, c, problem.message);
+        if let Some(hint) = problem.hint {
+            diag = diag.with_hint(hint);
+        }
+        out.push(diag);
+    }
+    out
+}
+
+/// The value of a literal expression (`"x"`, `-3`, `[1, 2]`, `{"a": None}`),
+/// or `None` when it is only known at run time.
+fn literal_value(expr: &Expr) -> Option<Value> {
+    use crate::ast::UnaryOp;
+    Some(match &expr.kind {
+        ExprKind::None => Value::Null,
+        ExprKind::Bool(b) => Value::Bool(*b),
+        ExprKind::Int(i) => Value::Int(*i),
+        ExprKind::Float(f) => Value::Float(*f),
+        ExprKind::Str(s) => Value::Str(s.clone()),
+        ExprKind::Unary { op: UnaryOp::USub, operand } => match literal_value(operand)? {
+            Value::Int(i) => Value::Int(i.checked_neg()?),
+            Value::Float(f) => Value::Float(-f),
+            _ => return None,
+        },
+        ExprKind::List(items) | ExprKind::Tuple(items) => Value::List(items.iter().map(literal_value).collect::<Option<_>>()?),
+        ExprKind::Dict(items) => Value::Dict(
+            items
+                .iter()
+                .map(|(k, v)| Some((literal_value(k)?, literal_value(v)?)))
+                .collect::<Option<_>>()?,
+        ),
+        _ => return None,
+    })
 }
 
 fn edit_distance(a: &str, b: &str) -> usize {

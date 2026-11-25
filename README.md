@@ -35,6 +35,11 @@ print(warmest, temps[warmest])
 
 Weave runs the three `get_weather` calls at the same time and hands back one line: `Tokyo 22`.
 
+The whole script is checked before the first call runs: unknown tools, a misspelled keyword
+(`get_weather(cty="Paris")` gets "did you mean `city`?"), a missing argument, or for MCP tools a
+literal that doesn't match the tool's JSON schema. So a typo on the last line stops the script before
+the first line's write happens. [What the check covers](https://github.com/AtharvRaotole/weave/blob/main/docs/reference.md#what-the-check-catches-before-anything-runs).
+
 Does it help? On a pre-registered fan-out suite against real services it passed 40/40 tasks vs 27/40 for plain
 function calling, at about half the cost. It's not a win everywhere though: on BFCL multi-turn it was a small,
 not significant gain in one round (159/378 vs 140/378), a clear loss with GPT-5.4 mini in another (18/60 vs 27/60),
