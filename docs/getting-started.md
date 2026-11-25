@@ -247,6 +247,26 @@ task.cancel()   # cancels the script session; the worker process is killed
 `timeout_ms` killing a non-cooperative tool. In-process tools (no worker pool)
 and MCP upstream calls only get cooperative cancellation.
 
+**When one call in a fan-out fails or hangs.** A failed or timed-out call is a `ToolError` at
+that call only; the other calls keep running. Catch it per item and the rest of the results still
+come back, in about the time of the slowest call or the timeout:
+
+```python
+def check(name):
+    try:
+        return status(name)          # registered with timeout_ms=500
+    except ToolError as e:
+        return "error: " + str(e)
+
+results = {s: check(s) for s in services}
+```
+
+[`examples/failing_branch.py`](../examples/failing_branch.py) runs 12 status checks where one
+service raises and one never answers: 10 come back `ok`, the two failures come back as error
+strings, and the whole run takes about 0.5 s (the timeout) where the same calls one after another
+add up to 2.5 s. Without the `try`, the first failure ends the script with that error. Read tools
+can also retry with `retries=N`.
+
 ## Recipe 5: check, run and replay from a shell
 
 ```bash

@@ -39,6 +39,7 @@ jobs:
           python examples/speedup.py
           python examples/hard_deadline.py
           python examples/footprints.py
+          python examples/failing_branch.py
           python -m weave.cli check examples/hello.weave --tool name=weather,effect=read,arity=1
           python -m weave.cli run examples/hello.weave --tool name=weather,effect=read,behavior=echo,arity=1
           cargo build -p weave-mcp
@@ -49,6 +50,7 @@ jobs:
           timeout 300 python tests/python/test_isolation.py
           timeout 120 python tests/python/test_privacy.py
           timeout 120 python tests/python/test_bounded_phases.py
+          timeout 120 python tests/python/test_exit_after_timeout.py
           python -m pip install openai-agents
           python tests/python/test_agent_tool.py
           python -m pip install "langchain-core==1.8.1" "langgraph==1.2.22"
