@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+Tool arguments are checked before a script runs. With a tool's parameters known, the static check
+rejects a keyword the tool doesn't have (with a "did you mean"), a missing required argument, the
+same argument twice and too many positional arguments. Python tools get their parameters from the
+function signature; MCP upstream tools from `inputSchema`, where literal argument values are also
+checked against a subset of JSON Schema and computed values are checked again just before each call
+is sent (a mismatch is a catchable `ToolError`). Opt out with `check_args=False` in Python or
+`"check_args": false` on an upstream. Scripted `weave-mcp` tools accept an optional `inputSchema`.
+Rust hosts can use `ToolSpec::with_params` and `weave::Params`. A script that used to fail at run
+time with a Python `TypeError` for a bad call now fails the static check before any tool runs.
+
 Fix: a Python process could abort at exit ("PyGILState_Release: thread state must be current",
 exit code 134 or 139) when an in-process tool that had timed out or been cancelled was still
 finishing on its thread. An `atexit` hook now waits up to 3 s, with the GIL released, for those
