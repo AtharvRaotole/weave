@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-25
+
+Packaging: the v1.2.0 tag was cut, but the Linux wheel jobs failed because `ubuntu-latest`
+is now Ubuntu 26.04, which has no CPython 3.9. This release pins those jobs to `ubuntu-24.04`.
+The code is the same as 1.2.0.
+
 ## [1.2.0] - 2026-11-25
 
 Tool arguments are checked before a script runs. With a tool's parameters known, the static check
