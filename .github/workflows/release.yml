@@ -22,8 +22,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, target: x86_64 }
-          - { os: ubuntu-latest, target: aarch64 }
+          # ubuntu-latest is 26.04, which has no CPython 3.9 in setup-python.
+          # The v1.2.0 tag failed on that; keep 24.04 for 3.9-3.13 wheels.
+          - { os: ubuntu-24.04, target: x86_64 }
+          - { os: ubuntu-24.04, target: aarch64 }
           - { os: macos-latest, target: aarch64 }
           # macos-13 runners are retired and never pick up jobs; cross-compile
           # x86_64 on the arm runner instead.

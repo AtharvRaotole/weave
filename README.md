@@ -76,7 +76,7 @@ the model sees them. Skip it when each step waits for a person, or when a small 
 ```bash
 pip install weave-lang
 # or a GitHub release wheel:  curl -fsSL https://raw.githubusercontent.com/AtharvRaotole/weave/main/scripts/install.sh | sh
-# or from source (needs Rust):  pip install "git+https://github.com/AtharvRaotole/weave@v1.2.0"
+# or from source (needs Rust):  pip install "git+https://github.com/AtharvRaotole/weave@v1.2.1"
 ```
 
 The package is `weave-lang` (import `weave`). Python 3.9–3.13, Linux, macOS and Windows.
