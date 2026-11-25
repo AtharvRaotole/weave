@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-25
+
 Tool arguments are checked before a script runs. With a tool's parameters known, the static check
 rejects a keyword the tool doesn't have (with a "did you mean"), a missing required argument, the
 same argument twice and too many positional arguments. Python tools get their parameters from the

@@ -49,16 +49,16 @@ curl -fsSL https://raw.githubusercontent.com/AtharvRaotole/weave/main/scripts/in
 Other paths that work today for anyone with access to the repository and releases:
 
 ```bash
-# 1) A prebuilt wheel from the v1.1.2 GitHub release (no Rust needed).
+# 1) A prebuilt wheel from the v1.2.0 GitHub release (no Rust needed).
 #    Pick the file for your Python (cp39-cp313) and platform, then:
-python -m pip install ./weave_lang-1.1.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+python -m pip install ./weave_lang-1.2.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
 #    With the GitHub CLI:
-gh release download v1.1.2 -R AtharvRaotole/weave -p 'weave_lang-1.1.2-cp312-*manylinux*x86_64*' -p SHA256SUMS.txt
+gh release download v1.2.0 -R AtharvRaotole/weave -p 'weave_lang-1.2.0-cp312-*manylinux*x86_64*' -p SHA256SUMS.txt
 sha256sum --ignore-missing -c SHA256SUMS.txt
 
 # 2) From the tagged source (needs Rust >= 1.97 via rustup):
-pip install "git+https://github.com/AtharvRaotole/weave@v1.1.2"
-#    or the release sdist: pip install ./weave_lang-1.1.2.tar.gz
+pip install "git+https://github.com/AtharvRaotole/weave@v1.2.0"
+#    or the release sdist: pip install ./weave_lang-1.2.0.tar.gz
 ```
 
 Do not install `weave` (Weights & Biases Weave) in the same environment; it
@@ -74,7 +74,7 @@ cargo build --release --locked -p weave-mcp   # -> target/release/weave-mcp
 Check the install:
 
 ```bash
-python -c "import weave; print(weave.__version__)"   # 1.1.2
+python -c "import weave; print(weave.__version__)"   # 1.2.0
 python examples/quickstart.py                        # prints 49, then "quickstart ok"
 ```
 

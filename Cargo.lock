@@ -907,7 +907,7 @@ dependencies = [
 
 [[package]]
 name = "weave"
-version = "1.1.2"
+version = "1.2.0"
 dependencies = [
  "futures",
  "ruff_python_ast",
@@ -920,7 +920,7 @@ dependencies = [
 
 [[package]]
 name = "weave-cli"
-version = "1.1.2"
+version = "1.2.0"
 dependencies = [
  "serde_json",
  "weave",
@@ -928,7 +928,7 @@ dependencies = [
 
 [[package]]
 name = "weave-mcp"
-version = "1.1.2"
+version = "1.2.0"
 dependencies = [
  "serde_json",
  "weave",
@@ -936,7 +936,7 @@ dependencies = [
 
 [[package]]
 name = "weave-py"
-version = "1.1.2"
+version = "1.2.0"
 dependencies = [
  "pyo3",
  "weave",
