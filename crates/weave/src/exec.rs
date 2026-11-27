@@ -580,6 +580,19 @@ impl Engine {
         Ok(block_effects(&parsed.stmts, &self.tools).max)
     }
 
+    /// The static plan of `source`: every tool call site with its effect,
+    /// how many times it can run, where its arguments come from, what it may
+    /// write and which calls it waits for. Nothing runs. A script that fails
+    /// the static check is an error, as with [`Engine::run`].
+    pub fn plan(&self, source: &str) -> Result<crate::plan::Plan, WeaveError> {
+        let diags = self.check(source);
+        if !diags.is_empty() {
+            return Err(WeaveError::new(diags));
+        }
+        let parsed = parse_detailed(source, 0)?;
+        Ok(crate::plan::plan_program(&parsed.stmts, &self.tools))
+    }
+
     /// Run `source`, serving pure and read calls from `speculation` when the
     /// arguments match a prediction. See [`Engine::speculate`].
     pub fn run_with(&self, source: &str, speculation: Option<&SpecCache>) -> Result<RunResult, WeaveError> {

@@ -132,6 +132,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .diag.runtime .loc { color: var(--reversible); }
 .okmsg { color: var(--ok); margin: 0; font-size: 14px; }
 .note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+.plan { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0; font-size: 12px; white-space: pre-wrap; word-break: break-word; color: var(--muted); }
+.plan .plan-head { color: var(--text); font-weight: 600; }
+.plan .plan-write { color: var(--irreversible); }
 
 .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 11px; min-width: 110px; }

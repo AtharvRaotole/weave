@@ -1,14 +1,14 @@
-//! `weave check|run|replay|trace` for scripts whose tools are echo or const.
+//! `weave check|run|replay|trace|plan` for scripts whose tools are echo or const.
 //!
 //! Host functions with real bodies are registered from Python. This binary
-//! is the same four commands for scripts that only need scripted tools.
+//! is the same commands for scripts that only need scripted tools.
 
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::process::ExitCode;
 
-use weave::{Effect, Engine, ToolSpec, Trace, Value};
+use weave::{Effect, Engine, Footprint, ToolSpec, Trace, Value};
 
 fn main() -> ExitCode {
     match run(env::args().skip(1)) {
@@ -43,6 +43,7 @@ fn run(args: impl Iterator<Item = String>) -> Result<String, String> {
         "run" => cmd_run(rest),
         "replay" => cmd_replay(rest),
         "trace" => cmd_trace(rest),
+        "plan" => cmd_plan(rest),
         other => Err(format!("unknown command `{other}`\n{HELP}")),
     }
 }
@@ -52,9 +53,11 @@ weave check FILE [--tool name=...,effect=read,arity=1]
 weave run FILE [--tool name=...,effect=read,behavior=echo] [--trace-out PATH]
 weave replay FILE --trace PATH [--tool ...]
 weave trace PATH
+weave plan FILE [--tool ...] [--json]
 
 --tool fields: name, effect (pure|read|reversible|irreversible), arity,
-behavior (echo|const), result (a string, required for const).
+behavior (echo|const), result (a string, required for const),
+reads and writes (footprint templates separated by `;`, e.g. writes=ticket:{0}).
 echo returns its single positional argument.
 ";
 
@@ -63,6 +66,7 @@ struct Flags {
     trace: Option<String>,
     trace_out: Option<String>,
     tools: Vec<ToolFlag>,
+    json: bool,
 }
 
 struct ToolFlag {
@@ -71,6 +75,8 @@ struct ToolFlag {
     arity: Option<usize>,
     behavior: String,
     result: Option<String>,
+    reads: Option<String>,
+    writes: Option<String>,
 }
 
 fn parse_flags(args: &[String], need_trace: bool) -> Result<Flags, String> {
@@ -78,6 +84,7 @@ fn parse_flags(args: &[String], need_trace: bool) -> Result<Flags, String> {
     let mut trace = None;
     let mut trace_out = None;
     let mut tools = Vec::new();
+    let mut json = false;
     let mut i = 0;
     while i < args.len() {
         let arg = &args[i];
@@ -90,6 +97,10 @@ fn parse_flags(args: &[String], need_trace: bool) -> Result<Flags, String> {
             "--trace" => {
                 trace = Some(args.get(i + 1).ok_or("--trace needs a path")?.clone());
                 i += 2;
+            }
+            "--json" => {
+                json = true;
+                i += 1;
             }
             "--trace-out" => {
                 trace_out = Some(args.get(i + 1).ok_or("--trace-out needs a path")?.clone());
@@ -112,6 +123,7 @@ fn parse_flags(args: &[String], need_trace: bool) -> Result<Flags, String> {
         trace,
         trace_out,
         tools,
+        json,
     })
 }
 
@@ -121,6 +133,8 @@ fn parse_tool(spec: &str) -> Result<ToolFlag, String> {
     let mut arity = None;
     let mut behavior = "echo".to_string();
     let mut result = None;
+    let mut reads = None;
+    let mut writes = None;
     for part in spec.split(',') {
         let (key, value) = part
             .split_once('=')
@@ -140,6 +154,8 @@ fn parse_tool(spec: &str) -> Result<ToolFlag, String> {
             }
             "behavior" => behavior = value.to_string(),
             "result" => result = Some(value.to_string()),
+            "reads" => reads = Some(value.replace(';', ",")),
+            "writes" => writes = Some(value.replace(';', ",")),
             other => return Err(format!("unknown tool field `{other}`")),
         }
     }
@@ -156,6 +172,8 @@ fn parse_tool(spec: &str) -> Result<ToolFlag, String> {
         arity,
         behavior,
         result,
+        reads,
+        writes,
     })
 }
 
@@ -165,6 +183,12 @@ fn engine_from(tools: &[ToolFlag]) -> Engine {
         let mut spec = ToolSpec::effect(tool.effect);
         if let Some(arity) = tool.arity {
             spec = spec.with_arity(arity);
+        }
+        if let Some(reads) = &tool.reads {
+            spec = spec.with_reads(Footprint::parse(reads));
+        }
+        if let Some(writes) = &tool.writes {
+            spec = spec.with_writes(Footprint::parse(writes));
         }
         let behavior = tool.behavior.clone();
         let constant = tool.result.clone();
@@ -241,6 +265,13 @@ fn cmd_replay(args: &[String]) -> Result<String, String> {
         .replay(&source, &trace)
         .map_err(|err| err.to_string())?;
     Ok(result.stdout())
+}
+
+fn cmd_plan(args: &[String]) -> Result<String, String> {
+    let flags = parse_flags(args, false)?;
+    let source = fs::read_to_string(&flags.file).map_err(|err| format!("{}: {err}", flags.file))?;
+    let plan = engine_from(&flags.tools).plan(&source).map_err(|err| err.to_string())?;
+    Ok(if flags.json { plan.to_json() } else { plan.render() })
 }
 
 fn cmd_trace(args: &[String]) -> Result<String, String> {

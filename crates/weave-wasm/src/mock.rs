@@ -368,8 +368,20 @@ pub fn tools_json() -> String {
 pub fn check_json(source: &str) -> String {
     let calls: Calls = Arc::default();
     let store: Store = Arc::default();
-    let diags = engine(&calls, &store).check(source);
-    json!({ "ok": diags.is_empty(), "diagnostics": diags.iter().map(diag_json).collect::<Vec<_>>() }).to_string()
+    let engine = engine(&calls, &store);
+    let diags = engine.check(source);
+    // When the check passes, the static plan: every call and write the
+    // script can make, before anything runs.
+    let plan = if diags.is_empty() {
+        engine.plan(source).ok().map(|p| {
+            let mut v: Json = serde_json::from_str(&p.to_json()).expect("plan json");
+            v["text"] = json!(p.render());
+            v
+        })
+    } else {
+        None
+    };
+    json!({ "ok": diags.is_empty(), "diagnostics": diags.iter().map(diag_json).collect::<Vec<_>>(), "plan": plan }).to_string()
 }
 
 /// Check, then run when the check passes.
@@ -509,6 +521,23 @@ mod tests {
         let put = calls.iter().find(|c| c["tool"] == "db_put").unwrap();
         let post = calls.iter().find(|c| c["tool"] == "post_slack").unwrap();
         assert!(post["start_ms"].as_f64() >= put["end_ms"].as_f64(), "{out}");
+    }
+
+    #[test]
+    fn check_includes_the_plan_when_it_passes() {
+        let out: Json = serde_json::from_str(&check_json(
+            "visits = db_get(\"visits\")\ndb_put(\"visits\", visits + 1)\nfor to in [\"a@x.io\", \"b@x.io\"]:\n    send_email(to, subject=\"hi\", body=\"n\")\n",
+        ))
+        .unwrap();
+        assert_eq!(out["ok"], true, "{out}");
+        let plan = &out["plan"];
+        assert_eq!(plan["may_write"], true);
+        assert_eq!(plan["calls"][1]["tool"], "db_put");
+        assert_eq!(plan["calls"][1]["writes"]["names"][0], "db:visits", "{plan}");
+        assert_eq!(plan["calls"][2]["min_count"], 2);
+        assert!(plan["text"].as_str().unwrap().starts_with("plan: 4 tool calls"), "{plan}");
+        let bad: Json = serde_json::from_str(&check_json("nope(1)\n")).unwrap();
+        assert!(bad["plan"].is_null());
     }
 
     #[test]

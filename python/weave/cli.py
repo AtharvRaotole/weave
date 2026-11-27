@@ -1,4 +1,4 @@
-"""`weave check`, `run`, `replay`, `trace`, and `mcp-config`.
+"""`weave check`, `run`, `replay`, `trace`, `plan`, and `mcp-config`.
 
 Scripted tools are `echo` (return the positional argument) or `const` (return
 a fixed string). Real host functions are registered in Python with
@@ -16,10 +16,12 @@ weave check FILE [--tool name=...,effect=read,arity=1]
 weave run FILE [--tool name=...,effect=read,behavior=echo] [--trace-out PATH]
 weave replay FILE --trace PATH [--tool ...]
 weave trace PATH
+weave plan FILE [--tool ...] [--json]
 weave mcp-config [--client claude|cursor|vscode|claude-code] [--config FILE] [--binary PATH] [--name weave] [--write]
 
 --tool fields: name, effect (pure|read|reversible|irreversible), arity,
-behavior (echo|const), result (a string, required for const).
+behavior (echo|const), result (a string, required for const),
+reads and writes (footprint templates separated by `;`, e.g. writes=ticket:{0}).
 echo returns its single positional argument.
 """
 
@@ -52,6 +54,8 @@ def dispatch(args: list[str]) -> str:
         return cmd_replay(rest)
     if cmd == "trace":
         return cmd_trace(rest)
+    if cmd == "plan":
+        return cmd_plan(rest)
     if cmd == "mcp-config":
         return cmd_mcp_config(rest)
     raise RuntimeError(f"unknown command `{cmd}`\n{HELP}")
@@ -62,10 +66,14 @@ def parse_flags(args: list[str], need_trace: bool) -> dict:
     trace = None
     trace_out = None
     tools = []
+    as_json = False
     i = 0
     while i < len(args):
         arg = args[i]
-        if arg == "--tool":
+        if arg == "--json":
+            as_json = True
+            i += 1
+        elif arg == "--tool":
             tools.append(parse_tool(args[i + 1]))
             i += 2
         elif arg == "--trace":
@@ -85,7 +93,7 @@ def parse_flags(args: list[str], need_trace: bool) -> dict:
         raise RuntimeError("expected a script path")
     if need_trace and trace is None:
         raise RuntimeError("--trace is required")
-    return {"file": file, "trace": trace, "trace_out": trace_out, "tools": tools}
+    return {"file": file, "trace": trace, "trace_out": trace_out, "tools": tools, "json": as_json}
 
 
 def parse_tool(spec: str) -> dict:
@@ -123,7 +131,8 @@ def engine_from(tools: list[dict]):
                 return args[0]
             return list(args)
 
-        engine.tool(name, call, effect=effect, arity=arity)
+        footprints = {k: tool[k].split(";") for k in ("reads", "writes") if k in tool}
+        engine.tool(name, call, effect=effect, arity=arity, **footprints)
     return engine
 
 
@@ -134,6 +143,15 @@ def cmd_check(args: list[str]) -> str:
     if diags:
         raise RuntimeError("\n".join(diags))
     return "ok\n"
+
+
+def cmd_plan(args: list[str]) -> str:
+    flags = parse_flags(args, False)
+    source = Path(flags["file"]).read_text()
+    plan = engine_from(flags["tools"]).plan(source)
+    if flags["json"]:
+        return json.dumps({k: v for k, v in plan.items() if k != "text"}, indent=2)
+    return plan["text"]
 
 
 def cmd_run(args: list[str]) -> str:

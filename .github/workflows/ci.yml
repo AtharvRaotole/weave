@@ -40,6 +40,7 @@ jobs:
           python examples/hard_deadline.py
           python examples/footprints.py
           python examples/failing_branch.py
+          python examples/plan_preview.py
           python -m weave.cli check examples/hello.weave --tool name=weather,effect=read,arity=1
           python -m weave.cli run examples/hello.weave --tool name=weather,effect=read,behavior=echo,arity=1
           cargo build -p weave-mcp
@@ -48,6 +49,7 @@ jobs:
           python examples/run_weave_tool.py
           python tests/python/test_agent_tool.py
           python tests/python/test_arg_check.py
+          python -m pip install pytest && python -m pytest -q tests/python/test_plan.py
           timeout 300 python tests/python/test_isolation.py
           timeout 120 python tests/python/test_privacy.py
           timeout 120 python tests/python/test_bounded_phases.py

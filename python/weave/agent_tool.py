@@ -327,6 +327,18 @@ def _shift_lines(text: str, prelude: str) -> str:
 
 
 
+def _shift_plan(plan: dict, prelude: str) -> dict:
+    """Line numbers of a plan made with the one-line prelude, in the model's own script."""
+    import re
+
+    if not prelude:
+        return plan
+    for call in plan["calls"]:
+        call["line"] = max(1, call["line"] - 1)
+    plan["text"] = re.sub(r"\bline (\d+):", lambda m: f"line {max(1, int(m.group(1)) - 1)}:", plan["text"])
+    return plan
+
+
 GATE_RULE = (
     " A write whose arguments were computed from results you have not seen (or that follows a call that failed) is "
     "paused before it runs: the tool returns the results so far, and you send the writes again in the next script."
@@ -526,6 +538,7 @@ class WeaveTool:
         write_gate: str | None = None,
         gate_is_error: Callable[[Any], bool] | None = None,
         gate_read_names: Iterable[str] = (),
+        approve: Callable[[dict], Any] | None = None,
     ):
         """`worker_pool=N` runs every function in killable worker processes
         (`Engine(worker_pool=N, isolate_all=True)`): a tool timeout or the run
@@ -549,8 +562,13 @@ class WeaveTool:
         seen, or that follows a failed call (`"flow"`: any argument computed from unseen results; `"errors"`: failures only), and returns those results instead (see `WriteGate`). `gate_is_error` decides
         which results count as failures (default: a dict with an "error" key); `gate_read_names` lists functions the
         gate treats as reads although they are declared writes (e.g. for scheduling). Call `note_shown(text)` with
-        other text the model sees, such as the user's messages. Not available with `worker_pool` or an `engine`."""
+        other text the model sees, such as the user's messages. Not available with `worker_pool` or an `engine`.
+        `approve=fn` shows each script's static plan (`Engine.plan`) to `fn` before anything runs, when the script
+        may write. `fn(plan)` returns True to run it; False, None or a string (the reason) stops it, and the model gets
+        "[not approved] Nothing ran" with the reason. An exception in `fn` also stops it. Scripts that only read run
+        without asking."""
         self.functions = list(functions)
+        self.approve = approve
         self.gate = WriteGate(write_gate, gate_is_error, gate_read_names) if write_gate else None
         if self.gate is not None and (engine is not None or worker_pool is not None):
             raise ValueError("write_gate wraps the functions in-process; it cannot be used with engine= or worker_pool=")
@@ -590,6 +608,8 @@ class WeaveTool:
         elif reply:
             engine.install([self._reply_fn])
         self.engine = engine
+        if approve is not None and not hasattr(engine, "plan"):
+            raise ValueError("approve= needs an engine with plan(source)")
         if max_wall_time_ms is not None:
             self.engine.set_limits(max_wall_time_ms=max_wall_time_ms)
 
@@ -682,6 +702,10 @@ class WeaveTool:
         if problems:
             return "error: the script did not pass the static check\n" + "\n".join(_shift_lines(p, prelude) for p in problems)
         source = prelude + source
+        if self.approve is not None:
+            refusal = self._ask_approval(source, prelude)
+            if refusal is not None:
+                return refusal
         try:
             if _cancel is not None and hasattr(self.engine, "session"):
                 session = self.engine.session()
@@ -705,6 +729,36 @@ class WeaveTool:
             self._reply_text = self._pending_reply
             return out if out.strip() else "(replied)"
         return out if out.strip() else "(the script printed nothing; print the values you need)"
+
+    def plan(self, source: str) -> dict:
+        """The static plan of a script, without running anything (see `Engine.plan`).
+
+        Lists every tool call site: its effect, how many times it can run, where each argument comes from (a
+        literal, or the results of other calls), what it may write, and which calls it waits for. Line numbers
+        are the script's own, as in error messages."""
+        if not source.endswith("\n"):
+            source += "\n"
+        prelude = self._prelude(source) if self.persist_variables else ""
+        return _shift_plan(self.engine.plan(prelude + source), prelude)
+
+    def _ask_approval(self, source: str, prelude: str) -> str | None:
+        """None when the script may run; otherwise the text for the model."""
+        try:
+            plan = _shift_plan(self.engine.plan(source), prelude)
+        except Exception as exc:  # noqa: BLE001 - a script that cannot be planned does not run
+            return f"error: {_shift_lines(str(exc), prelude)}"
+        if not plan["may_write"]:
+            return None
+        try:
+            verdict = self.approve(plan)
+        except Exception as exc:  # noqa: BLE001 - fail closed
+            verdict = f"the approval check failed ({type(exc).__name__}: {exc})"
+        if verdict is True:
+            return None
+        writes = sorted({c["tool"] for c in plan["calls"] if c["effect"] in _WRITE_EFFECTS})
+        reason = verdict.strip().rstrip(".") if isinstance(verdict, str) and verdict.strip() else "the plan was declined"
+        return (f"[not approved] Nothing ran, no tool was called. Reason: {reason}. "
+                f"The script would call {', '.join(writes)}. Change the script or ask the user how to proceed.")
 
     def take_reply(self) -> str | None:
         """The text the last successful script passed to `reply()`, once; None if it did not reply or failed."""
