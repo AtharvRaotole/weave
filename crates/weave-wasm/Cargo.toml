@@ -1,0 +1,33 @@
+[package]
+name = "weave-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Browser playground build of the Weave runtime, with mock tools on a virtual clock"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Lets the playground logic build and test natively (`cargo test -p
+# weave-wasm --features virtual-time`). wasm32 builds get virtual time
+# automatically.
+virtual-time = ["weave/virtual-time"]
+
+[dependencies]
+weave = { path = "../weave" }
+serde_json = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+
+# Print the playground's JSON for a script: `cargo run -p weave-wasm
+# --features virtual-time --example peek -- file.weave`
+[[example]]
+name = "peek"
+required-features = ["virtual-time"]

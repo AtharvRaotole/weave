@@ -469,7 +469,7 @@ fn spawn_pending(arc: &Arc<Mutex<Launch>>) {
         (g.handle.clone(), std::mem::take(&mut g.pending_spawn))
     };
     for fut in pending {
-        handle.spawn(async move {
+        crate::rt::spawn(&handle, async move {
             let _ = fut.await;
         });
     }
@@ -653,13 +653,9 @@ impl Engine {
     }
 
     fn open(&self, mode: RunMode, speculation: Option<SpecCache>) -> Session {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(2)
-            .max_blocking_threads(64)
-            .enable_all()
-            .thread_name("weave")
-            .build()
-            .expect("create tokio runtime");
+        #[cfg(weave_vt)]
+        crate::rt::vclock::reset();
+        let runtime = crate::rt::runtime();
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let (result_tx, result_rx) = std::sync::mpsc::sync_channel(1);
         let (complete_tx, complete_rx) = watch::channel(false);
@@ -690,7 +686,7 @@ impl Engine {
             steps: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         };
         let arc = Arc::new(Mutex::new(launch));
-        runtime.spawn(driver(rx, arc, result_tx));
+        crate::rt::spawn(runtime.handle(), driver(rx, arc, result_tx));
         Session {
             runtime: Some(runtime),
             tx,
@@ -736,7 +732,7 @@ pub struct Session {
     cancel_tx: watch::Sender<bool>,
     max_wall_time: Duration,
     /// When execution started (the first statements reached the scheduler).
-    clock: Option<std::time::Instant>,
+    clock: Option<Duration>,
     timed_out: Arc<std::sync::atomic::AtomicBool>,
 }
 
@@ -752,13 +748,13 @@ impl Session {
         if self.clock.is_some() {
             return;
         }
-        self.clock = Some(std::time::Instant::now());
+        self.clock = Some(crate::rt::now());
         let limit = self.max_wall_time;
         let cancel = self.cancel_tx.clone();
         let flag = self.timed_out.clone();
         let Some(runtime) = &self.runtime else { return };
-        runtime.spawn(async move {
-            tokio::time::sleep(limit).await;
+        crate::rt::spawn(runtime.handle(), async move {
+            crate::rt::sleep(limit).await;
             flag.store(true, std::sync::atomic::Ordering::SeqCst);
             let _ = cancel.send(true);
         });
@@ -859,10 +855,29 @@ impl Session {
             .map_err(|_| WeaveError::runtime(0, 0, "session closed"))?;
         // The timer cancels the run at the limit; allow a short grace for
         // cancelled work to unwind before giving up on the driver.
-        let elapsed = self.clock.map(|c| c.elapsed()).unwrap_or_default();
-        let wait = self.max_wall_time.saturating_sub(elapsed) + Duration::from_millis(250);
         let timed_out = || self.timed_out.load(std::sync::atomic::Ordering::SeqCst);
-        match self.result_rx.recv_timeout(wait) {
+        #[cfg(not(weave_vt))]
+        let received = {
+            let elapsed = self.clock.map(|c| crate::rt::now().saturating_sub(c)).unwrap_or_default();
+            let wait = self.max_wall_time.saturating_sub(elapsed) + Duration::from_millis(250);
+            self.result_rx.recv_timeout(wait)
+        };
+        // Virtual time: drive the single-threaded runtime here. The clock
+        // only moves when every task is waiting on it.
+        #[cfg(weave_vt)]
+        let received = {
+            let runtime = self.runtime.as_ref().expect("session runtime");
+            let rx = &self.result_rx;
+            crate::rt::drive(runtime, || match rx.try_recv() {
+                Ok(result) => Some(Ok(result)),
+                Err(std::sync::mpsc::TryRecvError::Empty) => None,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    Some(Err(std::sync::mpsc::RecvTimeoutError::Disconnected))
+                }
+            })
+            .unwrap_or(Err(std::sync::mpsc::RecvTimeoutError::Timeout))
+        };
+        match received {
             Ok(Err(_)) if timed_out() => Err(self.time_limit_error()),
             Ok(Ok(mut result)) => {
                 result.trace.source = self.source.clone();
@@ -2566,13 +2581,13 @@ async fn invoke_once(
         ToolBody::Sync(func) => {
             let func = func.clone();
             let limit = timeout;
-            handle.spawn_blocking(move || invoke_sync(func, call_args, call_kwargs, limit, &label))
+            crate::rt::spawn_blocking(handle, move || invoke_sync(func, call_args, call_kwargs, limit, &label))
         }
         ToolBody::Cooperative(func) => {
             let func = func.clone();
             let limit = timeout;
             let session = session.clone();
-            handle.spawn(async move {
+            crate::rt::spawn(handle, async move {
                 invoke_cooperative(func, call_args, call_kwargs, token, source, limit, session, &label).await
             })
         }
@@ -2580,7 +2595,7 @@ async fn invoke_once(
             let func = func.clone();
             let limit = timeout;
             let session = session.clone();
-            handle.spawn(async move {
+            crate::rt::spawn(handle, async move {
                 invoke_async(func, call_args, call_kwargs, token, source, limit, session).await
             })
         }
@@ -2588,7 +2603,7 @@ async fn invoke_once(
             let start = start.clone();
             let limit = timeout;
             let session = session.clone();
-            handle.spawn(async move {
+            crate::rt::spawn(handle, async move {
                 invoke_isolated(start, call_args, call_kwargs, limit, session, &label).await
             })
         }
@@ -2606,6 +2621,12 @@ fn invoke_sync(
     limit: Option<std::time::Duration>,
     tool_name: &str,
 ) -> Result<Value, String> {
+    // Virtual time has no threads: the call runs inline and can't be timed out.
+    #[cfg(weave_vt)]
+    let limit: Option<std::time::Duration> = {
+        let _ = (limit, tool_name);
+        None
+    };
     if let Some(limit) = limit {
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -2635,13 +2656,10 @@ async fn invoke_cooperative(
     session: watch::Receiver<bool>,
     tool_name: &str,
 ) -> Result<Value, String> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    std::thread::spawn(move || {
-        let _ = tx.send(func(args, kwargs, token));
-    });
+    let rx = crate::rt::detach(move || func(args, kwargs, token));
     let timeout_sleep = async {
         if let Some(limit) = limit {
-            tokio::time::sleep(limit).await;
+            crate::rt::sleep(limit).await;
         } else {
             std::future::pending::<()>().await;
         }
@@ -2691,14 +2709,11 @@ async fn invoke_isolated(
     // cancellation guard even when the session/future is dropped mid-call.
     let mut owned = OwnedJob(Some(start(args, kwargs)?));
     let job = owned.0.as_ref().expect("owned job");
-    let (tx, rx) = tokio::sync::oneshot::channel();
     let wait = job.waiter();
-    std::thread::spawn(move || {
-        let _ = tx.send(wait());
-    });
+    let rx = crate::rt::detach(move || wait());
     let timeout_sleep = async {
         if let Some(limit) = limit {
-            tokio::time::sleep(limit).await;
+            crate::rt::sleep(limit).await;
         } else {
             std::future::pending::<()>().await;
         }
@@ -2743,7 +2758,7 @@ async fn invoke_async(
     let work = func(args, kwargs, token.clone());
     let timeout_sleep = async {
         if let Some(limit) = limit {
-            tokio::time::sleep(limit).await;
+            crate::rt::sleep(limit).await;
             true
         } else {
             std::future::pending::<bool>().await

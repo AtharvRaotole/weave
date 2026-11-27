@@ -1,0 +1,13 @@
+# Two reads in parallel, some plain Python in the middle, then one
+# irreversible post that only runs after everything it depends on.
+repo = "AtharvRaotole/weave"
+open_issues = gh_issues(repo, state="open")
+closed = gh_issues(repo, state="closed")
+
+labels = {}
+for issue in open_issues:
+    labels[issue["label"]] = labels.get(issue["label"], 0) + 1
+
+summary = f"{len(open_issues)} open, {len(closed)} closed. labels: {labels}"
+print(summary)
+post_slack("#weave-triage", summary)

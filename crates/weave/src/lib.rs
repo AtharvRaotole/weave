@@ -14,6 +14,7 @@ mod error;
 mod exec;
 mod limits;
 mod params;
+mod rt;
 mod parse;
 mod plan;
 mod speculate;
@@ -33,3 +34,5 @@ pub use speculate::{PredictedCall, Predictor, SpecCache, SpecStats};
 pub use tools::{Footprint, IsolatedJob, ToolFn, ToolSpec};
 pub use trace::{Trace, TraceEvent};
 pub use value::Value;
+#[cfg(weave_vt)]
+pub use rt::vclock;
