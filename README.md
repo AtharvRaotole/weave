@@ -11,6 +11,8 @@
 
 [Quickstart](#quickstart) · [Getting started](https://github.com/AtharvRaotole/weave/blob/main/docs/getting-started.md) · [Benchmarks](https://github.com/AtharvRaotole/weave/blob/main/docs/benchmarks.md) · [Paper](https://github.com/AtharvRaotole/weave/blob/main/docs/paper/weave.md) · [Production](https://github.com/AtharvRaotole/weave/blob/main/docs/production.md) · [Full reference](https://github.com/AtharvRaotole/weave/blob/main/docs/reference.md)
 
+**[Try it in your browser](https://atharvraotole.github.io/weave/)**: the real parser, check and scheduler compiled to WebAssembly, with mock tools. Nothing to install.
+
 <img src="https://raw.githubusercontent.com/AtharvRaotole/weave/main/assets/demo.gif" alt="Terminal recording of python examples/demo.py: one Weave script makes 13 tool calls in 4 overlapping waves in 1.2 s" width="720">
 
 </div>

@@ -1,0 +1,12 @@
+# A tool failure is an exception you can catch, so one bad city does not
+# sink the whole batch. The other calls still run in parallel.
+temps = {}
+for city in ["Berlin", "Atlantis", "Pune"]:
+    try:
+        temps[city] = weather(city)["temp_c"]
+    except Exception as e:
+        temps[city] = None
+
+print(temps)
+ok = [c for c in temps if temps[c] is not None]
+print("got", len(ok), "of", len(temps))

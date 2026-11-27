@@ -1,0 +1,10 @@
+# Five independent reads. Weave starts them all at once.
+cities = ["Paris", "Tokyo", "London", "Mumbai", "Sydney"]
+reports = [weather(c) for c in cities]
+
+warmest = reports[0]
+for r in reports:
+    if r["temp_c"] > warmest["temp_c"]:
+        warmest = r
+
+print(f"warmest: {warmest['city']} at {warmest['temp_c']}C ({warmest['sky']})")

@@ -1,0 +1,9 @@
+# Writes keep program order, and reads respect them. The second
+# db_get("visits") waits for the write to that key. db_get("owner")
+# touches a different key, so it does not wait for the write to finish.
+visits = db_get("visits")
+db_put("visits", visits + 1)
+owner = db_get("owner")
+now = db_get("visits")
+print(f"visits: {visits} -> {now}, owner: {owner}")
+send_email("ops@example.com", subject="visit count", body=f"now {now}")
