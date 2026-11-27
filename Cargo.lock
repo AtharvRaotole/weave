@@ -957,7 +957,7 @@ dependencies = [
 
 [[package]]
 name = "weave"
-version = "1.2.1"
+version = "1.3.0"
 dependencies = [
  "futures",
  "ruff_python_ast",
@@ -970,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "weave-cli"
-version = "1.2.1"
+version = "1.3.0"
 dependencies = [
  "serde_json",
  "weave",
@@ -978,7 +978,7 @@ dependencies = [
 
 [[package]]
 name = "weave-mcp"
-version = "1.2.1"
+version = "1.3.0"
 dependencies = [
  "serde_json",
  "weave",
@@ -986,7 +986,7 @@ dependencies = [
 
 [[package]]
 name = "weave-py"
-version = "1.2.1"
+version = "1.3.0"
 dependencies = [
  "pyo3",
  "weave",
@@ -994,7 +994,7 @@ dependencies = [
 
 [[package]]
 name = "weave-wasm"
-version = "1.2.1"
+version = "1.3.0"
 dependencies = [
  "serde_json",
  "wasm-bindgen",

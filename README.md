@@ -138,7 +138,7 @@ function calling can do better (that's our GPT-5.4 mini loss above).
 ```bash
 pip install weave-lang
 # or a GitHub release wheel:  curl -fsSL https://raw.githubusercontent.com/AtharvRaotole/weave/main/scripts/install.sh | sh
-# or from source (needs Rust):  pip install "git+https://github.com/AtharvRaotole/weave@v1.2.1"
+# or from source (needs Rust):  pip install "git+https://github.com/AtharvRaotole/weave@v1.3.0"
 ```
 
 The package is `weave-lang` (import `weave`). Python 3.9–3.13, Linux, macOS and Windows.
