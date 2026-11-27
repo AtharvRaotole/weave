@@ -5,8 +5,8 @@
 The playground runs the real Weave crate in the browser: the parser, the
 pre-run check (unknown tools, unknown or missing arguments, literal type and
 enum checks, with "did you mean" hints) and the scheduler. It is built from
-`crates/weave-wasm` and the static files in `playground/`, and is deployed by
-`.github/workflows/pages.yml`.
+`crates/weave-wasm` and the static files in `playground/`, and `.github/workflows/pages.yml` tests it and
+publishes it to the `gh-pages` branch, which GitHub Pages serves.
 
 ## How it runs without threads
 
