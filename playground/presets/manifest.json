@@ -1,8 +1,9 @@
 [
-  {"id": "fanout", "name": "Fan out", "blurb": "Five lookups, all started at once.", "expect": "ok"},
-  {"id": "chain", "name": "Summarize hits", "blurb": "Each call waits only for the values it needs.", "expect": "ok"},
-  {"id": "triage", "name": "Triage and post", "blurb": "Two reads together, then one post that can't be undone.", "expect": "ok"},
-  {"id": "writes", "name": "Writes in order", "blurb": "Writes keep your order. Reads of other keys don't wait on them.", "expect": "ok"},
-  {"id": "check", "name": "Broken script", "blurb": "Typos, bad arguments and wrong result keys, caught before anything runs.", "expect": "check"},
-  {"id": "errors", "name": "Catch an error", "blurb": "A failed call is an exception you can catch.", "expect": "ok"}
+  {"id": "morning", "name": "Morning update", "task": "Get the weather for our three offices and the open issue count, then post a morning update to #general.", "blurb": "Four lookups start together. The post can't be undone, so it waits for them, and the plan shows it before anything runs.", "expect": "ok"},
+  {"id": "fanout", "name": "Fan out", "task": "Which of these five cities is warmest right now?", "blurb": "Five lookups that don't need each other, all started at once.", "expect": "ok"},
+  {"id": "chain", "name": "Summarize hits", "task": "Search for \"parallel tool calls\" and give me a short note on each hit.", "blurb": "Each call waits only for the values it needs.", "expect": "ok"},
+  {"id": "triage", "name": "Triage and post", "task": "Count our open issues by label and post a summary to #weave-triage.", "blurb": "Two reads together, then one post that can't be undone.", "expect": "ok"},
+  {"id": "writes", "name": "Writes in order", "task": "Bump the visit counter, read it back, and email ops the new count.", "blurb": "Writes keep your order. Reads of other keys don't wait on them.", "expect": "ok"},
+  {"id": "check", "name": "Broken script", "task": "Same kind of job, but the model made mistakes: a misspelled tool, a wrong argument, a key that isn't there.", "blurb": "The check catches all of it before anything runs, so nothing gets half done.", "expect": "check"},
+  {"id": "errors", "name": "Catch an error", "task": "Get the temperature in three cities, even if one lookup fails.", "blurb": "A failed call is an exception you can catch, so one bad city doesn't sink the rest.", "expect": "ok"}
 ]

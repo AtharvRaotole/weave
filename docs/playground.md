@@ -10,6 +10,17 @@ you mean" hints), the plan, and the scheduler. The Rust side lives in
 `.github/workflows/pages.yml` tests it and pushes it to the `gh-pages` branch,
 which is what GitHub Pages serves.
 
+## What's on the page
+
+The top says what Weave is and walks a first-time visitor through three
+steps: pick an example (each one states its task), read the check and the
+plan (every tool call and every write, worked out before anything runs), and
+hit Run (a timeline of which calls overlapped, the writes in the order they
+ran, and the output). After each run a short note says what happened in plain
+words. `playground/tests/e2e.py` clicks through all of it in headless
+Chromium and prints a pass or fail line per check. CI runs it on every build,
+and you can point it at the live site too.
+
 ## How it runs without threads
 
 On your machine Weave uses a multi-threaded tokio runtime with real timers and
@@ -44,7 +55,7 @@ cargo test -p weave --features virtual-time --test virtual_time
 cargo test -p weave-wasm --features virtual-time
 WASM_BINDGEN=/path/to/wasm-bindgen scripts/build-playground.sh
 (cd target/playground-site && python3 -m http.server 8765)
-python playground/tests/smoke.py http://localhost:8765/
+python playground/tests/e2e.py http://localhost:8765/
 ```
 
 The page uses Inter and JetBrains Mono, both under the SIL Open Font License.
