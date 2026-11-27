@@ -247,6 +247,53 @@ Schema is checked (`type`, `enum`, `const`, `anyOf`/`oneOf`/`allOf`, `items`, `p
 `minimum` are left to the tool. `None` is always accepted for an optional argument. Turn it off with
 `check_args=False` (Python `engine.tool` / `weave.declare`) or `"check_args": false` (an MCP upstream).
 
+#### Declared results: wrong keys caught before anything runs
+
+Declare what a tool returns and the check also follows its results through the script:
+
+```python
+@weave.declare(effect="read", returns='{"id": str, "status": str, "items": list[{"sku": str, "qty": int}], "note": str?}')
+def get_order(order_id): ...
+```
+
+Then `get_order("W1")["state"]` is rejected with "get_order() has no key 'state'; ... did you mean
+'status'?", and so is `item["quantity"]` in `for item in order["items"]`, or a string key on a list
+(`orders()["id"]`). This happens before the first call, so an earlier write in the same script never runs.
+
+`returns=` takes a JSON Schema dict or the shape notation that tool listings and
+`shape_of_samples` use: `{"k": T}` (a `?` after a field makes it optional), `list[T]`, `dict[str, T]`,
+`dict`, `list`, `str`, `int`, `float`, `bool`, `None`, `any`, and `A | B`. A `{...}` shape is closed;
+end it with `...` (`{"id": str, ...}`) when other keys may appear. In Rust it is
+`ToolSpec::with_returns(schema)`, with `weave::schema_from_shape` for the notation. The declared type is
+also shown to the model in the tool listing.
+
+It reports only lookups that cannot work under the declaration:
+
+- a missing key only on a closed object (a `{...}` shape, or a JSON Schema with
+  `additionalProperties: false`); a declared optional key is fine;
+- a string key on a value declared as a list, str, number, bool or `None`;
+- nothing for values declared as a union (`A | B`, `anyOf`, `enum`, ...), for lookups inside a `try`
+  body or in a branch chosen by a key test (`if "error" in r:`, `r.get("x")`), for keys the script
+  tests anywhere with `in` or `.get`, or, for the type case, when the script calls `isinstance`;
+- nothing once a name is reassigned, changed in place (`r[k] = v`, `r.update(...)`) or assigned in a
+  loop or `try` body.
+
+The check trusts the declaration. A shape learned from samples that miss a variant (a status tool whose
+keys depend on its argument) will reject a key the real tool returns; declare those as open (`...`) or as
+a union. `fn.__weave_returns__` set by hand stays a display-only hint, as before; only `returns=` is
+checked.
+
+How often this comes up, measured on recorded runs (no new model calls;
+[`bench/bfcl/replay_returns.py`](../bench/bfcl/replay_returns.py)): we passed all 6,653 Weave scripts
+from our BFCL rounds 11 to 14 through the check, with the return shapes learned from the train split. It
+reported 50 of them. 45 had actually failed at run time on the reported line (29 of those after an
+earlier tool call in the script had already run). 3 had run without error: all three read
+`parkingBrakeStatus` from `displayCarStatus('parkingBrake')`, a variant missing from the learned shape.
+The other 2 failed earlier for another reason. It missed 198 recorded lookup failures: 172 because the
+backend returned an `{"error": ...}` dict instead of the declared result, and 26 on optional keys or
+undeclared types. Each caught script still needs a repair turn, as the runtime error did; what changes is
+that nothing runs first. We have not measured whether this changes task success.
+
 ### See the plan before it runs
 
 `Engine.plan(source)` (Python), `WeaveTool.plan(source)`, `weave plan FILE [--json]` (CLI), the `weave_plan`

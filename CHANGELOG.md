@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+Declared results: `weave.declare(returns=...)`, `Engine.tool(returns=...)` and Rust
+`ToolSpec::with_returns` take a JSON Schema or a shape string (`{"id": str, "items": list[{"sku": str}],
+"note": str?}`, `...` for open objects; `weave::schema_from_shape` in Rust). The pre-run check follows
+each declared result through the script and rejects lookups that cannot work under the declaration: a
+key a closed object does not have (with "did you mean"), or a string key on a list, str, number, bool or
+`None`. Lookups in `try` bodies, in branches chosen by a key test, on keys the script tests with `in` or
+`.get`, and on union types are not reported. `__weave_returns__` alone stays display-only. A property test
+checks on random programs and conforming results that every reported lookup fails when it runs and every
+certain failure is reported. `bench/bfcl/replay_returns.py` replays recorded BFCL scripts through the check
+(no model calls). The playground's mock tools declare their results and the failing-check preset shows one.
+
 ## [1.3.0] - 2026-11-27
 
 Plan preview: see what a script will do before any tool runs. `Engine.plan(source)` and

@@ -44,7 +44,8 @@ def main():
 
         page.click('#presets button[data-id="check"]')
         expect(status).to_contain_text("Rejected by the check. 0 tools called.")
-        expect(page.locator("#check .diag")).to_have_count(4)
+        expect(page.locator("#check .diag")).to_have_count(5)
+        expect(page.locator("#check")).to_contain_text("did you mean 'temp_c'?")
         expect(page.locator("#check")).to_contain_text("did you mean `weather`?")
         expect(page.locator("#check")).to_contain_text("did you mean `limit`?")
         expect(page.locator("#timeline .row")).to_have_count(0)

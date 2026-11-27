@@ -1,0 +1,731 @@
+{
+ "summary": {
+  "caught": 45,
+  "caught_after_an_earlier_call": 29,
+  "caught_distinct_scripts": 43,
+  "missed_other": 26,
+  "missed_soft_error": 172,
+  "reported_but_ran_without_error": 3,
+  "reported_other_failure": 2,
+  "scripts": 6653
+ },
+ "cases": [
+  {
+   "kind": "caught",
+   "run": "20261115T193757Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-devA",
+   "task": "multi_turn_base_73",
+   "reported": [
+    "L2:C16: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C16: key 'status' is missing; the dict has keys 'fuelLevel'",
+   "script": "status = displayCarStatus('fuel')\ncurrent_fuel = status['status']['fuelLevel']\nneeded_fuel = 50 - current_fuel\nprint({'current_fuel': current_fuel, 'needed_fuel': needed_fuel})"
+  },
+  {
+   "kind": "reported_but_ran_without_error",
+   "run": "20261115T193757Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-devA",
+   "task": "multi_turn_base_73",
+   "reported": [
+    "L2:C4: displayCarStatus() has no key 'parkingBrakeStatus'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": null,
+   "script": "brake = displayCarStatus('parkingBrake')\nif brake['parkingBrakeStatus'] != 'engaged':\n    engage = activateParkingBrake('engage')\n    print({'parkingBrakeStatus': engage['parkingBrakeStatus']})\nelse:\n    print({'parkingBrakeStatus': 'engaged'})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194010Z-bfcl-multi_turn_base-dev-gpt-5.4-mini-2026-03-17-devB",
+   "task": "multi_turn_base_73",
+   "reported": [
+    "L2:C11: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C11: key 'status' is missing; the dict has keys 'fuelLevel'",
+   "script": "status = displayCarStatus('fuel')\ncurrent = status['status']['fuelLevel']\nneed = 50 - current\nif need < 0:\n    need = 0\nresult = fillFuelTank(need)\nprint(f\"Filled {need:.2f} gallons; fuel level now {result['fuelLevel']:.2f} gallons\")"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194010Z-bfcl-multi_turn_base-dev-gpt-5.4-mini-2026-03-17-devB",
+   "task": "multi_turn_base_73",
+   "reported": [
+    "L4:C232: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L4:C232: key 'status' is missing; the dict has keys 'engineState'",
+   "script": "brake_pedal = pressBrakePedal(1.0)\nengine = startEngine('START')\nstatus = displayCarStatus('engine')\nprint({'brakePedalStatus': brake_pedal['brakePedalStatus'], 'engineState': engine.get('engineState', engine.get('error')), 'fuelLevel': engine.get('fuelLevel'), 'batteryVoltage': engine.get('batteryVoltage'), 'displayEngineState': status['status']['engineState']})"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261115T194010Z-bfcl-multi_turn_base-dev-gpt-5.4-mini-2026-03-17-devB",
+   "task": "multi_turn_base_25",
+   "reported": [],
+   "recorded_error": "error: L4:C12: key 0 is missing; the dict has keys 'matches'",
+   "script": "files = find('.', 'summary.txt')\nprint(json.dumps(files))\nif len(files) > 0:\n    name = files[0].split('/')[-1]\n    print(cat(name)['file_content'])"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194056Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-devD",
+   "task": "multi_turn_base_135",
+   "reported": [
+    "L1:C10: get_order_history() has no key 'order_history'; its declared keys are 'history' hint: did you mean 'history'?"
+   ],
+   "recorded_error": "error: L1:C10: key 'order_history' is missing; the dict has keys 'history'",
+   "script": "orders = get_order_history()['order_history']\nlatest_order_id = orders[-1]\ndetails = get_order_details(latest_order_id)\nprint(details)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194056Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-devD",
+   "task": "multi_turn_base_73",
+   "reported": [
+    "L2:C20: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C20: key 'status' is missing; the dict has keys 'fuelLevel'",
+   "script": "status = displayCarStatus('fuel')\nfuel_needed = 50 - status['status']['fuelLevel']\nif fuel_needed > 0:\n  result = fillFuelTank(fuel_needed)\n  print(f\"Fuel tank filled. Current fuel level: {result['fuelLevel']} gallons.\")\nelse:\n  print(\"Fuel tank is already full.\")"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194056Z-bfcl-multi_turn_base-dev-gpt-5.4-mini-2026-03-17-devC",
+   "task": "multi_turn_base_73",
+   "reported": [
+    "L2:C11: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C11: key 'status' is missing; the dict has keys 'fuelLevel'",
+   "script": "status = displayCarStatus('fuel')\ncurrent = status['status']['fuelLevel']\nif current < 50:\n    res = fillFuelTank(50 - current)\nelse:\n    res = {'fuelLevel': current}\nprint(f\"Fuel level: {res['fuelLevel']}\")"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194056Z-bfcl-multi_turn_base-dev-gpt-5.4-mini-2026-03-17-devC",
+   "task": "multi_turn_base_73",
+   "reported": [
+    "L7:C50: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type",
+    "L7:C105: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L7:C18: key 'engineState' is missing; the dict has keys 'error'",
+   "script": "engine = startEngine('START')\ndoors = lockDoors(False, ['driver','passenger','rear_left','rear_right'])\nbrake = activateParkingBrake('engage')\nstatus_doors = displayCarStatus('doors')\nstatus_brake = displayCarStatus('parkingBrake')\nstatus_engine = displayCarStatus('engine')\nprint(f\"Engine: {engine['engineState']}; Doors: {status_doors['status']['doorStatus']}; Parking brake: {status_brake['status']['parkingBrakeStatus']}\")"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194056Z-bfcl-multi_turn_base-dev-gpt-5.4-mini-2026-03-17-devC",
+   "task": "multi_turn_base_73",
+   "reported": [
+    "L7:C86: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type",
+    "L7:C141: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L7:C86: key 'status' is missing; the dict has keys 'doorStatus'",
+   "script": "engine = startEngine('START')\ndoors = lockDoors(False, ['driver','passenger','rear_left','rear_right'])\nbrake = activateParkingBrake('engage')\nstatus_doors = displayCarStatus('doors')\nstatus_brake = displayCarStatus('parkingBrake')\nstatus_engine = displayCarStatus('engine')\nprint(f\"Engine: {engine.get('engineState', engine.get('error', 'unknown'))}; Doors: {status_doors['status']['doorStatus']}; Parking brake: {status_brake['status']['parkingBrakeStatus']}\")"
+  },
+  {
+   "kind": "reported_but_ran_without_error",
+   "run": "20261115T194056Z-bfcl-multi_turn_base-dev-gpt-5.4-mini-2026-03-17-devC",
+   "task": "multi_turn_base_73",
+   "reported": [
+    "L7:C131: displayCarStatus() has no key 'parkingBrakeStatus'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": null,
+   "script": "engine = startEngine('START')\ndoors = lockDoors(False, ['driver','passenger','rear_left','rear_right'])\nbrake = activateParkingBrake('engage')\nstatus_doors = displayCarStatus('doors')\nstatus_brake = displayCarStatus('parkingBrake')\nstatus_engine = displayCarStatus('engine')\nprint(f\"Engine: {engine.get('engineState', engine.get('error', 'unknown'))}; Doors: {status_doors['doorStatus']}; Parking brake: {status_brake['parkingBrakeStatus']}\")"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_194",
+   "reported": [
+    "L1:C12: can't look up 'airports' in list_all_airports(): it is declared as a list hint: it is a list: loop over it, or index it with a number first"
+   ],
+   "recorded_error": "error: L1:C12: cannot look up 'airports' in a str: this value is the str '[\\'RMS\\', \\'SBK\\', \\'MPC\\', \\'SVP\\', \\'SHD\\', \\'CDG\\', \\'LHR\\', \\'SSV\\', \\'OK'..., not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "airports = list_all_airports()['airports']\nfirst_airport = airports[0]\nlast_airport = airports[-1]\ncosts = get_flight_cost(first_airport, last_airport, '2026-10-31', 'business')['travel_cost_list']\nestimated_cost = min(costs) if costs else None\nprint({'first_airport': first_airport, 'last_airport': last_airport, 'estimated_cost': estimated_cost})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_194",
+   "reported": [
+    "L1:C12: can't look up 'airports' in list_all_airports(): it is declared as a list hint: it is a list: loop over it, or index it with a number first"
+   ],
+   "recorded_error": "error: L1:C12: cannot look up 'airports' in a str: this value is the str '[\\'RMS\\', \\'SBK\\', \\'MPC\\', \\'SVP\\', \\'SHD\\', \\'CDG\\', \\'LHR\\', \\'SSV\\', \\'OK'..., not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "airports = list_all_airports()['airports']\nprint(airports)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_70",
+   "reported": [
+    "L3:C13: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L3:C13: key 'tirePressure' is missing; the dict has keys 'frontLeftTirePressure', 'frontRightTirePressure', 'rearLeftTirePressure', 'rearRightTirePressure', 'healthy_tire_pressure', 'car_info'",
+   "script": "# Step 1: Check current tire pressures\ntire_status = check_tire_pressure()\npressures = tire_status['tirePressure']\nrequired_psi = 32\n# Step 2: Identify any tires below 32 PSI\nlow_tires = [tire for tire, psi in pressures.items() if 'TirePressure' in tire and psi < required_psi]\n# Step 3: If any tire is low, find nearest tire shop\nif low_tires:\n    shop_info = find_nearest_tire_shop()\n    print({'low_tires': low_tires, 'nearest_tire_shop': shop_info['shopLocation']})\nelse:\n    print({'all_tires_ok': True, 'pressures': {k: pressures[k] for k in pressures if 'TirePressure' in k}})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_111",
+   "reported": [
+    "L1:C17: get_order_history() has no key 'order_history'; its declared keys are 'history' hint: did you mean 'history'?"
+   ],
+   "recorded_error": "error: L1:C17: key 'order_history' is missing; the dict has keys 'history'",
+   "script": "order_history = get_order_history()['order_history']\nlast_order_id = order_history[-1] if order_history else None\norder_details = get_order_details(last_order_id) if last_order_id else None\nprint(order_details)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_57",
+   "reported": [
+    "L1:C14: can't look up 'result' in logarithm(): it is declared as a str hint: logarithm() is declared to return a str here"
+   ],
+   "recorded_error": "error: L1:C14: cannot look up 'result' in a str: this value is the str '{\\'result\\': mpf(\\'2.7993393\\')}', not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "log_result = logarithm(630.0, 10, 5)['result']\nprint(log_result)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_57",
+   "reported": [
+    "L2:C11: can't look up 'result' in logarithm(): it is declared as a str hint: logarithm() is declared to return a str here"
+   ],
+   "recorded_error": "error: L2:C11: cannot look up 'result' in a str: this value is the str '{\\'result\\': mpf(\\'2.7993393\\')}', not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "log_response = logarithm(630.0, 10, 5)\nlog_str = log_response['result']\nprint(log_str)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_61",
+   "reported": [
+    "L4:C14: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L4:C14: key 'status' is missing; the dict has keys 'fuelLevel'",
+   "script": "sf_zip = get_zipcode_based_on_city('San Francisco')['zipcode']\nrm_zip = get_zipcode_based_on_city('Rivermist')['zipcode']\ndist = estimate_distance(sf_zip, rm_zip)['distance']\ncar_status = displayCarStatus('fuel')['status']\nfeasibility = estimate_drive_feasibility_by_mileage(dist)['canDrive']\nprint({'distance_miles': dist, 'current_fuel_gallons': car_status['fuelLevel'], 'can_drive': feasibility})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_61",
+   "reported": [
+    "L2:C25: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type",
+    "L2:C65: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C25: key 'tirePressure' is missing; the dict has keys 'frontLeftTirePressure', 'frontRightTirePressure', 'rearLeftTirePressure', 'rearRightTirePressure', 'healthy_tire_pressure', 'car_info'",
+   "script": "tire_status = check_tire_pressure()\nprint({'tire_pressure': tire_status['tirePressure'], 'healthy': tire_status['tirePressure']['healthy_tire_pressure']})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_188",
+   "reported": [
+    "L1:C12: can't look up 'airports' in list_all_airports(): it is declared as a list hint: it is a list: loop over it, or index it with a number first"
+   ],
+   "recorded_error": "error: L1:C12: cannot look up 'airports' in a str: this value is the str '[\\'RMS\\', \\'SBK\\', \\'MPC\\', \\'SVP\\', \\'SHD\\', \\'CDG\\', \\'LHR\\', \\'SSV\\', \\'OK'..., not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "airports = list_all_airports()['airports']\nfirst, second = airports[0], airports[1]\ncosts = get_flight_cost(first, second, '2026-09-19', 'first')['travel_cost_list']\nprint({'from': first, 'to': second, 'date': '2026-09-19', 'class': 'first', 'costs': costs})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_188",
+   "reported": [
+    "L1:C12: can't look up 'airports' in list_all_airports(): it is declared as a list hint: it is a list: loop over it, or index it with a number first"
+   ],
+   "recorded_error": "error: L1:C12: cannot look up 'airports' in a str: this value is the str '[\\'RMS\\', \\'SBK\\', \\'MPC\\', \\'SVP\\', \\'SHD\\', \\'CDG\\', \\'LHR\\', \\'SSV\\', \\'OK'..., not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "airports = list_all_airports()['airports']\nprint(airports)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_52",
+   "reported": [
+    "L2:C31: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type",
+    "L2:C76: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C31: key 'status' is missing; the dict has keys 'doorStatus'",
+   "script": "status = displayCarStatus('doors')\nif all(v == 'locked' for v in status['status']['doorStatus'].values()) and status['status']['parkingBrakeStatus'] == 'engaged':\n    engine = startEngine('START')\n    print({'engineState': engine['engineState'], 'fuelLevel': engine['fuelLevel'], 'batteryVoltage': engine['batteryVoltage']})\nelse:\n    print({'error': 'Doors must be locked and parking brake engaged to start engine.'})"
+  },
+  {
+   "kind": "reported_but_ran_without_error",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_52",
+   "reported": [
+    "L3:C60: displayCarStatus() has no key 'parkingBrakeStatus'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": null,
+   "script": "doors = displayCarStatus('doors')\nparking = displayCarStatus('parkingBrake')\nprint({'doors': doors['doorStatus'], 'parkingBrakeStatus': parking['parkingBrakeStatus']})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_52",
+   "reported": [
+    "L2:C13: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C13: key 'tirePressure' is missing; the dict has keys 'frontLeftTirePressure', 'frontRightTirePressure', 'rearLeftTirePressure', 'rearRightTirePressure', 'healthy_tire_pressure', 'car_info'",
+   "script": "tire = check_tire_pressure()\npressures = tire['tirePressure']\nlow_tires = [k for k, v in pressures.items() if 'TirePressure' in k and v < 40]\nif low_tires:\n    shop = find_nearest_tire_shop()\n    print({'low_tires': {k: pressures[k] for k in low_tires}, 'shopLocation': shop['shopLocation']})\nelse:\n    print({'all_tires_ok': True, 'pressures': {k: pressures[k] for k in pressures if 'TirePressure' in k}})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_140",
+   "reported": [
+    "L1:C13: get_order_history() has no key 'order_history'; its declared keys are 'history' hint: did you mean 'history'?"
+   ],
+   "recorded_error": "error: L1:C13: key 'order_history' is missing; the dict has keys 'history'",
+   "script": "order_ids = get_order_history()['order_history']\norder_details = [get_order_details(oid) for oid in order_ids]\nsummary = 'Urgent assistance required.'\ndetails = '\\n'.join([f\"Order ID: {o['id']}, Type: {o['order_type']}, Symbol: {o['symbol']}, Price: {o['price']}, Amount: {o['amount']}, Status: {o['status']}\" for o in order_details])\ndescription = f\"Case Summary: {summary}\\nOrder Details:\\n{details}\"\nticket = create_ticket('Critical Order Assistance', description, priority=5)\nprint(ticket['id'])"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_199",
+   "reported": [],
+   "recorded_error": "error: L5:C26: cannot look up 'message' in a list of 1 items; the first item is a str; loop over the list or index it with an int",
+   "script": "messages = view_messages_sent()['messages']\nrelevant = []\nfor msg_id in messages:\n    msg = messages[msg_id]\n    if 'flight issue' in msg['message'].lower() or 'customer support contact' in msg['message'].lower():\n        relevant.append({'to': msg['receiver_id'], 'message': msg['message']})\nprint(relevant)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_80",
+   "reported": [
+    "L4:C70: estimate_distance() has no key 'intermediaryCities'; its declared keys are 'distance' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L4:C70: key 'intermediaryCities' is missing; the dict has keys 'distance'",
+   "script": "zipcodeA = get_zipcode_based_on_city('Rivermist')['zipcode']\nzipcodeB = get_zipcode_based_on_city('San Francisco')['zipcode']\nestimate = estimate_distance(zipcodeA, zipcodeB)\nprint({'distance_miles': estimate['distance'], 'intermediaryCities': estimate['intermediaryCities']})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14",
+   "task": "multi_turn_base_80",
+   "reported": [
+    "L2:C10: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C10: key 'status' is missing; the dict has keys 'fuelLevel'",
+   "script": "# First, check the current fuel level\nstatus = displayCarStatus('fuel')['status']\ncurrent_fuel = status['fuelLevel']\n# The tank holds up to 50 gallons\nfuel_needed = 50 - current_fuel\n# Fill the tank with the required amount\nresult = fillFuelTank(fuel_needed)\nprint({'new_fuel_level': result['fuelLevel']})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_108",
+   "reported": [
+    "L1:C11: get_order_history() has no key 'order_history'; its declared keys are 'history' hint: did you mean 'history'?"
+   ],
+   "recorded_error": "error: L1:C11: key 'order_history' is missing; the dict has keys 'history'",
+   "script": "history = get_order_history()['order_history']\nlast_id = history[-1]\ndetails = get_order_details(last_id)\nprint(details)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_194",
+   "reported": [
+    "L1:C12: can't look up 'airports' in list_all_airports(): it is declared as a list hint: it is a list: loop over it, or index it with a number first"
+   ],
+   "recorded_error": "error: L1:C12: cannot look up 'airports' in a str: this value is the str '[\\'RMS\\', \\'SBK\\', \\'MPC\\', \\'SVP\\', \\'SHD\\', \\'CDG\\', \\'LHR\\', \\'SSV\\', \\'OK'..., not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "airports = list_all_airports()['airports']\ntravel_from = airports[0]\ntravel_to = airports[-1]\ntravel_date = '2026-10-31'\ntravel_class = 'business'\ncosts = get_flight_cost(travel_from=travel_from, travel_to=travel_to, travel_date=travel_date, travel_class=travel_class)['travel_cost_list']\nif len(costs) == 0:\n    print('No cost available')\nelse:\n    est = sum(costs) / len(costs)\n    print(f'{travel_from} {travel_to} {travel_date} {travel_class} {est:.2f}')"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_70",
+   "reported": [
+    "L2:C8: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C8: key 'tirePressure' is missing; the dict has keys 'frontLeftTirePressure', 'frontRightTirePressure', 'rearLeftTirePressure', 'rearRightTirePressure', 'healthy_tire_pressure', 'car_info'",
+   "script": "tp = check_tire_pressure()\ninfo = tp['tirePressure']\npressures = [info['frontLeftTirePressure'], info['frontRightTirePressure'], info['rearLeftTirePressure'], info['rearRightTirePressure']]\nlow = [p for p in pressures if p < 32]\nif len(low) > 0:\n    shop = find_nearest_tire_shop()\n    print({'pressures': pressures, 'healthy': info['healthy_tire_pressure'], 'shopLocation': shop['shopLocation']})\nelse:\n    print({'pressures': pressures, 'healthy': info['healthy_tire_pressure'], 'shopLocation': None})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_93",
+   "reported": [
+    "L2:C7: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C7: key 'status' is missing; the dict has keys 'fuelLevel'",
+   "script": "res = displayCarStatus('fuel')\nprint(res['status']['fuelLevel'])"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_93",
+   "reported": [
+    "L8:C105: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type",
+    "L8:C173: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L8:C21: key 'fuelLevel' is missing; the dict has keys 'error'",
+   "script": "status = displayCarStatus('fuel')\ncurrent = status['fuelLevel']\nneeded = 50 - current\nif needed > 0:\n    fillFuelTank(needed)\nengine = startEngine('START')\ntires = check_tire_pressure()\nprint({'fuelLevel': engine['fuelLevel'], 'engineState': engine['engineState'], 'healthy_tire_pressure': tires['tirePressure']['healthy_tire_pressure'], 'tirePressure': {k: tires['tirePressure'][k] for k in ['frontLeftTirePressure','frontRightTirePressure','rearLeftTirePressure','rearRightTirePressure']}})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_93",
+   "reported": [
+    "L12:C76: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type",
+    "L12:C144: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L12:C76: key 'tirePressure' is missing; the dict has keys 'frontLeftTirePressure', 'frontRightTirePressure', 'rearLeftTirePressure', 'rearRightTirePressure', 'healthy_tire_pressure', 'car_info'",
+   "script": "status = displayCarStatus('fuel')\ncurrent = status['fuelLevel']\nneeded = 50 - current\nif needed > 0:\n    fillFuelTank(needed)\nengine = startEngine('START')\nif 'fuelLevel' in engine:\n    fuel = engine['fuelLevel']\nelse:\n    fuel = displayCarStatus('fuel')['fuelLevel']\ntires = check_tire_pressure()\nprint({'fuelLevel': fuel, 'engineResult': engine, 'healthy_tire_pressure': tires['tirePressure']['healthy_tire_pressure'], 'tirePressure': {k: tires['tirePressure'][k] for k in ['frontLeftTirePressure','frontRightTirePressure','rearLeftTirePressure','rearRightTirePressure']}})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_57",
+   "reported": [
+    "L2:C10: can't look up 'result' in logarithm(): it is declared as a str hint: logarithm() is declared to return a str here"
+   ],
+   "recorded_error": "error: L2:C10: cannot look up 'result' in a str: this value is the str '{\\'result\\': mpf(\\'2.7993393\\')}', not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "d=logarithm(630.0, 10.0, 5)\nprint(f\"{d['result']}\")"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_57",
+   "reported": [
+    "L2:C10: can't look up 'result' in logarithm(): it is declared as a str hint: logarithm() is declared to return a str here"
+   ],
+   "recorded_error": "error: L2:C10: cannot look up 'result' in a str: this value is the str '{\\'result\\': mpf(\\'2.7993393\\')}', not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "d=logarithm(630.0, 10.0, 5)\nprint(f\"{d['result']}\")"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_111",
+   "reported": [
+    "L1:C11: get_order_history() has no key 'order_history'; its declared keys are 'history' hint: did you mean 'history'?"
+   ],
+   "recorded_error": "error: L1:C11: key 'order_history' is missing; the dict has keys 'history'",
+   "script": "history = get_order_history()['order_history']\nif len(history) == 0:\n    print('No orders found.')\nelse:\n    last_id = history[-1]\n    details = get_order_details(last_id)\n    print(details)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_61",
+   "reported": [
+    "L5:C10: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L5:C10: key 'status' is missing; the dict has keys 'fuelLevel'",
+   "script": "sf = get_zipcode_based_on_city('San Francisco')['zipcode']\nrm = get_zipcode_based_on_city('Rivermist')['zipcode']\nd = estimate_distance(sf, rm)['distance']\ncan = estimate_drive_feasibility_by_mileage(d)['canDrive']\nstatus = displayCarStatus('fuel')['status']\nprint({'from_zip': sf, 'to_zip': rm, 'distance_miles': d, 'can_drive': can, 'fuel_level': status['fuelLevel']})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_61",
+   "reported": [
+    "L4:C8: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type",
+    "L7:C16: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L7:C16: key 'status' is missing; the dict has keys 'fuelLevel'",
+   "script": "sf = get_zipcode_based_on_city('San Francisco')['zipcode']\nrm = get_zipcode_based_on_city('Rivermist')['zipcode']\nd = estimate_distance(sf, rm)['distance']\nfuel = displayCarStatus('fuel')['status']['fuelLevel'] if False else None\n# use current fuel from prior known state is unavailable here, so query status directly\ncurrent = displayCarStatus('fuel')\ncurrent_fuel = current['status']['fuelLevel']\nneed = int(d - current_fuel)\nif need < 0:\n    need = 0\nfillFuelTank(need)\nprint({'distance_miles': d, 'current_fuel': current_fuel, 'minimum_fuel_to_add_int_gallons': need})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_61",
+   "reported": [
+    "L1:C6: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L1:C6: key 'tirePressure' is missing; the dict has keys 'frontLeftTirePressure', 'frontRightTirePressure', 'rearLeftTirePressure', 'rearRightTirePressure', 'healthy_tire_pressure', 'car_info'",
+   "script": "tp = check_tire_pressure()['tirePressure']\nprint({'frontLeft': tp['frontLeftTirePressure'], 'frontRight': tp['frontRightTirePressure'], 'rearLeft': tp['rearLeftTirePressure'], 'rearRight': tp['rearRightTirePressure'], 'healthy': tp['healthy_tire_pressure']})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_188",
+   "reported": [
+    "L1:C12: can't look up 'airports' in list_all_airports(): it is declared as a list hint: it is a list: loop over it, or index it with a number first"
+   ],
+   "recorded_error": "error: L1:C12: cannot look up 'airports' in a str: this value is the str '[\\'RMS\\', \\'SBK\\', \\'MPC\\', \\'SVP\\', \\'SHD\\', \\'CDG\\', \\'LHR\\', \\'SSV\\', \\'OK'..., not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "airports = list_all_airports()['airports']\ntravel_from = airports[0]\ntravel_to = airports[1]\ntravel_date = '2026-09-19'\ntravel_class = 'first'\nres = get_flight_cost(travel_from, travel_to, travel_date, travel_class)\nprint({'from': travel_from, 'to': travel_to, 'date': travel_date, 'class': travel_class, 'costs': res['travel_cost_list']})"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_188",
+   "reported": [],
+   "recorded_error": "error: L1:C16: cannot look up 'airports' in a str: this value is the str '[\\'RMS\\', \\'SBK\\', \\'MPC\\', \\'SVP\\', \\'SHD\\', \\'CDG\\', \\'LHR\\', \\'SSV\\', \\'OK'..., not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "airports_raw = list_all_airports()['airports']\nif isinstance(airports_raw, str):\n    airports = parse_json(airports_raw)\nelse:\n    airports = airports_raw\ntravel_from = airports[0]\ntravel_to = airports[1]\ntravel_date = '2026-09-19'\ntravel_class = 'first'\nres = get_flight_cost(travel_from, travel_to, travel_date, travel_class)\nprint({'from': travel_from, 'to': travel_to, 'date': travel_date, 'class': travel_class, 'costs': res['travel_cost_list']})"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_188",
+   "reported": [],
+   "recorded_error": "error: L1:C16: cannot look up 'airports' in a str: this value is the str '[\\'RMS\\', \\'SBK\\', \\'MPC\\', \\'SVP\\', \\'SHD\\', \\'CDG\\', \\'LHR\\', \\'SSV\\', \\'OK'..., not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "airports_raw = list_all_airports()['airports']\nif isinstance(airports_raw, str):\n    airports = [x.strip().strip(\"'\\\"\") for x in airports_raw.strip('[]').split(',') if x.strip()]\nelse:\n    airports = airports_raw\ntravel_from = airports[0]\ntravel_to = airports[1]\nres = get_flight_cost(travel_from, travel_to, '2026-09-19', 'first')\nprint({'from': travel_from, 'to': travel_to, 'costs': res['travel_cost_list']})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_188",
+   "reported": [
+    "L1:C16: can't look up 'airports' in list_all_airports(): it is declared as a list hint: it is a list: loop over it, or index it with a number first"
+   ],
+   "recorded_error": "error: L1:C16: cannot look up 'airports' in a str: this value is the str '[\\'RMS\\', \\'SBK\\', \\'MPC\\', \\'SVP\\', \\'SHD\\', \\'CDG\\', \\'LHR\\', \\'SSV\\', \\'OK'..., not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "airports_raw = list_all_airports()['airports']\nprint(airports_raw)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_52",
+   "reported": [
+    "L2:C13: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C13: key 'tirePressure' is missing; the dict has keys 'frontLeftTirePressure', 'frontRightTirePressure', 'rearLeftTirePressure', 'rearRightTirePressure', 'healthy_tire_pressure', 'car_info'",
+   "script": "tp = check_tire_pressure()\npressures = tp['tirePressure']\nhealthy = pressures['healthy_tire_pressure']\nvals = [pressures['frontLeftTirePressure'], pressures['frontRightTirePressure'], pressures['rearLeftTirePressure'], pressures['rearRightTirePressure']]\nmin_p = min(vals)\nif min_p < 40:\n    shop = find_nearest_tire_shop()\n    print({'tirePressure': pressures, 'nearestTireShop': shop['shopLocation']})\nelse:\n    print({'tirePressure': pressures, 'nearestTireShop': None})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_87",
+   "reported": [
+    "L2:C13: check_tire_pressure() has no key 'tirePressure'; its declared keys are 'car_info', 'frontLeftTirePressure', 'frontRightTirePressure', 'healthy_tire_pressure', 'rearLeftTirePressure', 'rearRightTirePressure' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C13: key 'tirePressure' is missing; the dict has keys 'frontLeftTirePressure', 'frontRightTirePressure', 'rearLeftTirePressure', 'rearRightTirePressure', 'healthy_tire_pressure', 'car_info'",
+   "script": "tp = check_tire_pressure()\npressures = tp['tirePressure']\nhealthy = pressures['healthy_tire_pressure']\nvals = [pressures['frontLeftTirePressure'], pressures['frontRightTirePressure'], pressures['rearLeftTirePressure'], pressures['rearRightTirePressure']]\nprint({'healthy': healthy, 'pressures': vals})\nif any(p < 33 for p in vals):\n    shop = find_nearest_tire_shop()\n    print({'shopLocation': shop['shopLocation']})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_96",
+   "reported": [
+    "L4:C42: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type",
+    "L4:C88: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type",
+    "L4:C137: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L4:C42: key 'status' is missing; the dict has keys 'engineState'",
+   "script": "lockDoors(unlock=False, door=['driver','passenger','rear_left','rear_right'])\nstartEngine('START')\nstatus = displayCarStatus('engine')\nprint({'doors': 'locked', 'engineState': status['status']['engineState'], 'fuelLevel': status['status']['fuelLevel'], 'batteryVoltage': status['status']['batteryVoltage']})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_96",
+   "reported": [
+    "L5:C127: estimate_distance() has no key 'intermediaryCities'; its declared keys are 'distance' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L5:C127: key 'intermediaryCities' is missing; the dict has keys 'distance'",
+   "script": "sf = get_zipcode_based_on_city('San Francisco')\nrm = get_zipcode_based_on_city('Rivermist')\nd = estimate_distance(sf['zipcode'], rm['zipcode'])\ncan = estimate_drive_feasibility_by_mileage(d['distance'])\nprint({'sanFranciscoZip': sf['zipcode'], 'rivermistZip': rm['zipcode'], 'distanceMiles': d['distance'], 'intermediaryCities': d['intermediaryCities'], 'canDrive': can['canDrive']})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_80",
+   "reported": [
+    "L2:C11: displayCarStatus() has no key 'status'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L2:C11: key 'status' is missing; the dict has keys 'fuelLevel'",
+   "script": "status = displayCarStatus('fuel')\ncurrent = status['status']['fuelLevel']\nneeded = 50 - current\nif needed > 0:\n    print(fillFuelTank(needed))\nelse:\n    print({'fuelLevel': current})"
+  },
+  {
+   "kind": "caught",
+   "run": "20261115T194238Z-bfcl-multi_turn_base-evidence-gpt-5.4-mini-2026-03-17",
+   "task": "multi_turn_base_102",
+   "reported": [
+    "L1:C8: get_order_history() has no key 'order_history'; its declared keys are 'history' hint: did you mean 'history'?"
+   ],
+   "recorded_error": "error: L1:C8: key 'order_history' is missing; the dict has keys 'history'",
+   "script": "hist = get_order_history()['order_history']\nif len(hist) == 0:\n    raise Exception('No order history found.')\norder_id = hist[-1]\nd = get_order_details(order_id)\nprint(d)"
+  },
+  {
+   "kind": "caught",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V1",
+   "task": "multi_turn_base_52",
+   "reported": [
+    "L3:C91: displayCarStatus() has no key 'parkingBrake'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L3:C91: key 'parkingBrake' is missing; the dict has keys 'parkingBrakeStatus', 'parkingBrakeForce', 'slopeAngle'",
+   "script": "door_status = displayCarStatus('doors')\nparking_brake = displayCarStatus('parkingBrake')\nif all([door_status['doorStatus'][d] == 'locked' for d in door_status['doorStatus']]) and parking_brake['parkingBrake'] == 'engaged':\n    result = startEngine('START')\n    {'engineState': result['engineState'], 'fuelLevel': result['fuelLevel'], 'batteryVoltage': result['batteryVoltage']}\nelse:\n    {'error': 'Doors must be locked and parking brake engaged to start engine.'}"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V2",
+   "task": "multi_turn_base_52",
+   "reported": [],
+   "recorded_error": "error: L3:C10: cannot look up 'user_tweets' in a list of 0 items; loop over the list or index it with an int",
+   "script": "tweets = get_user_tweets('your_username')\ntweet_id = None\nfor t in tweets['user_tweets']:\n    if 'Tires checked and engine purring smoothly!' in t['content']:\n        tweet_id = t['id']\n        break\nif tweet_id:\n    comment_status = comment(tweet_id, 'Safety first! Remember tire checks are crucial.')\n    reply('Comment posted to your tweet emphasizing tire care.')\nelse:\n    reply('Unable to find the tweet to comment on.')"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V2",
+   "task": "multi_turn_base_52",
+   "reported": [],
+   "recorded_error": "error: L3:C10: cannot look up 'matching_tweets' in a list of 2 items; the first item is a dict with keys 'id', 'username', 'content', 'tags', 'mentions'; loop over the list or index it with an int",
+   "script": "tweet = search_tweets('Tires checked and engine purring smoothly!')\ntweet_id = None\nfor t in tweet['matching_tweets']:\n    if t['content'] == 'Tires checked and engine purring smoothly!':\n        tweet_id = t['id']\n        break\nif tweet_id:\n    comment(tweet_id, 'Safety first! Remember tire checks are crucial.')\n    reply('Comment posted to your tweet emphasizing tire care.')\nelse:\n    reply('Unable to find the tweet to comment on.')"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V2",
+   "task": "multi_turn_base_52",
+   "reported": [],
+   "recorded_error": "error: L1:C10: cannot look up 'matching_tweets' in a list of 2 items; the first item is a dict with keys 'id', 'username', 'content', 'tags', 'mentions'; loop over the list or index it with an int",
+   "script": "tweets = search_tweets('Tires checked and engine purring smoothly!')['matching_tweets']\ntweet_id = None\nfor t in tweets:\n    if t['content'] == 'Tires checked and engine purring smoothly!':\n        tweet_id = t['id']\n        break\nif tweet_id:\n    comment(tweet_id, 'Safety first! Remember tire checks are crucial.')\n    reply('Comment posted to your tweet emphasizing tire care.')\nelse:\n    reply('Unable to find the tweet to comment on.')"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V2",
+   "task": "multi_turn_base_108",
+   "reported": [],
+   "recorded_error": "error: L9:C114: key 'num_shares' is missing; the dict has keys 'id', 'order_type', 'symbol', 'price', 'amount', 'status'",
+   "script": "history = get_order_history()['history']\norder_id = None\nfor h in reversed(history):\n    if isinstance(h, int):\n        order_id = h\n        break\nif order_id:\n    details = get_order_details(order_id)\n    reply(f\"Order ID: {details['id']}\\nStock: {details['symbol']}\\nOrder Type: {details['order_type']}\\nShares: {details['num_shares']}\\nPrice per Share: ${details['price']:.2f}\\nStatus: {details['status']}\")\nelse:\n    reply(\"No recent order found for NVDA.\")"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V2",
+   "task": "multi_turn_base_120",
+   "reported": [],
+   "recorded_error": "error: L13:C43: key 'order_type' is missing; the dict has keys 'symbol', 'price', 'num_shares', 'status'",
+   "script": "orders = get_order_history()['history']\naapl_orders = []\nfor oid in orders:\n    try:\n        details = get_order_details(oid)\n        if details['symbol'] == 'AAPL':\n            aapl_orders.append(details)\n    except:\n        continue\nif not aapl_orders:\n    reply('No AAPL orders found in your history.')\nlatest = sorted(aapl_orders, key=lambda x: x.get('id', 0), reverse=True)[0]\nreply(f\"Latest AAPL order details: Type: {latest['order_type']}, Shares: {latest.get('num_shares', latest.get('amount'))}, Price: {latest['price']}, Status: {latest['status']}.\")"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V2",
+   "task": "multi_turn_base_120",
+   "reported": [],
+   "recorded_error": "error: L15:C23: key 'id' is missing; the dict has keys 'symbol', 'price', 'num_shares', 'status'",
+   "script": "orders = get_order_history()['history']\naapl_orders = []\nfor oid in orders:\n    try:\n        details = get_order_details(oid)\n        if details['symbol'] == 'AAPL':\n            aapl_orders.append(details)\n    except:\n        continue\nif not aapl_orders:\n    reply('No AAPL orders found to cancel.')\nlatest = sorted(aapl_orders, key=lambda x: x.get('id', 0), reverse=True)[0]\nif latest['status'].lower() in ['completed', 'filled']:\n    reply('The latest AAPL order is already completed and cannot be canceled.')\nresult = cancel_order(latest['id'])\nreply(f\"Order cancellation status: {result['status']} for order ID {result['order_id']}.\")"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V2ck",
+   "task": "multi_turn_base_52",
+   "reported": [],
+   "recorded_error": "error: L3:C14: cannot look up 'user_tweets' in a list of 0 items; loop over the list or index it with an int",
+   "script": "tweets = get_user_tweets('your_username')\ntweet_id = None\nfor tweet in tweets['user_tweets']:\n    if 'Tires checked and engine purring smoothly!' in tweet['content']:\n        tweet_id = tweet['id']\n        break\nif tweet_id is not None:\n    comment_result = comment(tweet_id, 'Safety first! Remember tire checks are crucial.')\n    if comment_result['comment_status'] == 'success':\n        reply('Comment posted successfully.')\n    else:\n        reply('Failed to post the comment.')\nelse:\n    reply('Could not find the tweet to comment on.')"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V2ck",
+   "task": "multi_turn_base_108",
+   "reported": [],
+   "recorded_error": "error: L9:C109: key 'num_shares' is missing; the dict has keys 'id', 'order_type', 'symbol', 'price', 'amount', 'status'",
+   "script": "history = get_order_history()['history']\norder_id = None\nfor h in reversed(history):\n    if isinstance(h, int):\n        order_id = h\n        break\nif order_id:\n    details = get_order_details(order_id)\n    reply(f\"Order ID: {details['id']}\\nType: {details['order_type']}\\nSymbol: {details['symbol']}\\nShares: {details['num_shares']}\\nPrice per share: ${details['price']:.2f}\\nStatus: {details['status']}\")\nelse:\n    reply(\"No recent order found for NVDA.\")"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V2ck",
+   "task": "multi_turn_base_120",
+   "reported": [],
+   "recorded_error": "error: L6:C8: cannot look up 'symbol' in a str: this value is the str 'Buy', not a dict; print it to see its shape, or parse_json() it if it holds JSON",
+   "script": "symbol = get_symbol_by_name('Apple')['symbol']\norder_history = get_order_history()['history']\norder_id = None\nfor oid in reversed(order_history):\n    details = get_order_details(oid)\n    if details['symbol'] == symbol and details['order_type'].lower() == 'buy' and details['num_shares'] == 100:\n        order_id = oid\n        break\nif order_id:\n    details = get_order_details(order_id)\n    reply(f\"Order Details for AAPL: {details}\")\nelse:\n    reply('No matching AAPL buy order for 100 shares found in recent history.')"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V2ck",
+   "task": "multi_turn_base_126",
+   "reported": [],
+   "recorded_error": "error: L2:C137: key 'num_shares' is missing; the dict has keys 'id', 'order_type', 'symbol', 'price', 'amount', 'status'",
+   "script": "details = get_order_details(12446)\nreply(f\"Order ID: {details['id']}\\nType: {details['order_type']}\\nSymbol: {details['symbol']}\\nPrice: ${details['price']:.2f}\\nShares: {details['num_shares']}\\nStatus: {details['status']}\")"
+  },
+  {
+   "kind": "caught",
+   "run": "20261116T053702Z-bfcl-multi_turn_base-dev-gpt-5.4-mini-2026-03-17-V2ck",
+   "task": "multi_turn_base_120",
+   "reported": [
+    "L7:C106: place_order() has no key 'symbol'; its declared keys are 'amount', 'order_id', 'order_type', 'price', 'status' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L7:C106: key 'symbol' is missing; the dict has keys 'order_id', 'order_type', 'status', 'price', 'amount'",
+   "script": "status = trading_get_login_status()\nif not status['status']:\n    reply('Trading system is not logged in, so I cannot place the order yet.')\ninfo = get_symbol_by_name('Apple')\nstock = get_stock_info(info['symbol'])\norder = place_order('Buy', info['symbol'], stock['price'], 100)\nreply(f\"Market is operational and I placed the order: {order['status']} for {order['amount']} shares of {order['symbol']} at {order['price']}. Order ID: {order['order_id']}\")"
+  },
+  {
+   "kind": "reported_other_failure",
+   "run": "20261116T053952Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V3",
+   "task": "multi_turn_base_52",
+   "reported": [
+    "L3:C81: displayCarStatus() has no key 'parkingBrakeStatus'; its declared keys are 'climateMode', 'currentACTemperature', 'doorStatus', 'fanSpeed', 'fuelLevel', 'humidityLevel' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L5:C12: key 'fuelLevel' is missing; the dict has keys 'error'",
+   "script": "door_status = displayCarStatus('doors')\nparking_brake = displayCarStatus('parkingBrake')\nif all(status == 'locked' for status in door_status['doorStatus'].values()) and parking_brake['parkingBrakeStatus'] == 'engaged':\n    result = startEngine('START')\n    fuel = result['fuelLevel']\n    battery = result['batteryVoltage']\n    engine = result['engineState']\n    print(f'Engine started. Fuel level: {fuel} gallons, Battery voltage: {battery}V, Engine state: {engine}')\nelse:\n    print('Cannot start engine: Ensure all doors are locked and parking brake is engaged.')"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T053952Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-V4",
+   "task": "multi_turn_base_108",
+   "reported": [],
+   "recorded_error": "error: L3:C177: key 'num_shares' is missing; the dict has keys 'id', 'order_type', 'symbol', 'price', 'amount', 'status'",
+   "script": "order_id = 12446\norder_details = get_order_details(order_id)\nreply(f\"Order Details:\\n- Stock: {order_details['symbol']}\\n- Order Type: {order_details['order_type']}\\n- Price per Share: ${order_details['price']:.2f}\\n- Number of Shares: {order_details['num_shares']}\\n- Status: {order_details['status']}\")"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T054154Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-W4",
+   "task": "multi_turn_base_108",
+   "reported": [],
+   "recorded_error": "error: L3:C177: key 'num_shares' is missing; the dict has keys 'id', 'order_type', 'symbol', 'price', 'amount', 'status'",
+   "script": "order_id = 12446\norder_details = get_order_details(order_id)\nreply(f\"Order Details:\\n- Stock: {order_details['symbol']}\\n- Order Type: {order_details['order_type']}\\n- Price per Share: ${order_details['price']:.2f}\\n- Number of Shares: {order_details['num_shares']}\\n- Status: {order_details['status']}\")"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T054154Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-W4",
+   "task": "multi_turn_base_122",
+   "reported": [],
+   "recorded_error": "error: L3:C243: key 'num_shares' is missing; the dict has keys 'id', 'order_type', 'symbol', 'price', 'amount', 'status'",
+   "script": "order_id = 12446\norder_details = get_order_details(order_id)\nreply(f\"Order Details:\\nOrder ID: {order_details['id']}\\nType: {order_details['order_type']}\\nSymbol: {order_details['symbol']}\\nPrice: ${order_details['price']}\\nAmount: {order_details['amount']}\\nStatus: {order_details['status']}\\nShares: {order_details['num_shares']}\")"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T054154Z-bfcl-multi_turn_base-dev-gpt-4.1-2025-04-14-W4",
+   "task": "multi_turn_base_102",
+   "reported": [],
+   "recorded_error": "error: L4:C149: key 'num_shares' is missing; the dict has keys 'id', 'order_type', 'symbol', 'price', 'amount', 'status'",
+   "script": "order = place_order('Buy', 'TSLA', 700, 100)\norder_id = order['order_id']\ndetails = get_order_details(order_id)\nreply(f\"Order Details:\\nOrder ID: {details['id']}\\nType: {details['order_type']}\\nSymbol: {details['symbol']}\\nPrice: ${details['price']}\\nShares: {details['num_shares']}\\nStatus: {details['status']}\")"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T054154Z-bfcl-multi_turn_base-dev-gpt-5.4-mini-2026-03-17-W4",
+   "task": "multi_turn_base_199",
+   "reported": [],
+   "recorded_error": "error: L7:C176: key 'booking_id' is missing; the dict has keys 'booking_status', 'error'",
+   "script": "try:\n    cost_info = get_flight_cost('LAX','NYC','2026-04-15','business')\nexcept Exception as e:\n    cost_info = {'error': str(e)}\nbooking = book_flight('abc123xyz','card_123456789','2026-04-15','LAX','NYC','business')\nif 'error' in cost_info:\n    reply(f\"I couldn't retrieve the flight cost for this route ({cost_info['error']}), but I did arrange the flight. Booking status: {booking['booking_status']}. Booking ID: {booking['booking_id']}. Transaction ID: {booking['transaction_id']}.\")\nelse:\n    reply(f\"Estimated business class flight cost: {cost_info['travel_cost_list']}. Booking status: {booking['booking_status']}. Booking ID: {booking['booking_id']}. Transaction ID: {booking['transaction_id']}.\")"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T054620Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14-W3",
+   "task": "multi_turn_base_152",
+   "reported": [],
+   "recorded_error": "error: L10:C8: key 'travel_to' is missing; the dict has keys '3426812'",
+   "script": "# Retrieve booking history to find the London booking\nhistory = get_booking_history('secureAccessToken12345')['booking_history']\nlondon_booking_id = None\nif isinstance(history, list):\n    for b in history:\n        if b['travel_to'] == 'LHR' and b['travel_date'] == '2026-11-15':\n            london_booking_id = b['booking_id']\n            break\nelse:\n    if history['travel_to'] == 'LHR' and history['travel_date'] == '2026-11-15':\n        london_booking_id = history['booking_id']\nif london_booking_id:\n    result = cancel_booking('secureAccessToken12345', london_booking_id)\n    print({'cancelled': result['cancel_status'], 'booking_id': london_booking_id})\nelse:\n    print({'cancelled': False, 'reason': 'No London booking found for 2026-11-15'})"
+  },
+  {
+   "kind": "reported_other_failure",
+   "run": "20261116T054620Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14-W3",
+   "task": "multi_turn_base_60",
+   "reported": [
+    "L4:C33: an item of get_user_tickets() has no key 'id'; its declared keys are 'error' hint: use one of the declared keys; if the tool really returns more, fix its declared return type"
+   ],
+   "recorded_error": "error: L1:C11: tool `get_user_tickets` failed: Error during execution: 'created_by' hint: catch it with `except ToolError` or fix the call",
+   "script": "tickets = get_user_tickets()\nif tickets:\n    last_ticket = tickets[-1]\n    ticket_details = get_ticket(last_ticket['id'])\n    print(ticket_details)\nelse:\n    print('No tickets found.')"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T054620Z-bfcl-multi_turn_base-evidence-gpt-4.1-2025-04-14-W3",
+   "task": "multi_turn_base_141",
+   "reported": [],
+   "recorded_error": "error: L2:C78: key 'num_shares' is missing; the dict has keys 'id', 'order_type', 'symbol', 'price', 'amount', 'status'",
+   "script": "details = get_order_details(12446)\nprint({'symbol': details['symbol'], 'price': details['price'], 'num_shares': details['num_shares']})"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261116T061157Z-bfcl-multi_turn_miss_param-evidence-gpt-5.4-mini-2026-03-17-E10",
+   "task": "multi_turn_miss_param_169",
+   "reported": [],
+   "recorded_error": "error: L3:C58: key 'booking_id' is missing; the dict has keys 'booking_status', 'error'",
+   "script": "booking = book_flight('2278-9812-3456-4567', 'card_6789', '2026-11-10', 'RMS', 'LAX', 'business')\nprint(booking)\ninv = retrieve_invoice('2278-9812-3456-4567', booking_id=booking['booking_id'])\nprint(inv)"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261117T012920Z-bfcl-multi_turn_miss_func-evidence-gpt-4.1-2025-04-14-B_41_mf",
+   "task": "multi_turn_miss_func_186",
+   "reported": [],
+   "recorded_error": "error: L3:C15: key 'travel_cost' is missing; the dict is empty",
+   "script": "# Now that we have the origin airport (RMS), destination (JFK), access token, and card_id, proceed to get the flight cost\nbooking = book_flight('251675', 'card_4526', '2026-12-15', 'RMS', 'JFK', 'first')\ntravel_cost = booking['booking_history']['travel_cost']\nbooking_id = booking['booking_id']\nprint({'origin_airport': 'RMS', 'destination_airport': 'JFK', 'travel_cost': travel_cost, 'booking_id': booking_id})"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261117T012920Z-bfcl-multi_turn_miss_func-evidence-gpt-4.1-2025-04-14-B_41_mf",
+   "task": "multi_turn_miss_func_186",
+   "reported": [],
+   "recorded_error": "error: L3:C22: key 'booking_id' is missing; the dict has keys 'booking_status', 'error'",
+   "script": "# Book the flight using the provided secure access token and card ID\nbooking = book_flight('secure_access_token_987654321', 'card_4526', '2026-12-15', 'RMS', 'JFK', 'first')\nprint({'booking_id': booking['booking_id'], 'booking_status': booking['booking_status'], 'transaction_id': booking['transaction_id']})"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261117T012920Z-bfcl-multi_turn_miss_func-evidence-gpt-4.1-2025-04-14-B_41_mf",
+   "task": "multi_turn_miss_func_48",
+   "reported": [],
+   "recorded_error": "error: L1:C7: cannot look up 'matching_lines' in int; only lists, dicts and strs can be indexed",
+   "script": "len(grep('test_file1.txt',''))['matching_lines'][0] if grep('test_file1.txt','')['matching_lines'] else 0"
+  },
+  {
+   "kind": "missed_other",
+   "run": "20261117T012920Z-bfcl-multi_turn_miss_func-evidence-gpt-4.1-2025-04-14-B_41_mf",
+   "task": "multi_turn_miss_func_48",
+   "reported": [],
+   "recorded_error": "error: L1:C7: cannot look up 'matching_lines' in int; only lists, dicts and strs can be indexed",
+   "script": "len(grep('test_file2.txt',''))['matching_lines'][0] if grep('test_file2.txt','')['matching_lines'] else 0"
+  }
+ ]
+}
