@@ -30,7 +30,7 @@ const TOOLS: &[MockTool] = &[
         reads: None,
         writes: None,
         returns: Some(r#"{"city": str, "temp_c": int, "sky": str}"#),
-        about: "Current weather for a city. Latency is 120 to 210 ms depending on the city name.",
+        about: "Weather for a city. Takes 120 to 210 ms depending on the name.",
     },
     MockTool {
         name: "search",
@@ -40,7 +40,7 @@ const TOOLS: &[MockTool] = &[
         reads: None,
         writes: None,
         returns: Some(r#"list[{"title": str, "url": str}]"#),
-        about: "Web search. Returns a list of {title, url} dicts (fake example.com results).",
+        about: "Web search. Gives back a list of {title, url} dicts, all fake example.com links.",
     },
     MockTool {
         name: "gh_issues",
@@ -53,7 +53,7 @@ const TOOLS: &[MockTool] = &[
         reads: None,
         writes: None,
         returns: Some(r#"list[{"repo": str, "number": int, "title": str, "label": str, "state": str}]"#),
-        about: "Issues of a GitHub repo (fake data). state is \"open\" or \"closed\".",
+        about: "Issues for a GitHub repo, made up. state is \"open\" or \"closed\".",
     },
     MockTool {
         name: "db_get",
@@ -63,7 +63,7 @@ const TOOLS: &[MockTool] = &[
         reads: Some("db:{0|key}"),
         writes: None,
         returns: None,
-        about: "Read a key from an in-memory store. Returns None when missing.",
+        about: "Read a key from a small in-memory store. None if it isn't there.",
     },
     MockTool {
         name: "db_put",
@@ -73,7 +73,7 @@ const TOOLS: &[MockTool] = &[
         reads: None,
         writes: Some("db:{0|key}"),
         returns: Some("bool"),
-        about: "Write a key. Reversible: runs once earlier conflicting work is done.",
+        about: "Write a key. Waits for earlier work on the same key.",
     },
     MockTool {
         name: "summarize",
@@ -83,7 +83,7 @@ const TOOLS: &[MockTool] = &[
         reads: None,
         writes: None,
         returns: Some("str"),
-        about: "Keep the first max_words words (default 12). Pure.",
+        about: "Keeps the first max_words words (12 by default).",
     },
     MockTool {
         name: "post_slack",
@@ -93,7 +93,7 @@ const TOOLS: &[MockTool] = &[
         reads: None,
         writes: None,
         returns: Some(r#"{"ok": bool, "channel": str}"#),
-        about: "Post a message (nothing is sent anywhere). Irreversible: runs in program order after earlier work.",
+        about: "Post a message. Nothing actually gets sent. Can't be undone, so it waits its turn.",
     },
     MockTool {
         name: "send_email",
@@ -107,7 +107,7 @@ const TOOLS: &[MockTool] = &[
         reads: None,
         writes: None,
         returns: Some(r#"{"queued": bool, "to": str}"#),
-        about: "Send an email (nothing is sent anywhere). Irreversible.",
+        about: "Send an email. Nothing actually gets sent. Can't be undone.",
     },
 ];
 

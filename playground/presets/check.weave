@@ -1,5 +1,5 @@
-# This script never runs. The pre-run check reads every call against the
-# declared tools and stops it before a single tool call goes out.
+# This one never runs. The check reads every call against the tools
+# and stops the script before a single call goes out.
 w = wether("Paris")
 hits = search("weave", limt=3)
 bugs = gh_issues("AtharvRaotole/weave", state="opened")

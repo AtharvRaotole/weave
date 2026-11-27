@@ -1,5 +1,5 @@
-# Two reads in parallel, some plain Python in the middle, then one
-# irreversible post that only runs after everything it depends on.
+# Two reads at the same time, a bit of plain Python, then one post
+# to Slack. The post can't be undone, so it waits for the reads.
 repo = "AtharvRaotole/weave"
 open_issues = gh_issues(repo, state="open")
 closed = gh_issues(repo, state="closed")

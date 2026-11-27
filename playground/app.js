@@ -116,7 +116,7 @@ function presetButtons() {
 function selectPreset(p) {
   current = p;
   for (const b of $("presets").children) b.setAttribute("aria-selected", String(b.dataset.id === p?.id));
-  $("blurb").textContent = p ? p.blurb : "Your script (from a shared link).";
+  $("blurb").textContent = p ? p.blurb : "A script someone shared with you.";
 }
 
 function loadPreset(p, andRun) {
@@ -150,7 +150,10 @@ function fromHash() {
 $("share").addEventListener("click", async () => {
   const url = `${location.origin}${location.pathname}#code=${b64.enc(src.value)}`;
   history.replaceState(null, "", url);
-  try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch { toast("Link is in the address bar"); }
+  try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch { toast("The link is in your address bar"); }
+});
+$("install").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText("pip install weave-lang"); toast("Copied"); } catch { toast("pip install weave-lang"); }
 });
 $("reset").addEventListener("click", () => { if (current) loadPreset(current, false); });
 
@@ -167,7 +170,7 @@ function toast(msg) {
 function diagHtml(d) {
   const loc = d.line ? `L${d.line}:${d.col}` : "run";
   const cls = d.class === "static" ? "" : " runtime";
-  return `<button class="diag${cls}" data-line="${d.line}" data-col="${d.col}"><span class="loc">${loc}</span>${esc(d.message)}${d.hint ? `<span class="hint">hint: ${esc(d.hint)}</span>` : ""}</button>`;
+  return `<button class="diag${cls}" data-line="${d.line}" data-col="${d.col}"><span class="loc">${loc}</span>${esc(d.message)}${d.hint ? `<span class="hint"><b>Hint:</b> ${esc(d.hint)}</span>` : ""}</button>`;
 }
 
 function bindDiagClicks(root) {
@@ -187,29 +190,78 @@ function jumpTo(line, col) {
   codeBox.scrollTop = Math.max(0, (line - 4) * lh);
 }
 
-function planHtml(plan) {
-  if (!plan || !plan.calls.length) return "";
-  const lines = plan.text.trimEnd().split("\n");
-  const body = lines.map((l, i) => {
-    const cls = i === 0 ? "plan-head" : / (reversible|irreversible) /.test(l) ? "plan-write" : "";
-    return `<span class="${cls}">${esc(l)}</span>`;
-  }).join("\n");
-  return `<p class="note">The plan, before any tool runs: each call, how many times it can run, where its arguments come from (<code>&lt;#1&gt;</code> = the result of call #1) and what it may write. Stages count data dependencies only; calls that touch the same key also keep program order when it runs.</p>` +
-    `<pre class="plan" id="plan">${body}</pre>`;
+const OK_ICON = `<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7.25" fill="currentColor" opacity=".14"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const PLAN_LINE = /^\s*#\d+ line \d+: (.*) (pure|read|reversible|irreversible) x\S+ stage \d+(?:, .*)?$/;
+const plural = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+
+function countText(c) {
+  if (c.max_count === null || c.max_count === undefined) return `${c.min_count}+ times`;
+  if (c.min_count === c.max_count) return c.min_count === 1 ? "once" : `${c.min_count} times`;
+  return `${c.min_count} to ${c.max_count} times`;
+}
+
+function writesText(c) {
+  if (!c.writes) return "";
+  if (c.writes.kind === "names") return `writes ${c.writes.names.join(", ")}`;
+  return "could write anything (no footprint declared)";
+}
+
+function renderPlan(plan, diags) {
+  const box = $("plan-box"), note = $("plan-note");
+  if (diags && diags.length) {
+    note.textContent = "Waiting on the check";
+    box.innerHTML = `<p class="empty">Fix what the check found and the plan shows up here.</p>`;
+    return;
+  }
+  if (!plan || !plan.calls.length) {
+    note.textContent = "Before anything runs";
+    box.innerHTML = `<p class="empty">This script doesn't call any tools, so there's nothing to plan.</p>`;
+    return;
+  }
+  const lines = plan.text.trimEnd().split("\n").slice(1);
+  const writes = plan.calls.filter((c) => c.effect === "reversible" || c.effect === "irreversible");
+  const stages = Math.max(...plan.calls.map((c) => c.stage || 1));
+  note.textContent = "Before anything runs";
+  const chips = [
+    `<span class="chip"><b>${plan.calls.length}</b> ${plan.calls.length === 1 ? "call site" : "call sites"}</span>`,
+    `<span class="chip"><b>${stages}</b> ${stages === 1 ? "stage" : "stages"}</span>`,
+    writes.length
+      ? `<span class="chip write"><b>${writes.length}</b> ${writes.length === 1 ? "write" : "writes"}</span>`
+      : `<span class="chip">no writes</span>`,
+  ].join("");
+  const rows = plan.calls.map((c, i) => {
+    const m = PLAN_LINE.exec(lines[i] || "");
+    const call = m ? m[1] : c.tool + "(...)";
+    const callHtml = esc(call).replace(/&lt;(#[\d,#]+)&gt;/g, '<span class="from">&lt;$1&gt;</span>');
+    const isWrite = c.effect === "reversible" || c.effect === "irreversible";
+    const w = writesText(c);
+    return `<li class="${isWrite ? "plan-write" : ""}" data-line="${c.line}">
+      <span class="num">#${i + 1}</span>
+      <span class="call" title="${esc(call)}">${callHtml}</span>
+      <span class="meta"><span>${countText(c)}</span><span>stage ${c.stage}</span><span class="badge ${c.effect}">${c.effect}</span></span>
+      ${w ? `<span class="sub">${esc(w)}</span>` : ""}
+    </li>`;
+  }).join("");
+  box.innerHTML = `<div class="plan-sum">${chips}</div><ol class="plan" id="plan">${rows}</ol>` +
+    `<p class="note"><code>&lt;#1&gt;</code> means "the result of call #1". Stages only count data dependencies. When it runs, calls that touch the same key also keep your order.</p>`;
+  box.querySelectorAll(".plan li").forEach((li) => li.addEventListener("click", () => jumpTo(+li.dataset.line, 1)));
 }
 
 function showCheck(diags, plan) {
   const box = $("check"), dot = $("check-dot");
   errLines = new Set(diags.filter((d) => d.line).map((d) => d.line));
   render();
+  renderPlan(plan, diags);
   if (!diags.length) {
     dot.className = "dot ok";
-    box.innerHTML = `<p class="okmsg">Passed. Every call matches a declared tool and its parameters.</p>` + planHtml(plan);
+    $("check-note").textContent = "Runs as you type";
+    box.innerHTML = `<p class="okmsg">${OK_ICON}<span>Looks good. Every call matches a tool and its arguments.</span></p>`;
     return;
   }
   dot.className = "dot bad";
+  $("check-note").textContent = plural(diags.length, "problem");
   box.innerHTML = diags.map(diagHtml).join("") +
-    `<p class="note">${diags.length} problem${diags.length > 1 ? "s" : ""} found before running. On Run, the script is rejected and no tool is called.</p>`;
+    `<p class="note">If you hit Run now, the script gets turned away and no tool is called.</p>`;
   bindDiagClicks(box);
 }
 
@@ -237,21 +289,22 @@ function doRun(scroll = true) {
     showCheck(out.diagnostics);
     setStatus(`Rejected by the check. 0 tools called.`, "bad");
     $("stats").innerHTML = "";
-    $("timeline").innerHTML = `<p class="muted">The check failed, so nothing was scheduled.</p>`;
-    $("effects").innerHTML = `<p class="muted">No writes ran.</p>`;
-    $("output").innerHTML = `<p class="muted">Nothing ran. Fix the problems above and run again.</p>`;
+    $("timeline").innerHTML = `<p class="empty">The check failed, so nothing got scheduled.</p>`;
+    $("effects").innerHTML = `<p class="empty">Nothing was written.</p>`;
+    $("output").innerHTML = `<p class="empty">Nothing ran. Fix what the check found and try again.</p>`;
     $("replay").hidden = true;
     return;
   }
   liveCheck();
   const n = out.calls.length;
-  setStatus(out.ok ? `Done: ${n} call${n === 1 ? "" : "s"} in ${fmtMs(out.total_ms)} virtual, computed in ${wall.toFixed(1)} ms` : `Stopped with an error after ${n} call${n === 1 ? "" : "s"}`, out.ok ? "ok" : "bad");
+  setStatus(out.ok ? `Done. ${plural(n, "call")}, ${fmtMs(out.total_ms)} virtual` : `Stopped on an error after ${plural(n, "call")}`, out.ok ? "ok" : "bad");
+  $("status").title = `Took ${wall.toFixed(1)} ms of real time in your browser`;
   renderStats(out);
   renderTimeline(out, true);
   renderEffects(out);
   renderOutput(out);
   $("replay").hidden = n === 0;
-  if (scroll && matchMedia("(max-width: 960px)").matches) $("timeline-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (scroll && matchMedia("(max-width: 1000px)").matches) $("timeline-card").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function setStatus(msg, cls) {
@@ -267,10 +320,10 @@ function renderStats(out) {
   const ratio = out.total_ms > 0 ? out.sequential_ms / out.total_ms : 1;
   $("stats").innerHTML = [
     stat(fmtMs(out.total_ms), "with Weave", true),
-    stat(fmtMs(out.sequential_ms), "same calls one at a time"),
-    stat(`${ratio.toFixed(2)}×`, "vs one at a time"),
-    stat(String(n), n === 1 ? "tool call" : "tool calls"),
-    stat(String(peak), "max in flight"),
+    stat(fmtMs(out.sequential_ms), "one at a time"),
+    stat(`${ratio.toFixed(1)}x`, "shorter wait"),
+    stat(String(n), n === 1 ? "call" : "calls"),
+    stat(String(peak), "at once, max"),
   ].join("");
 }
 const stat = (b, s, hi) => `<div class="stat${hi ? " hi" : ""}"><b>${esc(b)}</b><span>${esc(s)}</span></div>`;
@@ -300,7 +353,7 @@ function renderTimeline(out, animate) {
   cancelAnimationFrame(animation);
   const box = $("timeline");
   const calls = out.calls;
-  if (!calls.length) { box.innerHTML = `<p class="muted">No tool calls ran.</p>`; return; }
+  if (!calls.length) { box.innerHTML = `<p class="empty">No tools were called.</p>`; return; }
   const total = Math.max(out.total_ms, ...calls.map((c) => c.end_ms), 1);
   const step = niceStep(total);
   const span = Math.ceil(total / step) * step;
@@ -310,12 +363,12 @@ function renderTimeline(out, animate) {
   const rows = calls.map((c, i) => {
     const { name, args } = callText(c);
     const cls = c.ok ? c.effect : "fail";
-    return `<div class="row" data-i="${i}" title="${esc(name)}(${esc(args)})  ${Math.round(c.start_ms)} to ${Math.round(c.end_ms)} ms">
+    return `<div class="row${c.effect === "reversible" || c.effect === "irreversible" ? " w" : ""}" data-i="${i}" title="${esc(name)}(${esc(args)})  ${Math.round(c.start_ms)} to ${Math.round(c.end_ms)} ms">
       <div class="label"><span class="t-${c.effect}">${esc(name)}</span><span class="args">(${esc(args)})</span></div>
       <div class="track"><div class="grid"></div><div class="barx ${cls}" data-s="${c.start_ms}" data-e="${c.end_ms}" style="left:${pct(c.start_ms)}%;width:${animate ? 0 : pct(c.end_ms - c.start_ms)}%"><span class="ms">${animate ? "" : fmtMs(c.end_ms - c.start_ms)}</span></div></div>
     </div>`;
   }).join("");
-  box.innerHTML = `<div class="axis">${axis}</div>${rows}<p class="note">Virtual milliseconds. Click a row for its arguments and result.</p>`;
+  box.innerHTML = `<div class="axis">${axis}</div>${rows}<p class="note">Virtual milliseconds. Click a row to see what went in and what came back.</p>`;
   box.style.setProperty("--grid", `${pct(step)}%`);
   box.querySelectorAll(".row").forEach((row) => row.addEventListener("click", () => toggleDetail(row, calls[+row.dataset.i])));
   if (animate && !matchMedia("(prefers-reduced-motion: reduce)").matches) play(box, span, pct);
@@ -365,14 +418,14 @@ function renderEffects(out) {
   const writes = out.calls.filter((c) => c.effect === "reversible" || c.effect === "irreversible");
   const box = $("effects");
   if (!writes.length) {
-    box.innerHTML = `<p class="muted">This script has no writes, so every call could start as soon as its inputs were ready.</p>`;
+    box.innerHTML = `<p class="empty">No writes in this one, so every call could start as soon as its inputs were ready.</p>`;
     return;
   }
   const items = writes.map((c) => {
     const { name, args } = callText(c);
     return `<li><span class="badge ${c.effect}">${c.effect}</span><span class="call">${esc(name)}(${esc(args)})</span><span class="when">${Math.round(c.start_ms)} to ${Math.round(c.end_ms)} ms</span></li>`;
   }).join("");
-  box.innerHTML = `<ol class="effects">${items}</ol><p class="note">Writes run one at a time, in program order. A later read waits only for earlier writes that could touch what it reads. A write with no declared footprint (here post_slack and send_email) counts as touching everything.</p>`;
+  box.innerHTML = `<ol class="effects">${items}</ol><p class="note">Writes go one at a time, in the order you wrote them. A later read only waits for writes that could touch what it reads. A tool that doesn\'t say what it writes (like post_slack or send_email here) counts as touching everything.</p>`;
 }
 
 function renderOutput(out) {
@@ -384,9 +437,9 @@ function renderOutput(out) {
   }
   const vars = Object.entries(out.bindings || {});
   if (vars.length) {
-    html += `<div class="vars-title">Variables at the end</div><table class="vars">${vars.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v.length > 400 ? v.slice(0, 400) + " …" : v)}</td></tr>`).join("")}</table>`;
+    html += `<div class="vars-title">Variables</div><table class="vars">${vars.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v.length > 400 ? v.slice(0, 400) + " ..." : v)}</td></tr>`).join("")}</table>`;
   }
-  box.innerHTML = html || `<p class="muted">No output.</p>`;
+  box.innerHTML = html || `<p class="empty">The script didn\'t print anything.</p>`;
   bindDiagClicks(box);
 }
 
@@ -394,14 +447,14 @@ function renderOutput(out) {
 
 function renderTools() {
   $("tools").innerHTML = TOOLS.map((t) => {
-    const params = t.params.map((p) => (p.required ? p.name : `${p.name}=…`)).join(", ");
-    return `<div class="tool"><span class="badge ${t.effect}">${t.effect}</span><span class="sig">${esc(t.name)}(${esc(params)})${t.returns ? ` -> ${esc(t.returns)}` : ""}</span><span class="lat">${t.latency_ms} ms</span><span class="about">${esc(t.about)}</span></div>`;
+    const params = t.params.map((p) => (p.required ? p.name : `${p.name}=...`)).join(", ");
+    return `<div class="tool"><span class="badge ${t.effect}">${t.effect}</span><span class="sig">${esc(t.name)}(${esc(params)})${t.returns ? `<span class="ret"> -> ${esc(t.returns)}</span>` : ""}</span><span class="lat">${t.latency_ms} ms</span><span class="about">${esc(t.about)}</span></div>`;
   }).join("");
 }
 
 function crashed(e) {
   console.error(e);
-  setStatus("The runtime hit an internal error. Reloading…", "bad");
+  setStatus("Something broke inside the runtime. Reloading the page...", "bad");
   const url = `${location.pathname}#code=${b64.enc(src.value)}`;
   setTimeout(() => { location.replace(url); location.reload(); }, 1200);
 }
@@ -420,12 +473,12 @@ init().then(() => {
   renderTools();
   ready = true;
   $("run").disabled = false;
-  $("ver").textContent = `runtime v${version()} (WebAssembly)`;
-  setStatus("Ready. Edit the script or pick an example, then Run.");
+  $("ver").textContent = `Runtime v${version()}, compiled to WebAssembly`;
+  setStatus("Ready. Edit away, or pick an example.");
   render();
   liveCheck();
   doRun(false);
 }).catch((e) => {
   console.error(e);
-  setStatus("Could not load the WebAssembly runtime in this browser.", "bad");
+  setStatus("Couldn\'t load WebAssembly in this browser. Try a recent Chrome, Firefox or Safari.", "bad");
 });

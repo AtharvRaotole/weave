@@ -1,6 +1,6 @@
-# Writes keep program order, and reads respect them. The second
+# Writes run in the order you wrote them. The second
 # db_get("visits") waits for the write to that key. db_get("owner")
-# touches a different key, so it does not wait for the write to finish.
+# reads a different key, so it doesn't wait for the write to finish.
 visits = db_get("visits")
 db_put("visits", visits + 1)
 owner = db_get("owner")

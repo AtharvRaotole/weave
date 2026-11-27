@@ -1,8 +1,8 @@
 [
-  {"id": "fanout", "name": "Fan-out", "blurb": "Five independent reads start together.", "expect": "ok"},
-  {"id": "chain", "name": "Search, then summarize", "blurb": "Each call waits only for the values it uses.", "expect": "ok"},
-  {"id": "triage", "name": "Triage and post", "blurb": "Reads in parallel, one irreversible post at the end.", "expect": "ok"},
-  {"id": "writes", "name": "Writes in order", "blurb": "Writes keep program order. Reads of other keys don't wait for them.", "expect": "ok"},
-  {"id": "check", "name": "Failing check", "blurb": "Typos, bad arguments and wrong result keys are caught before any tool runs.", "expect": "check"},
-  {"id": "errors", "name": "Catch a tool error", "blurb": "A failed call is an exception you can catch.", "expect": "ok"}
+  {"id": "fanout", "name": "Fan out", "blurb": "Five lookups, all started at once.", "expect": "ok"},
+  {"id": "chain", "name": "Summarize hits", "blurb": "Each call waits only for the values it needs.", "expect": "ok"},
+  {"id": "triage", "name": "Triage and post", "blurb": "Two reads together, then one post that can't be undone.", "expect": "ok"},
+  {"id": "writes", "name": "Writes in order", "blurb": "Writes keep your order. Reads of other keys don't wait on them.", "expect": "ok"},
+  {"id": "check", "name": "Broken script", "blurb": "Typos, bad arguments and wrong result keys, caught before anything runs.", "expect": "check"},
+  {"id": "errors", "name": "Catch an error", "blurb": "A failed call is an exception you can catch.", "expect": "ok"}
 ]
