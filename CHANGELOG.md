@@ -14,6 +14,8 @@ stages. Unknown values are reported as unknown, never guessed. New property test
 real runs of random scripts: every call belongs to a planned site, counts stay within the bounds, and
 data only flows along planned edges.
 
+The playground shows the plan under a passing check, with the calls that may write highlighted.
+
 `WeaveTool(approve=fn)`: for a script that may write, `fn(plan)` decides before anything runs. `True`
 runs it; `False`, `None` or a reason string stops it, and the model gets "[not approved] Nothing ran"
 with the reason. Exceptions fail closed. Read-only scripts skip it. New offline example

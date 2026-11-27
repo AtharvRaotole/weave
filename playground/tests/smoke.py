@@ -37,6 +37,10 @@ def main():
         page.click('#presets button[data-id="writes"]')
         expect(writes).to_have_count(2)
         expect(page.locator("#output .stdout")).to_contain_text("visits: 41 -> 42")
+        plan = page.locator("#plan")
+        expect(plan).to_contain_text("plan: 5 tool calls")
+        expect(plan).to_contain_text("writes db:visits")
+        expect(page.locator("#plan .plan-write")).to_have_count(2)
 
         page.click('#presets button[data-id="check"]')
         expect(status).to_contain_text("Rejected by the check. 0 tools called.")
