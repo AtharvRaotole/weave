@@ -395,7 +395,7 @@ function renderOutput(out) {
 function renderTools() {
   $("tools").innerHTML = TOOLS.map((t) => {
     const params = t.params.map((p) => (p.required ? p.name : `${p.name}=…`)).join(", ");
-    return `<div class="tool"><span class="badge ${t.effect}">${t.effect}</span><span class="sig">${esc(t.name)}(${esc(params)})</span><span class="lat">${t.latency_ms} ms</span><span class="about">${esc(t.about)}</span></div>`;
+    return `<div class="tool"><span class="badge ${t.effect}">${t.effect}</span><span class="sig">${esc(t.name)}(${esc(params)})${t.returns ? ` -> ${esc(t.returns)}` : ""}</span><span class="lat">${t.latency_ms} ms</span><span class="about">${esc(t.about)}</span></div>`;
   }).join("");
 }
 

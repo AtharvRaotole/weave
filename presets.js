@@ -31,9 +31,9 @@ export const PRESETS = [
   {
     "id": "check",
     "name": "Failing check",
-    "blurb": "Typos and bad arguments are caught before any tool runs.",
+    "blurb": "Typos, bad arguments and wrong result keys are caught before any tool runs.",
     "expect": "check",
-    "code": "# This script never runs. The pre-run check reads every call against the\n# declared tools and stops it before a single tool call goes out.\nw = wether(\"Paris\")\nhits = search(\"weave\", limt=3)\nbugs = gh_issues(\"AtharvRaotole/weave\", state=\"opened\")\nsend_email(\"team@example.com\", body=\"done\")\nprint(w, hits, bugs)\n"
+    "code": "# This script never runs. The pre-run check reads every call against the\n# declared tools and stops it before a single tool call goes out.\nw = wether(\"Paris\")\nhits = search(\"weave\", limt=3)\nbugs = gh_issues(\"AtharvRaotole/weave\", state=\"opened\")\nsend_email(\"team@example.com\", body=\"done\")\ntokyo = weather(\"Tokyo\")\nprint(w, hits, bugs, tokyo[\"temp\"])\n"
   },
   {
     "id": "errors",
