@@ -131,7 +131,7 @@ replacing the path with the actual filename. The release includes CPython
 3.9–3.13 wheels for Linux x86_64/aarch64, macOS Intel/Apple Silicon, and Windows
 x64. Wheels do not require Rust.
 
-**From source — macOS/Linux:** install [Rust via rustup](https://rustup.rs/) and
+**From source, macOS/Linux:** install [Rust via rustup](https://rustup.rs/) and
 Python 3.9–3.13 first. The checkout pins Rust 1.99.1; the declared minimum is 1.97.
 
 ```bash
@@ -144,7 +144,7 @@ maturin develop --release --locked
 ```
 
 <details>
-<summary>From source — Windows PowerShell</summary>
+<summary>From source, Windows PowerShell</summary>
 
 Install Rust via rustup, its required C++ build tools, and Python 3.9–3.13, then:
 
@@ -246,6 +246,58 @@ Schema is checked (`type`, `enum`, `const`, `anyOf`/`oneOf`/`allOf`, `items`, `p
 `required`, `additionalProperties: false`, local `$ref`); other keywords such as `pattern` or
 `minimum` are left to the tool. `None` is always accepted for an optional argument. Turn it off with
 `check_args=False` (Python `engine.tool` / `weave.declare`) or `"check_args": false` (an MCP upstream).
+
+### See the plan before it runs
+
+`Engine.plan(source)` (Python), `WeaveTool.plan(source)`, `weave plan FILE [--json]` (CLI), the `weave_plan`
+MCP tool and `Engine::plan` (Rust) return the script's static plan. Nothing runs. A script that fails the
+check above has no plan; you get the same error as from `run`.
+
+The plan has one entry per tool call site in the script (a helper called twice gives two sites):
+
+| field | meaning |
+|---|---|
+| `tool`, `effect`, `line` | the call and its declared effect |
+| `min_count`, `max_count` | how many times it runs; `max_count` is `None` when a loop's length is only known at run time |
+| `args` | per argument: its parameter `name` (keyword, or the declared name of a positional), and a `source`: `literal` with every value it can have, `tools` with the call sites whose results reach it, or `computed` |
+| `data_from` | call sites whose results flow into the arguments (directly; follow it for the full chain) |
+| `control_from` | call sites whose results decide whether, or how often, this call runs |
+| `writes` | for reversible and irreversible tools: `names` (the declared `writes=` templates filled with literal arguments), `templates` (filled at run time), or `all` (no `writes=` declared); `None` for pure and read tools |
+| `reads` | the same for `reads=` |
+| `stage` | 1 + the deepest stage it waits on through `data_from` and `control_from`; `None` when a loop feeds a call its own earlier result, like pagination |
+
+Top level: `min_calls`, `max_calls`, `stages` (the longest such chain, so the fewest model round trips the
+same work would need with one-call-at-a-time function calling, when it isn't `None`), `max_effect`,
+`may_write`, and in Python `text`, a short summary.
+
+What it promises, when the run finishes and no call fails: every call the run makes belongs to a listed site;
+each site runs between `min_count` and `max_count` times; a literal argument has one of the listed values; and
+data from a call's result only reaches calls that list it (through the `data_from` chain). Tool failures and
+caught errors can only make calls skip, so `max_count` holds for any run. Counts are calls as the trace records
+them: a call retried under `retries=` is one call, and `engine.speculate` predictions are not part of the script. The tests compare plans with real runs
+of thousands of random scripts (`crates/weave/tests/plan.rs`, `crates/weave/tests/differential.rs`).
+
+What it leaves out: `stage` counts data and control dependencies only. Writes also wait for earlier work they
+may conflict with (by footprint), so a run can take more waves than `stages`. Loop lengths are exact only for
+literal lists and dicts, `range` with literal bounds, lists built by `append` or a comprehension once they are
+complete, and names bound once to those; anything else is "at least 0". Values of computed arguments, and
+anything a tool returns, are never guessed.
+
+`WeaveTool(approve=fn)` puts the plan in front of every script that may write. `fn(plan)` returns `True` to run
+it; `False`, `None` or a string (the reason) stops it before any call, and the model gets
+`[not approved] Nothing ran, no tool was called. Reason: ...`. An exception in `fn` also stops the script.
+Scripts that only read run without asking. It works with `write_gate=`, which pauses inside a run, and with
+`persist_variables=True` (line numbers stay the model's own). A policy can, for example, auto-approve writes
+whose `writes` are resolved `names` in an allow list and send everything else to a person:
+
+```python
+def approve(plan):
+    for call in plan["calls"]:
+        w = call["writes"]
+        if w is not None and (w["kind"] != "names" or not all(n.startswith("ticket:") for n in w["names"])):
+            return f"{call['tool']} on line {call['line']} needs a person"
+    return True
+```
 
 ## Give your agent one workflow tool
 
@@ -360,7 +412,7 @@ Or configure the client by hand, with absolute paths:
 On Windows, use `weave-mcp.exe` and Windows paths. Use a unique prefix for each
 upstream and review its tools and directory permissions before connecting it.
 
-The proxy exposes `weave_check`, `weave_run`, and `weave_replay`, **plus upstream
+The proxy exposes `weave_check`, `weave_plan`, `weave_run`, and `weave_replay`, **plus upstream
 tools**. To give a model only the script interface, filter the tool list in your
 host. `weave_run` returns only stdout/status by default; `debug: true` returns
 bindings and a full trace, which may contain sensitive intermediate data.

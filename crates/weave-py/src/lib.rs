@@ -226,6 +226,20 @@ impl PyEngine {
         self.inner.script_effect(source).map(|e| e.as_str().to_string()).map_err(weave_err)
     }
 
+    /// The static plan of a script, without running anything: a dict with
+    /// `calls` (one entry per tool call site: tool, effect, line, min_count,
+    /// max_count, args with their sources, data_from, control_from, reads,
+    /// writes, stage), `min_calls`, `max_calls`, `stages`, `max_effect`,
+    /// `may_write`, and `text`, a short human-readable summary. A script
+    /// that fails the static check raises the same error as `run`.
+    fn plan(&self, py: Python<'_>, source: &str) -> PyResult<Py<PyAny>> {
+        let plan = self.inner.plan(source).map_err(weave_err)?;
+        let json = py.import("json")?;
+        let dict = json.call_method1("loads", (plan.to_json(),))?;
+        dict.set_item("text", plan.render())?;
+        Ok(dict.unbind())
+    }
+
     fn check(&self, source: &str) -> Vec<String> {
         self.inner.check(source).into_iter().map(|d| d.to_string()).collect()
     }

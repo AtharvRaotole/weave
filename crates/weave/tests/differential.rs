@@ -641,3 +641,59 @@ fn generator_produces_python_sugar() {
         assert!(hits >= 20, "only {hits} programs contain `{needle}`");
     }
 }
+
+/// The static plan must cover every run: each call belongs to a planned site
+/// (same line and tool), and per site the number of calls lies within the
+/// planned bounds. Lower bounds hold only for runs where no call failed.
+fn check_plan_covers_run(seed: u64) {
+    let source = program(seed);
+    let world = Arc::default();
+    let engine = engine(&world, false, false);
+    let plan = engine.plan(&source).unwrap_or_else(|e| panic!("seed {seed}: plan failed: {e}\n{source}"));
+    let mut bounds: BTreeMap<(usize, String), (u64, Option<u64>)> = BTreeMap::new();
+    for c in &plan.calls {
+        let b = bounds.entry((c.line, c.tool.clone())).or_insert((0, Some(0)));
+        b.0 += c.min_count;
+        b.1 = match (b.1, c.max_count) {
+            (Some(a), Some(m)) => Some(a + m),
+            _ => None,
+        };
+    }
+    let run = engine.run(&source);
+    let (events, ok) = match &run {
+        Ok(r) => (r.trace.events.clone(), r.trace.events.iter().all(|e| e.error.is_none())),
+        Err(_) => (Vec::new(), false),
+    };
+    let mut seen: BTreeMap<(usize, String), u64> = BTreeMap::new();
+    for e in &events {
+        *seen.entry((e.line, e.tool.clone())).or_default() += 1;
+    }
+    for (key, n) in &seen {
+        let (_, max) = bounds.get(key).unwrap_or_else(|| panic!("seed {seed}: call {key:?} not in plan\n{source}\n{}", plan.render()));
+        if let Some(max) = max {
+            assert!(n <= max, "seed {seed}: {key:?} ran {n} times, plan max {max}\n{source}\n{}", plan.render());
+        }
+    }
+    if ok {
+        for (key, (min, _)) in &bounds {
+            let n = seen.get(key).copied().unwrap_or(0);
+            assert!(n >= *min, "seed {seed}: {key:?} ran {n} times, plan min {min}\n{source}\n{}", plan.render());
+        }
+        let total = events.len() as u64;
+        assert!(total >= plan.min_calls, "seed {seed}: total {total} < min {}", plan.min_calls);
+        if let Some(max) = plan.max_calls {
+            assert!(total <= max, "seed {seed}: total {total} > max {max}");
+        }
+    }
+}
+
+#[test]
+fn plan_bounds_cover_random_runs() {
+    let seeds: u64 = std::env::var("WEAVE_DIFF_SEEDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(300);
+    for seed in 0..seeds {
+        check_plan_covers_run(seed);
+    }
+}

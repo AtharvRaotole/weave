@@ -2,6 +2,7 @@
 //!
 //! Tools:
 //! - `weave_check` statically checks a script
+//! - `weave_plan` shows a script's static plan without running it
 //! - `weave_run` runs it against scripted echo/const tools
 //! - `weave_replay` re-executes a script from a JSON trace
 
@@ -18,8 +19,8 @@ pub mod framing;
 pub mod upstream;
 pub use upstream::{Upstream, UpstreamConfig};
 
-/// Tools the server exposes directly, in addition to `weave_check`, `weave_run`,
-/// and `weave_replay`. Loaded from a JSON config.
+/// Tools the server exposes directly, in addition to `weave_check`, `weave_plan`,
+/// `weave_run`, and `weave_replay`. Loaded from a JSON config.
 #[derive(Clone, Debug)]
 pub struct ScriptedTool {
     pub name: String,
@@ -190,6 +191,19 @@ fn tools_list(config: &ServerConfig) -> Json {
             }
         }),
         json!({
+            "name": "weave_plan",
+            "description": "Show a Weave script's static plan without running anything: every tool call with its effect, how many times it can run, where its arguments come from, what it may write, and which calls it waits for. Use it to review writes before weave_run.",
+            "annotations": {"readOnlyHint": true},
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string"},
+                    "tools": {"type": "array", "items": tool_schema()}
+                },
+                "required": ["source"]
+            }
+        }),
+        json!({
             "name": "weave_run",
             "description": "Run a Weave script. Pure and read calls run in parallel; irreversible calls wait until the script is complete. Omit tools to use the server config (scripted tools and upstream MCP tools).",
             "inputSchema": {
@@ -343,6 +357,7 @@ fn tools_call(params: &Json, config: &ServerConfig, control: &RequestControl) ->
     let args = params.get("arguments").cloned().unwrap_or(json!({}));
     let text = match name {
         "weave_check" => weave_check(&args, config),
+        "weave_plan" => weave_plan(&args, config),
         "weave_run" => weave_run(&args, config, control),
         "weave_replay" => weave_replay(&args, config),
         other => match config.tools.iter().find(|tool| tool.name == other) {
@@ -393,6 +408,14 @@ fn weave_check(args: &Json, config: &ServerConfig) -> Result<String, String> {
     } else {
         Err(diags.iter().map(|d| d.to_string()).collect::<Vec<_>>().join("\n"))
     }
+}
+
+/// The rendered plan, then the plan as JSON.
+fn weave_plan(args: &Json, config: &ServerConfig) -> Result<String, String> {
+    let source = source_of(args)?;
+    let engine = engine_from_args(args, config)?;
+    let plan = engine.plan(source).map_err(|err| err.to_string())?;
+    Ok(format!("{}\n{}", plan.render().trim_end(), plan.to_json()))
 }
 
 fn weave_run(args: &Json, config: &ServerConfig, control: &RequestControl) -> Result<String, String> {
@@ -696,7 +719,7 @@ mod tests {
             .iter()
             .map(|t| t["name"].as_str().unwrap())
             .collect();
-        assert_eq!(names, ["weave_check", "weave_run", "weave_replay"]);
+        assert_eq!(names, ["weave_check", "weave_plan", "weave_run", "weave_replay"]);
 
         let ran = handle_message(&json!({
             "jsonrpc": "2.0",
@@ -739,6 +762,38 @@ mod tests {
     }
 
     #[test]
+    fn plan_lists_calls_without_running_them() {
+        let response = handle_message(&json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "weave_plan",
+                "arguments": {
+                    "source": "for t in [\"T-1\", \"T-2\"]:\n    close(t)\n",
+                    "tools": [{"name": "close", "effect": "reversible", "arity": 1, "behavior": "const",
+                               "result": {"t": "str", "v": "closed"}, "writes": ["ticket:{0}"], "delay_ms": 60000}]
+                }
+            }
+        }))
+        .unwrap();
+        let text = response["result"]["content"][0]["text"].as_str().unwrap();
+        assert_eq!(response["result"]["isError"], false, "{text}");
+        assert!(text.starts_with("plan: 2 tool calls, 1 dependent stage, strongest effect reversible"), "{text}");
+        assert!(text.contains("close('T-1' | 'T-2') reversible x2 stage 1, writes ticket:T-1, ticket:T-2"), "{text}");
+        let json_line = text.lines().last().unwrap();
+        let plan: Json = serde_json::from_str(json_line).unwrap();
+        assert_eq!(plan["may_write"], true);
+
+        let bad = handle_message(&json!({
+            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "params": {"name": "weave_plan", "arguments": {"source": "nope(1)\n"}}
+        }))
+        .unwrap();
+        assert_eq!(bad["result"]["isError"], true);
+    }
+
+    #[test]
     fn check_reports_a_short_error() {
         let response = handle_message(&json!({
             "jsonrpc": "2.0",
@@ -774,7 +829,7 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            ["weave_check", "weave_run", "weave_replay", "weather"]
+            ["weave_check", "weave_plan", "weave_run", "weave_replay", "weather"]
         );
         let called = handle_with(
             &json!({

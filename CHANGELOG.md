@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-27
+
+Plan preview: see what a script will do before any tool runs. `Engine.plan(source)` and
+`WeaveTool.plan(source)` (Python), `Engine::plan` (Rust), `weave plan FILE [--json]` (both CLIs) and
+the new `weave_plan` MCP tool return the script's static plan: every tool call site with its effect,
+how many times it can run (`min_count` / `max_count`), where each argument comes from (literal values,
+the call sites whose results reach it, or computed), what it may write (declared `writes=` templates
+filled with literal arguments where possible), which calls it waits for, and the number of dependent
+stages. Unknown values are reported as unknown, never guessed. New property tests compare plans with
+real runs of random scripts: every call belongs to a planned site, counts stay within the bounds, and
+data only flows along planned edges.
+
+`WeaveTool(approve=fn)`: for a script that may write, `fn(plan)` decides before anything runs. `True`
+runs it; `False`, `None` or a reason string stops it, and the model gets "[not approved] Nothing ran"
+with the reason. Exceptions fail closed. Read-only scripts skip it. New offline example
+`examples/plan_preview.py`.
+
+`--tool` on the CLIs accepts `reads=` and `writes=` footprints (templates separated by `;`).
+README: a plan preview section and a comparison with related approaches.
+
 ## [1.2.1] - 2026-11-25
 
 Packaging: the v1.2.0 tag was cut, but the Linux wheel jobs failed because `ubuntu-latest`

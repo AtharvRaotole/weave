@@ -165,7 +165,7 @@ GPT-4.1 in a round-6 dev run.
 
 ## Recipe 3: an MCP client, through weave-mcp
 
-`weave-mcp` exposes `weave_check`, `weave_run` and `weave_replay`, plus the
+`weave-mcp` exposes `weave_check`, `weave_plan`, `weave_run` and `weave_replay`, plus the
 tools of any stdio MCP servers you list as upstreams. Save `upstreams.json`:
 
 ```json
