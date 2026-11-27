@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+Declared error convention: `weave.declare(error_key="error")`, `Engine.tool(error_key=...)`,
+`Engine.declare(error_key=...)` and Rust `ToolSpec::with_error_key`. For tools that report failure as a
+value (`{"error": "..."}`) instead of raising, a dict result with that key (and a value other than `None`)
+raises `ToolError` at the call, so `except ToolError`, retries, replay and the stop before later calls
+work as for a raising tool. Other results, and tools without it, are unchanged.
+`bench/bfcl/replay_error_key.py` replays 5,130 recorded BFCL scripts against their recorded results: 640
+got an error dict; 487 of the 494 that had finished without an error now fail at that call (7 handle it in
+`try`), 145 of 146 that failed later now name the failed call, 39 state-changing calls in 25 scripts no
+longer run, and the 4,490 without an error dict are unchanged.
+
 Declared results: `weave.declare(returns=...)`, `Engine.tool(returns=...)` and Rust
 `ToolSpec::with_returns` take a JSON Schema or a shape string (`{"id": str, "items": list[{"sku": str}],
 "note": str?}`, `...` for open objects; `weave::schema_from_shape` in Rust). The pre-run check follows

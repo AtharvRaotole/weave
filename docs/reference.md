@@ -294,6 +294,40 @@ backend returned an `{"error": ...}` dict instead of the declared result, and 26
 undeclared types. Each caught script still needs a repair turn, as the runtime error did; what changes is
 that nothing runs first. We have not measured whether this changes task success.
 
+#### Tools that report failure in their result: `error_key=`
+
+Some tools never raise; they return `{"error": "No car found"}` instead. A script then keeps going with
+that dict as if it were the result: it prints it as a success, or fails later on a key lookup that hides
+the real cause, and later calls in the script still run. Declare the convention and the call itself fails:
+
+```python
+@weave.declare(effect="read", error_key="error")
+def find_car(plate): ...
+```
+
+A dict result with that key, and a value other than `None`, raises `ToolError` at the call with the value
+as the message ("tool `find_car` failed: No car found"), as if the tool had raised: `except ToolError`
+catches it, retries apply, later calls in the script do not run unless the script catches the error, and
+traces and replay record it as a failed call. Any other result (a dict without the key, `{"error": None}`,
+a list, a string) is returned unchanged. The same parameter exists on `Engine.tool` and `Engine.declare`;
+in Rust it is `ToolSpec::with_error_key`. Tools without it behave as before.
+
+Measured by replaying recorded scripts against their recorded results (no model calls;
+[`bench/bfcl/replay_error_key.py`](../bench/bfcl/replay_error_key.py)). Of 5,647 BFCL Weave scripts from
+rounds 11 to 14 that recorded their calls, 5,130 replay faithfully (the others cannot, mostly because the
+record truncates long results). 640 of those had a call return an `{"error": ...}` dict. With
+`error_key="error"`:
+
+- 494 had finished without an error. 487 now fail at the call that returned the dict; 7 handle it in
+  their own `try`/`except` and still finish.
+- 146 had failed anyway, usually on a later key lookup. All still fail; 145 now report the call that
+  failed and its message instead of the later lookup.
+- 91 recorded calls that ran after the failure no longer run, 39 of them state-changing (in 25 scripts).
+- The 4,490 faithful scripts without an error dict run exactly as before.
+
+This measures what the scripts do, not task success; the BFCL round 15 arm uses it (see
+`docs/research/round15-preregistration.md`).
+
 ### See the plan before it runs
 
 `Engine.plan(source)` (Python), `WeaveTool.plan(source)`, `weave plan FILE [--json]` (CLI), the `weave_plan`

@@ -2265,6 +2265,7 @@ fn schedule_tool(
     let body = tool.body.clone();
     let retries = tool.spec.effective_retries();
     let timeout = tool.spec.timeout;
+    let error_key = tool.spec.error_key.clone();
     let tool_name = name.to_string();
     let mut invocation = g.path.clone();
     invocation.extend([line, col]);
@@ -2341,6 +2342,7 @@ fn schedule_tool(
                     &kwargs,
                     retries,
                     timeout,
+                    error_key.as_deref(),
                     &cancel_rx,
                 )
                 .await
@@ -2512,6 +2514,7 @@ async fn execute_tool(
     kwargs: &BTreeMap<String, Value>,
     retries: u32,
     timeout: Option<std::time::Duration>,
+    error_key: Option<&str>,
     cancel: &watch::Receiver<bool>,
 ) -> Result<Value, WeaveError> {
     if matches!(effect, Effect::Pure | Effect::Read) {
@@ -2527,7 +2530,21 @@ async fn execute_tool(
         // what they would return.
         cache.invalidate(&writes.resolve(args, kwargs));
     }
-    run_tool_attempts(line, col, tool_name, handle, body, args, kwargs, retries, timeout, cancel).await
+    run_tool_attempts(line, col, tool_name, handle, body, args, kwargs, retries, timeout, error_key, cancel).await
+}
+
+/// The failure message in a result that follows a declared error
+/// convention: a dict with `key` whose value is not `None`.
+pub(crate) fn declared_error(value: &Value, key: Option<&str>) -> Option<String> {
+    let key = key?;
+    let Value::Dict(items) = value else { return None };
+    items.iter().find_map(|(k, v)| match (k, v) {
+        (Value::Str(name), _) if name != key => None,
+        (Value::Str(_), Value::Null) => None,
+        (Value::Str(_), Value::Str(text)) => Some(text.clone()),
+        (Value::Str(_), other) => Some(other.to_string()),
+        _ => None,
+    })
 }
 
 pub(crate) async fn run_tool_attempts(
@@ -2540,13 +2557,19 @@ pub(crate) async fn run_tool_attempts(
     kwargs: &BTreeMap<String, Value>,
     retries: u32,
     timeout: Option<std::time::Duration>,
+    error_key: Option<&str>,
     cancel: &watch::Receiver<bool>,
 ) -> Result<Value, WeaveError> {
     let attempts = retries.saturating_add(1);
     let mut last = String::from("failed");
     for attempt in 1..=attempts {
         ensure_running(line, col, cancel)?;
-        let outcome = invoke_once(tool_name, handle, body, args, kwargs, timeout, cancel).await;
+        let outcome = invoke_once(tool_name, handle, body, args, kwargs, timeout, cancel)
+            .await
+            .and_then(|value| match declared_error(&value, error_key) {
+                Some(message) => Err(message),
+                None => Ok(value),
+            });
         match outcome {
             Ok(value) => return Ok(value),
             Err(message) => {
