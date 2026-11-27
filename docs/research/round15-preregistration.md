@@ -82,4 +82,15 @@ rate, wall time, tokens, USD, and unsafe writes (a write not in the task's expec
 
 ## Deviations
 
-None yet.
+Recorded 2026-11-27, before any evidence trial (details in Addendum 15 of `docs/paper/preregistration.md`):
+
+1. **"Held out" is narrower than it reads above.** All 100 `lc100r15` ids are base-category train scenarios (learned
+   shapes and read/write classes include their base ground truth), and 53 were run live in other categories in
+   earlier rounds. The 47 never run live are reported separately as a descriptive split.
+2. **Run order in practice.** The runner shuffles all repeats of one invocation together, so each repeat is its own
+   invocation (repeat 1 uses seed 2027), in the order given above.
+3. **Live A/B harness.** protocol-v3's own runner is locked to api.openai.com and uses a different Weave mode, so the
+   live A/B uses a new Chat Completions harness (`bench/protocol_v3/live_cc.py`) with the BFCL arm's general options
+   on the same fixture and grader. The fixture's tools raise and never return error values, so `error_key` does not
+   apply there. Repeats: 3.
+4. **Smoke runs ($0.0289)** on a long-context id outside both sets, and on 2 `live-v2` tasks (both arms passed).

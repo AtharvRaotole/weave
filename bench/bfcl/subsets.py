@@ -59,3 +59,13 @@ R11_FRESH = [i for i in range(200) if i not in _USED]
 for _cat in ("mtb", "mp", "mf"):
     SUBSETS[f"{_cat}fresh{len(R11_FRESH)}r11"] = ("evidence", R11_FRESH)
 SUBSETS["smoke2"] = ("dev", [5, 6])  # Azure endpoint smoke test (train ids, not evidence)
+
+# Round 15 (docs/research/round15-preregistration.md). Primary: multi_turn_long_context, never run in any round, on
+# 100 scenario ids outside R9_EVIDENCE (the 60 read for the round 15 diagnosis). These are all train ids of the base
+# category (learned shapes and read/write classes include their base ground truth); 53 were run live before in
+# other categories. Secondary (contaminated): mtb60r9, unchanged.
+R15_LC = sorted(random.Random("weave-round15-bfcl-heldout-lc").sample([i for i in range(200) if i not in R9_EVIDENCE], 100))
+SUBSETS["lc100r15"] = ("evidence", R15_LC)
+R15_LC_NEVER_RUN = [i for i in R15_LC if i not in _USED]  # 47 ids: reported descriptively, not a new endpoint
+# Round 15 cost smoke (dev split, not evidence): one long-context id outside lc100r15 and R9_EVIDENCE.
+SUBSETS["smokelc15"] = ("dev", [[i for i in range(200) if i not in R15_LC and i not in R9_EVIDENCE][0]])
