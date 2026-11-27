@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Weave playground</title>
-  <meta name="description" content="Write a Weave script, run it against fake tools, and see the check, the plan and the timeline. The real runtime, compiled to WebAssembly.">
+  <title>Weave playground: one checked script instead of a dozen tool calls</title>
+  <meta name="description" content="Weave lets an LLM agent write one short Python-like script instead of a dozen tool calls. Try it here: see the check, every write before it runs, and which calls run at the same time.">
   <meta name="theme-color" content="#ffffff">
   <meta property="og:title" content="Weave playground">
   <meta property="og:description" content="Write a script, hit Run, and see what Weave does with it. The real parser, check and scheduler in your browser.">
@@ -29,7 +29,7 @@
       </a>
       <nav>
         <a href="https://github.com/AtharvRaotole/weave#readme">Docs</a>
-        <button class="install" id="install" title="Copy the install command"><span class="prompt">$</span> pip install weave-lang</button>
+        <button class="install" data-copy="pip install weave-lang" title="Copy the install command"><span class="prompt">$</span> pip install weave-lang</button>
         <a class="gh" href="https://github.com/AtharvRaotole/weave">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           <span>GitHub</span>
@@ -39,16 +39,33 @@
   </header>
 
   <section class="hero">
-    <h1>Try Weave in your browser</h1>
-    <p>Write a script, hit Run, and see what Weave does with it. This is the real parser, check and scheduler, compiled to WebAssembly. The tools are fakes with set delays, so nothing leaves this page.</p>
+    <p class="eyebrow">For people building LLM agents</p>
+    <h1>Let your agent write one short script instead of a dozen tool calls</h1>
+    <p class="lede">Weave is a small Python-like language for tool calling. The model writes one script, Weave checks it and shows you every write before anything runs, then runs the calls that don't need each other at the same time.</p>
+    <div class="cta">
+      <button class="install big" data-copy="pip install weave-lang" title="Copy the install command"><span class="prompt">$</span> pip install weave-lang<span class="copy-hint">copy</span></button>
+      <a class="gh-link" href="https://github.com/AtharvRaotole/weave">Code and docs on GitHub</a>
+    </div>
+    <p class="fine">This page runs the real Weave runtime in your browser (compiled to WebAssembly) against fake tools with set delays. No model, no network, nothing leaves the page.</p>
   </section>
+
+  <ol class="steps" aria-label="How to use this page">
+    <li><button data-go="editor-panel"><span class="step-n">1</span><span><b>Pick an example</b><span>Each tab is a task plus the script a model might write for it. Edit it if you like.</span></span></button></li>
+    <li><button data-go="check-card"><span class="step-n">2</span><span><b>Read the check and plan</b><span>Before anything runs, Weave lists every tool call and flags every write.</span></span></button></li>
+    <li><button data-go="timeline-card"><span class="step-n">3</span><span><b>Hit Run</b><span>See which calls ran at the same time, what got written and what came back.</span></span></button></li>
+  </ol>
 
   <main class="layout">
     <section class="col editor-col" aria-label="Script">
-      <div class="panel editor-panel">
+      <div class="panel editor-panel" id="editor-panel">
+        <div class="panel-head step-head">
+          <h2><span class="step">1</span>Script</h2>
+          <span class="head-note">Pick an example, or write your own</span>
+        </div>
         <div class="panel-head tabs-head">
           <div class="presets" role="tablist" aria-label="Examples" id="presets"></div>
         </div>
+        <p class="task" id="task"></p>
         <p class="blurb" id="blurb"></p>
         <div class="editor" id="editor">
           <div class="gutter" id="gutter" aria-hidden="true"></div>
@@ -69,49 +86,56 @@
         </div>
       </div>
       <details class="panel tools" id="tools-box">
-        <summary><span>Tools</span><span class="muted">What each fake tool takes, gives back and how long it takes</span></summary>
+        <summary><span>The fake tools</span><span class="muted">What a script here can call</span></summary>
         <div id="tools"></div>
+        <p class="note effects-key"><span class="badge pure">pure</span> just computes. <span class="badge read">read</span> only looks things up. <span class="badge reversible">reversible</span> changes something you could undo. <span class="badge irreversible">irreversible</span> can't be undone, like sending a message. Reads run as early as they can. Writes run one at a time, in the order you wrote them.</p>
       </details>
     </section>
 
     <section class="col out-col" aria-label="Results">
       <article class="panel" id="check-card">
         <div class="panel-head">
-          <h2><span class="dot" id="check-dot"></span>Check</h2>
+          <h2><span class="step">2</span><span class="dot" id="check-dot"></span>Check</h2>
           <span class="head-note" id="check-note">Runs as you type</span>
         </div>
+        <p class="help">Weave reads the script before running it and checks every call against the tools: names, arguments and the keys you read from results.</p>
         <div class="panel-body" id="check"><p class="empty">Checking...</p></div>
       </article>
 
       <article class="panel" id="plan-card">
         <div class="panel-head">
-          <h2>Plan</h2>
+          <h2><span class="step">2</span>Plan</h2>
           <span class="head-note" id="plan-note">Before anything runs</span>
         </div>
+        <p class="help">Every tool call the script can make, worked out from the code alone. Highlighted rows change something, so you see every write before you hit Run.</p>
         <div class="panel-body" id="plan-box"><p class="empty">Shows up once the check passes.</p></div>
       </article>
 
       <article class="panel" id="timeline-card">
         <div class="panel-head">
-          <h2>Timeline</h2>
+          <h2><span class="step">3</span>Timeline</h2>
           <button class="btn small" id="replay" hidden>Replay</button>
         </div>
+        <p class="help">Each bar is one tool call, from start to finish. Bars that overlap ran at the same time.</p>
         <div class="panel-body">
+          <div id="explain" class="explain" hidden></div>
           <div id="stats" class="stats"></div>
           <div id="timeline" class="timeline"><p class="empty">Hit Run to see when each call starts and ends.</p></div>
           <div class="legend" aria-hidden="true">
-            <span><i class="e-pure"></i>pure</span><span><i class="e-read"></i>read</span><span><i class="e-reversible"></i>reversible</span><span><i class="e-irreversible"></i>irreversible</span>
+            <span><i class="e-pure"></i>pure</span><span><i class="e-read"></i>read</span><span><i class="e-reversible"></i>reversible write</span><span><i class="e-irreversible"></i>irreversible write</span><span><i class="e-fail"></i>failed</span>
           </div>
         </div>
       </article>
 
       <article class="panel" id="effects-card">
-        <div class="panel-head"><h2>Writes</h2><span class="head-note">In the order they ran</span></div>
+        <div class="panel-head"><h2><span class="step">3</span>Writes</h2><span class="head-note">In the order they ran</span></div>
+        <p class="help">Calls that changed something. Nothing here is real: the Slack posts and emails are fakes too.</p>
         <div class="panel-body" id="effects"><p class="empty">No writes yet.</p></div>
       </article>
 
       <article class="panel" id="output-card">
-        <div class="panel-head"><h2>Output</h2></div>
+        <div class="panel-head"><h2><span class="step">3</span>Output</h2></div>
+        <p class="help">What the script printed, then the variables it ended with. Errors show up here too.</p>
         <div class="panel-body" id="output"><p class="empty">Nothing printed yet.</p></div>
       </article>
     </section>
@@ -119,7 +143,7 @@
 
   <footer>
     <div class="foot-inner">
-      <p>Times here are virtual. Each fake tool has a set delay (see Tools), and the clock only moves when everything is waiting on it, so the same script always gives the same timeline. Real tools are messier.</p>
+      <p>Times here are virtual, not a benchmark. Each fake tool has a set delay (see Tools), and the clock only moves when everything is waiting on it, so the same script always gives the same timeline. Real tools are messier.</p>
       <p><a href="https://github.com/AtharvRaotole/weave">github.com/AtharvRaotole/weave</a><span class="sep"></span>MIT<span class="sep"></span><span id="ver"></span></p>
     </div>
   </footer>

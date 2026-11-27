@@ -13,6 +13,15 @@ checks on random programs and conforming results that every reported lookup fail
 certain failure is reported. `bench/bfcl/replay_returns.py` replays recorded BFCL scripts through the check
 (no model calls). The playground's mock tools declare their results and the failing-check preset shows one.
 
+Playground, for first-time visitors: the top of the page now says what Weave is and who it's for, with
+`pip install weave-lang` and the GitHub link up front, then three numbered steps (pick an example, read the
+check and plan, hit Run). Each pane has a line saying what it shows, each example states the task it
+solves, and after every run a short note explains what happened: how many calls overlapped, where the
+writes went, and what failed or was caught. The new default example fetches four things at once and then
+posts one Slack message, so the plan shows the write before it runs. `playground/tests/e2e.py` replaces
+the smoke test: 29 named checks covering every example, plan, run, errors, edits, share and copy links,
+fonts, the WebAssembly load, mobile layout and console errors, run in CI and usable against the live site.
+
 ## [1.3.0] - 2026-11-27
 
 Plan preview: see what a script will do before any tool runs. `Engine.plan(source)` and

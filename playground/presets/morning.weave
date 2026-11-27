@@ -1,0 +1,11 @@
+# Three weather lookups and an issue count don't need each other,
+# so Weave starts all four at once. The Slack post needs their
+# results and can't be undone, so it waits for them.
+offices = ["London", "Pune", "Tokyo"]
+reports = [weather(city) for city in offices]
+issues = gh_issues("AtharvRaotole/weave", state="open")
+
+lines = [f"{r['city']} {r['temp_c']}C {r['sky']}" for r in reports]
+update = "Morning! " + ", ".join(lines) + f". {len(issues)} open issues."
+print(update)
+post_slack("#general", update)

@@ -29,7 +29,8 @@ function highlight(text) {
     else if (str) out += `<span class="s">${esc(str)}</span>`;
     else if (num) out += `<span class="n">${num}</span>`;
     else if (call) {
-      if (EFFECT[call]) out += `<span class="t-${EFFECT[call]}">${call}</span>`;
+      if (text[m.index - 1] === ".") out += esc(call);
+      else if (EFFECT[call]) out += `<span class="t-${EFFECT[call]}">${call}</span>`;
       else if (BUILTINS.has(call)) out += `<span class="b">${call}</span>`;
       else if (KEYWORDS.has(call)) out += `<span class="k">${call}</span>`;
       else out += `<span class="t-unknown">${call}</span>`;
@@ -116,7 +117,10 @@ function presetButtons() {
 function selectPreset(p) {
   current = p;
   for (const b of $("presets").children) b.setAttribute("aria-selected", String(b.dataset.id === p?.id));
-  $("blurb").textContent = p ? p.blurb : "A script someone shared with you.";
+  $("blurb").textContent = p ? p.blurb : "A script someone shared with you. Check the plan, then hit Run.";
+  const task = $("task");
+  task.hidden = !p || !p.task;
+  task.innerHTML = p && p.task ? `<b>The task:</b> ${esc(p.task)}` : "";
 }
 
 function loadPreset(p, andRun) {
@@ -152,9 +156,19 @@ $("share").addEventListener("click", async () => {
   history.replaceState(null, "", url);
   try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch { toast("The link is in your address bar"); }
 });
-$("install").addEventListener("click", async () => {
-  try { await navigator.clipboard.writeText("pip install weave-lang"); toast("Copied"); } catch { toast("pip install weave-lang"); }
-});
+for (const el of document.querySelectorAll("[data-copy]")) {
+  el.addEventListener("click", async () => {
+    const text = el.dataset.copy;
+    try { await navigator.clipboard.writeText(text); toast(`Copied: ${text}`); } catch { toast(text); }
+  });
+}
+for (const el of document.querySelectorAll("[data-go]")) {
+  el.addEventListener("click", () => {
+    const target = $(el.dataset.go);
+    if (el.dataset.go === "timeline-card") doRun(false);
+    target.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  });
+}
 $("reset").addEventListener("click", () => { if (current) loadPreset(current, false); });
 
 function toast(msg) {
@@ -223,7 +237,7 @@ function renderPlan(plan, diags) {
   const stages = Math.max(...plan.calls.map((c) => c.stage || 1));
   note.textContent = "Before anything runs";
   const chips = [
-    `<span class="chip"><b>${plan.calls.length}</b> ${plan.calls.length === 1 ? "call site" : "call sites"}</span>`,
+    `<span class="chip"><b>${plan.calls.length}</b> ${plan.calls.length === 1 ? "tool call in the code" : "tool calls in the code"}</span>`,
     `<span class="chip"><b>${stages}</b> ${stages === 1 ? "stage" : "stages"}</span>`,
     writes.length
       ? `<span class="chip write"><b>${writes.length}</b> ${writes.length === 1 ? "write" : "writes"}</span>`
@@ -243,7 +257,7 @@ function renderPlan(plan, diags) {
     </li>`;
   }).join("");
   box.innerHTML = `<div class="plan-sum">${chips}</div><ol class="plan" id="plan">${rows}</ol>` +
-    `<p class="note"><code>&lt;#1&gt;</code> means "the result of call #1". Stages only count data dependencies. When it runs, calls that touch the same key also keep your order.</p>`;
+    `<p class="note">Stage 1 calls can start right away. Stage 2 calls need a result from stage 1, and so on. <code>&lt;#1&gt;</code> means "uses the result of call #1". When it runs, calls that touch the same key also keep your order.</p>`;
   box.querySelectorAll(".plan li").forEach((li) => li.addEventListener("click", () => jumpTo(+li.dataset.line, 1)));
 }
 
@@ -293,9 +307,11 @@ function doRun(scroll = true) {
     $("effects").innerHTML = `<p class="empty">Nothing was written.</p>`;
     $("output").innerHTML = `<p class="empty">Nothing ran. Fix what the check found and try again.</p>`;
     $("replay").hidden = true;
+    explain(`<b>The check turned this script away, so no tool was called.</b> That's the point: a typo can't leave a job half done, with an email already sent and the next step broken. The problems are listed under Check. Click one to jump to its line.`, "bad");
     return;
   }
   liveCheck();
+  explainRun(out);
   const n = out.calls.length;
   setStatus(out.ok ? `Done. ${plural(n, "call")}, ${fmtMs(out.total_ms)} virtual` : `Stopped on an error after ${plural(n, "call")}`, out.ok ? "ok" : "bad");
   $("status").title = `Took ${wall.toFixed(1)} ms of real time in your browser`;
@@ -305,6 +321,35 @@ function doRun(scroll = true) {
   renderOutput(out);
   $("replay").hidden = n === 0;
   if (scroll && matchMedia("(max-width: 1000px)").matches) $("timeline-card").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function explain(html, cls) {
+  const box = $("explain");
+  box.hidden = !html;
+  box.className = `explain ${cls || ""}`;
+  box.innerHTML = html || "";
+}
+
+function explainRun(out) {
+  const n = out.calls.length;
+  const failed = out.calls.filter((c) => !c.ok).length;
+  const writes = out.calls.filter((c) => c.effect === "reversible" || c.effect === "irreversible").length;
+  if (!n) {
+    explain(out.ok ? "This script didn't call any tools, so there was nothing to schedule." : `<b>The script stopped with an error before calling any tools.</b> The message is under Output.`, out.ok ? "" : "bad");
+    return;
+  }
+  const peak = peakConcurrency(out.calls);
+  const parts = [];
+  if (peak > 1) {
+    parts.push(`<b>Weave made ${plural(n, "tool call")}, up to ${peak} at the same time.</b> Calls that didn't need each other's results started together, so the run took ${fmtMs(out.total_ms)} instead of ${fmtMs(out.sequential_ms)} one after another.`);
+  } else {
+    parts.push(n === 1 ? `<b>Weave made 1 tool call.</b> With a single call there's nothing to overlap.` : `<b>Weave made ${plural(n, "tool call")}, one at a time.</b> Each one had to wait for the one before it, so there was nothing to overlap.`);
+  }
+  if (writes) parts.push(`${writes === 1 ? "The write" : `The ${writes} writes`} ran in the order you wrote ${writes === 1 ? "it" : "them"}, after the calls ${writes === 1 ? "it" : "they"} needed.`);
+  if (failed && out.ok) parts.push(`${plural(failed, "call")} failed (the striped bar) and the script caught it, so the rest carried on.`);
+  if (!out.ok) parts.push(`<b>Something failed and nothing caught it, so the script stopped.</b> ${failed ? "The striped bar is the call that failed. " : ""}The error is under Output.`);
+  parts.push(`<span class="muted">Times come from the fake tools' set delays.</span>`);
+  explain(parts.join(" "), out.ok ? "" : "bad");
 }
 
 function setStatus(msg, cls) {
@@ -320,8 +365,8 @@ function renderStats(out) {
   const ratio = out.total_ms > 0 ? out.sequential_ms / out.total_ms : 1;
   $("stats").innerHTML = [
     stat(fmtMs(out.total_ms), "with Weave", true),
-    stat(fmtMs(out.sequential_ms), "one at a time"),
-    stat(`${ratio.toFixed(1)}x`, "shorter wait"),
+    stat(fmtMs(out.sequential_ms), "one by one"),
+    stat(`${ratio.toFixed(1)}x`, "less waiting"),
     stat(String(n), n === 1 ? "call" : "calls"),
     stat(String(peak), "at once, max"),
   ].join("");
@@ -471,10 +516,11 @@ init().then(() => {
   TOOLS = JSON.parse(toolList());
   EFFECT = Object.fromEntries(TOOLS.map((t) => [t.name, t.effect]));
   renderTools();
+  if (matchMedia("(min-width: 1001px)").matches) $("tools-box").open = true;
   ready = true;
   $("run").disabled = false;
   $("ver").textContent = `Runtime v${version()}, compiled to WebAssembly`;
-  setStatus("Ready. Edit away, or pick an example.");
+  setStatus("Ready. Pick an example or edit the script.");
   render();
   liveCheck();
   doRun(false);
