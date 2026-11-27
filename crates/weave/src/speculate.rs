@@ -214,6 +214,14 @@ impl SpecCache {
     }
 
     fn launch(&self, tools: &ToolRegistry, call: &PredictedCall) {
+        // Speculation needs background threads; virtual time has none.
+        #[cfg(weave_vt)]
+        {
+            let _ = (tools, call);
+            self.inner.rejected.fetch_add(1, Ordering::SeqCst);
+            return;
+        }
+        #[cfg_attr(weave_vt, allow(unreachable_code))]
         let Some(tool) = tools.get(&call.tool) else {
             self.inner.rejected.fetch_add(1, Ordering::SeqCst);
             return;
@@ -278,10 +286,10 @@ fn block_on_tool(
     retries: u32,
     timeout: Option<Duration>,
 ) -> Result<Value, String> {
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_time()
-        .build()
-        .expect("speculation runtime");
+    let mut builder = tokio::runtime::Builder::new_current_thread();
+    #[cfg(not(target_arch = "wasm32"))]
+    builder.enable_time();
+    let runtime = builder.build().expect("speculation runtime");
     let (_tx, cancel) = watch::channel(false);
     runtime.block_on(async {
         let handle = Handle::current();
