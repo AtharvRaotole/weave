@@ -359,7 +359,11 @@ class AdapterTests(unittest.TestCase):
             def check():
                 seen.append(ledger.records()[0][-1]["event"])
 
-            with http_fixture([script(), (200, answer(), 1, {})], check) as (
+            # The deadline covers fixture startup, the first request and the
+            # script's writes (about 0.4s locally, often twice that on CI), so
+            # give it room. The second reply is held past the deadline so the
+            # trial still times out during that request.
+            with http_fixture([script(), (200, answer(), 5, {})], check) as (
                 endpoint,
                 _,
             ):
@@ -367,7 +371,7 @@ class AdapterTests(unittest.TestCase):
                     endpoint,
                     ledger=ledger,
                     trial_id="timeout",
-                    cfg=pinned_config(timeout_s=0.7),
+                    cfg=pinned_config(timeout_s=3),
                 )
             self.assertEqual(row["status"], "timeout")
             self.assertTrue(row["state_matches"])
