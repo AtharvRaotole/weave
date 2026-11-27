@@ -3,7 +3,12 @@
 Offline. The two scripts stand in for what a model would send to `run_weave`.
 """
 
+import os
+import time
+
 import weave
+
+PAUSE = float(os.environ.get("WEAVE_DEMO_PAUSE", "0"))  # only for the README recording
 
 CALLS = []
 
@@ -59,13 +64,20 @@ for t in tickets:
 def main():
     tool = weave.WeaveTool([get_ticket, close_ticket, refund], approve=policy)
 
-    print("--- script 1")
+    print("--- the model sends:")
+    print(CLOSE_STALE, end="")
+    time.sleep(PAUSE)
+    print("--- Weave plans it, the policy approves, then it runs:")
     out = tool.run(CLOSE_STALE)
     print("result:", out.strip())
     assert out == "3 checked\n", out
     assert CALLS.count("close_ticket(T-1)") == 1 and len(CALLS) == 5, CALLS
 
-    print("--- script 2")
+    time.sleep(PAUSE)
+    print("--- the model sends:")
+    print(REFUND_STALE, end="")
+    time.sleep(PAUSE)
+    print("--- Weave plans it, the policy says no, nothing runs:")
     CALLS.clear()
     out = tool.run(REFUND_STALE)
     print("result:", out.strip())

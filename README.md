@@ -73,6 +73,8 @@ def approve(plan):
 tool = weave.WeaveTool([get_ticket, close_ticket, refund], approve=approve)
 ```
 
+<img src="https://raw.githubusercontent.com/AtharvRaotole/weave/main/assets/plan.gif" alt="Terminal recording of python examples/plan_preview.py: a script that closes two known tickets is planned, approved and run; a script that would refund orders picked from tool results is planned and refused, and no tool is called" width="760">
+
 Read-only scripts run without asking. When the targets are literals, the plan resolves them
 (`close_ticket('T-1' | 'T-3') ... writes ticket:T-1, ticket:T-3`). The counts and sources are upper bounds checked
 against real runs on tens of thousands of random scripts; anything it can't know statically shows up as unknown,
