@@ -106,7 +106,12 @@ impl PyEngine {
     /// Lookups on the result that can't work under it (a missing key on a
     /// closed object, a string key on a list) are rejected before the script
     /// runs.
-    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true, returns=None))]
+    ///
+    /// `error_key` is for tools that report failure in their result instead
+    /// of raising: a dict result with this key (and a value other than
+    /// `None`) raises `ToolError` with that value as the message, so the
+    /// script stops at that call or its `except` runs.
+    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true, returns=None, error_key=None))]
     #[allow(clippy::too_many_arguments)]
     fn tool(
         &mut self,
@@ -123,6 +128,7 @@ impl PyEngine {
     retry_safe: bool,
         check_args: bool,
         returns: Option<Bound<'_, PyAny>>,
+        error_key: Option<String>,
     ) -> PyResult<()> {
         let effect = match effect.as_deref() {
             None => Effect::Irreversible,
@@ -141,6 +147,9 @@ impl PyEngine {
         }
         if let Some(schema) = returns_schema(py, returns.as_ref())? {
             spec = spec.with_returns(schema);
+        }
+        if let Some(key) = error_key_arg(error_key)? {
+            spec = spec.with_error_key(key);
         }
         if let Some(reads) = reads {
             spec = spec.with_reads(footprint_from(py, &func, reads));
@@ -302,7 +311,7 @@ impl PyEngine {
     }
 
     /// Decorator that registers the function on this engine.
-    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true, returns=None))]
+    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true, returns=None, error_key=None))]
     #[allow(clippy::too_many_arguments)]
     fn declare(
         slf: Bound<'_, Self>,
@@ -317,7 +326,9 @@ impl PyEngine {
     retry_safe: bool,
         check_args: bool,
         returns: Option<Py<PyAny>>,
+        error_key: Option<String>,
     ) -> PyResult<Py<EngineDecl>> {
+        error_key_arg(error_key.clone())?;
         Py::new(
             py,
             EngineDecl {
@@ -332,6 +343,7 @@ impl PyEngine {
                 retry_safe,
                 check_args,
                 returns,
+                error_key,
             },
         )
     }
@@ -509,6 +521,7 @@ struct EngineDecl {
     retry_safe: bool,
     check_args: bool,
     returns: Option<Py<PyAny>>,
+    error_key: Option<String>,
 }
 
 #[pymethods]
@@ -529,6 +542,7 @@ impl EngineDecl {
             self.retry_safe,
             self.check_args,
             self.returns.as_ref().map(|r| r.bind(py).clone()),
+            self.error_key.clone(),
         )?;
         if let Some(r) = &self.returns {
             set_display_returns(py, &func, r)?;
@@ -549,6 +563,7 @@ struct MarkDecl {
     writes: Option<Vec<String>>,
     retry_safe: bool,
     check_args: bool,
+    error_key: Option<String>,
 }
 
 #[pymethods]
@@ -565,6 +580,7 @@ impl MarkDecl {
         meta.set_item("retry_safe", self.retry_safe)?;
         meta.set_item("check_args", self.check_args)?;
         meta.set_item("returns", self.returns.as_ref().map(|r| r.clone_ref(py)))?;
+        meta.set_item("error_key", self.error_key.clone())?;
         if let Some(r) = &self.returns {
             // Fail at decoration time, not at install time.
             returns_schema(py, Some(r.bind(py)))?;
@@ -576,7 +592,7 @@ impl MarkDecl {
 }
 
 #[pyfunction]
-#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true, returns=None))]
+#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true, returns=None, error_key=None))]
 #[allow(clippy::too_many_arguments)]
 fn declare(
     effect: Option<String>,
@@ -589,8 +605,10 @@ fn declare(
     retry_safe: bool,
     check_args: bool,
     returns: Option<Py<PyAny>>,
-) -> MarkDecl {
-    MarkDecl {
+    error_key: Option<String>,
+) -> PyResult<MarkDecl> {
+    error_key_arg(error_key.clone())?;
+    Ok(MarkDecl {
         returns,
         effect,
         arity,
@@ -601,7 +619,8 @@ fn declare(
         writes,
         retry_safe,
         check_args,
-    }
+        error_key,
+    })
 }
 
 fn install_marked(engine: &mut PyEngine, py: Python<'_>, func: &Bound<'_, PyAny>) -> PyResult<()> {
@@ -628,7 +647,16 @@ fn install_marked(engine: &mut PyEngine, py: Python<'_>, func: &Bound<'_, PyAny>
             _ => true,
         },
         meta.get_item("returns")?.filter(|v| !v.is_none()),
+        dict_opt_string(meta, "error_key")?,
     )
+}
+
+/// `error_key=`: a non-empty key name, or None.
+fn error_key_arg(key: Option<String>) -> PyResult<Option<String>> {
+    match key {
+        Some(k) if k.is_empty() => Err(PyValueError::new_err("error_key= must be a non-empty string")),
+        other => Ok(other),
+    }
 }
 
 /// `returns=`: a JSON Schema (a dict) or a shape string such as
