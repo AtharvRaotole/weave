@@ -260,9 +260,10 @@ impl SpecCache {
         let kwargs = call.kwargs.clone();
         let timeout = tool.spec.timeout;
         let retries = tool.spec.effective_retries();
+        let error_key = tool.spec.error_key.clone();
         let name = call.tool.clone();
         thread::spawn(move || {
-            let result = block_on_tool(&name, &body, &args, &kwargs, retries, timeout);
+            let result = block_on_tool(&name, &body, &args, &kwargs, retries, timeout, error_key.as_deref());
             {
                 let mut slot = entry.current.lock().expect("spec entry");
                 *slot = Some(result);
@@ -285,6 +286,7 @@ fn block_on_tool(
     kwargs: &BTreeMap<String, Value>,
     retries: u32,
     timeout: Option<Duration>,
+    error_key: Option<&str>,
 ) -> Result<Value, String> {
     let mut builder = tokio::runtime::Builder::new_current_thread();
     #[cfg(not(target_arch = "wasm32"))]
@@ -303,6 +305,7 @@ fn block_on_tool(
             kwargs,
             retries,
             timeout,
+            error_key,
             &cancel,
         )
         .await

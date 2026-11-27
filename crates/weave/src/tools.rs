@@ -97,6 +97,11 @@ pub struct ToolSpec {
     /// work, such as a key a closed object does not have. See
     /// [`crate::schema_from_shape`] for the short shape notation.
     pub returns: Option<serde_json::Value>,
+    /// Error convention for tools that report failure in their result
+    /// instead of raising. When set, a dict result that has this key with a
+    /// value other than `None` is a failure: the call raises `ToolError` with
+    /// that value as the message, exactly as if the tool had raised.
+    pub error_key: Option<String>,
 }
 
 /// A set of named resources a tool touches.
@@ -174,6 +179,7 @@ impl Default for ToolSpec {
             writes: Footprint::All,
             params: None,
             returns: None,
+            error_key: None,
         }
     }
 }
@@ -226,6 +232,13 @@ impl ToolSpec {
     /// are checked against it before a script runs.
     pub fn with_returns(mut self, schema: serde_json::Value) -> Self {
         self.returns = Some(schema);
+        self
+    }
+
+    /// Treat a dict result carrying `key` (with a value other than `None`)
+    /// as a failure, e.g. `"error"` for tools that return `{"error": "..."}`.
+    pub fn with_error_key(mut self, key: impl Into<String>) -> Self {
+        self.error_key = Some(key.into());
         self
     }
 
