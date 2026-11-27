@@ -31,6 +31,7 @@ mkdir -p "$OUT/pkg"
   target/wasm-build/wasm32-unknown-unknown/release/weave_wasm.wasm
 
 cp playground/index.html playground/style.css playground/app.js "$OUT/"
+cp -r playground/fonts "$OUT/fonts"
 [ -f playground/og.png ] && cp playground/og.png "$OUT/"
 python3 - "$OUT" <<'PY'
 import json, pathlib, sys

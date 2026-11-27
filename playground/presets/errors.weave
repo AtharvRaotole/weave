@@ -1,5 +1,5 @@
-# A tool failure is an exception you can catch, so one bad city does not
-# sink the whole batch. The other calls still run in parallel.
+# A failed call is just an exception, so one bad city doesn't sink
+# the batch. The other lookups still run in parallel.
 temps = {}
 for city in ["Berlin", "Atlantis", "Pune"]:
     try:

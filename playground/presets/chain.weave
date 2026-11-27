@@ -1,5 +1,5 @@
-# Search, then summarize every hit. Each summary waits only for the
-# search it depends on, and the summaries run side by side.
+# Search first, then summarize each hit. The summaries have to wait
+# for the search, but not for each other.
 hits = search("parallel tool calls", limit=4)
 notes = []
 for h in hits:

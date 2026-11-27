@@ -1,4 +1,5 @@
-# Five independent reads. Weave starts them all at once.
+# Five weather lookups that don't depend on each other.
+# Weave starts all five at once.
 cities = ["Paris", "Tokyo", "London", "Mumbai", "Sydney"]
 reports = [weather(c) for c in cities]
 

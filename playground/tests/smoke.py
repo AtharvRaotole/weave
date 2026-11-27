@@ -23,7 +23,8 @@ def main():
         status = page.locator("#status")
         expect(status).to_contain_text("Done", timeout=20000)
         expect(page.locator("#timeline .row")).to_have_count(5)
-        expect(page.locator("#check")).to_contain_text("Passed")
+        expect(page.locator("#check")).to_contain_text("Looks good")
+        expect(page.locator("#plan li")).to_have_count(1)
         expect(page.locator("#output .stdout")).to_contain_text("warmest: Mumbai at 31C")
         if SHOTS:
             page.wait_for_timeout(1800)
@@ -38,7 +39,8 @@ def main():
         expect(writes).to_have_count(2)
         expect(page.locator("#output .stdout")).to_contain_text("visits: 41 -> 42")
         plan = page.locator("#plan")
-        expect(plan).to_contain_text("plan: 5 tool calls")
+        expect(page.locator("#plan li")).to_have_count(5)
+        expect(page.locator("#plan-box .chip.write")).to_contain_text("2 writes")
         expect(plan).to_contain_text("writes db:visits")
         expect(page.locator("#plan .plan-write")).to_have_count(2)
 
