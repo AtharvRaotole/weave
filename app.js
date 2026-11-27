@@ -187,13 +187,24 @@ function jumpTo(line, col) {
   codeBox.scrollTop = Math.max(0, (line - 4) * lh);
 }
 
-function showCheck(diags) {
+function planHtml(plan) {
+  if (!plan || !plan.calls.length) return "";
+  const lines = plan.text.trimEnd().split("\n");
+  const body = lines.map((l, i) => {
+    const cls = i === 0 ? "plan-head" : / (reversible|irreversible) /.test(l) ? "plan-write" : "";
+    return `<span class="${cls}">${esc(l)}</span>`;
+  }).join("\n");
+  return `<p class="note">The plan, before any tool runs: each call, how many times it can run, where its arguments come from (<code>&lt;#1&gt;</code> = the result of call #1) and what it may write. Stages count data dependencies only; calls that touch the same key also keep program order when it runs.</p>` +
+    `<pre class="plan" id="plan">${body}</pre>`;
+}
+
+function showCheck(diags, plan) {
   const box = $("check"), dot = $("check-dot");
   errLines = new Set(diags.filter((d) => d.line).map((d) => d.line));
   render();
   if (!diags.length) {
     dot.className = "dot ok";
-    box.innerHTML = `<p class="okmsg">Passed. Every call matches a declared tool and its parameters.</p>`;
+    box.innerHTML = `<p class="okmsg">Passed. Every call matches a declared tool and its parameters.</p>` + planHtml(plan);
     return;
   }
   dot.className = "dot bad";
@@ -206,7 +217,7 @@ function liveCheck() {
   if (!ready) return;
   try {
     const out = JSON.parse(check(src.value));
-    showCheck(out.diagnostics);
+    showCheck(out.diagnostics, out.plan);
   } catch (e) { crashed(e); }
 }
 
@@ -232,7 +243,7 @@ function doRun(scroll = true) {
     $("replay").hidden = true;
     return;
   }
-  showCheck([]);
+  liveCheck();
   const n = out.calls.length;
   setStatus(out.ok ? `Done: ${n} call${n === 1 ? "" : "s"} in ${fmtMs(out.total_ms)} virtual, computed in ${wall.toFixed(1)} ms` : `Stopped with an error after ${n} call${n === 1 ? "" : "s"}`, out.ok ? "ok" : "bad");
   renderStats(out);
