@@ -2,44 +2,44 @@
 export const PRESETS = [
   {
     "id": "fanout",
-    "name": "Fan-out",
-    "blurb": "Five independent reads start together.",
+    "name": "Fan out",
+    "blurb": "Five lookups, all started at once.",
     "expect": "ok",
-    "code": "# Five independent reads. Weave starts them all at once.\ncities = [\"Paris\", \"Tokyo\", \"London\", \"Mumbai\", \"Sydney\"]\nreports = [weather(c) for c in cities]\n\nwarmest = reports[0]\nfor r in reports:\n    if r[\"temp_c\"] > warmest[\"temp_c\"]:\n        warmest = r\n\nprint(f\"warmest: {warmest['city']} at {warmest['temp_c']}C ({warmest['sky']})\")\n"
+    "code": "# Five weather lookups that don't depend on each other.\n# Weave starts all five at once.\ncities = [\"Paris\", \"Tokyo\", \"London\", \"Mumbai\", \"Sydney\"]\nreports = [weather(c) for c in cities]\n\nwarmest = reports[0]\nfor r in reports:\n    if r[\"temp_c\"] > warmest[\"temp_c\"]:\n        warmest = r\n\nprint(f\"warmest: {warmest['city']} at {warmest['temp_c']}C ({warmest['sky']})\")\n"
   },
   {
     "id": "chain",
-    "name": "Search, then summarize",
-    "blurb": "Each call waits only for the values it uses.",
+    "name": "Summarize hits",
+    "blurb": "Each call waits only for the values it needs.",
     "expect": "ok",
-    "code": "# Search, then summarize every hit. Each summary waits only for the\n# search it depends on, and the summaries run side by side.\nhits = search(\"parallel tool calls\", limit=4)\nnotes = []\nfor h in hits:\n    notes.append(summarize(h[\"title\"], max_words=4))\n\nfor n in notes:\n    print(\"-\", n)\n"
+    "code": "# Search first, then summarize each hit. The summaries have to wait\n# for the search, but not for each other.\nhits = search(\"parallel tool calls\", limit=4)\nnotes = []\nfor h in hits:\n    notes.append(summarize(h[\"title\"], max_words=4))\n\nfor n in notes:\n    print(\"-\", n)\n"
   },
   {
     "id": "triage",
     "name": "Triage and post",
-    "blurb": "Reads in parallel, one irreversible post at the end.",
+    "blurb": "Two reads together, then one post that can't be undone.",
     "expect": "ok",
-    "code": "# Two reads in parallel, some plain Python in the middle, then one\n# irreversible post that only runs after everything it depends on.\nrepo = \"AtharvRaotole/weave\"\nopen_issues = gh_issues(repo, state=\"open\")\nclosed = gh_issues(repo, state=\"closed\")\n\nlabels = {}\nfor issue in open_issues:\n    labels[issue[\"label\"]] = labels.get(issue[\"label\"], 0) + 1\n\nsummary = f\"{len(open_issues)} open, {len(closed)} closed. labels: {labels}\"\nprint(summary)\npost_slack(\"#weave-triage\", summary)\n"
+    "code": "# Two reads at the same time, a bit of plain Python, then one post\n# to Slack. The post can't be undone, so it waits for the reads.\nrepo = \"AtharvRaotole/weave\"\nopen_issues = gh_issues(repo, state=\"open\")\nclosed = gh_issues(repo, state=\"closed\")\n\nlabels = {}\nfor issue in open_issues:\n    labels[issue[\"label\"]] = labels.get(issue[\"label\"], 0) + 1\n\nsummary = f\"{len(open_issues)} open, {len(closed)} closed. labels: {labels}\"\nprint(summary)\npost_slack(\"#weave-triage\", summary)\n"
   },
   {
     "id": "writes",
     "name": "Writes in order",
-    "blurb": "Writes keep program order. Reads of other keys don't wait for them.",
+    "blurb": "Writes keep your order. Reads of other keys don't wait on them.",
     "expect": "ok",
-    "code": "# Writes keep program order, and reads respect them. The second\n# db_get(\"visits\") waits for the write to that key. db_get(\"owner\")\n# touches a different key, so it does not wait for the write to finish.\nvisits = db_get(\"visits\")\ndb_put(\"visits\", visits + 1)\nowner = db_get(\"owner\")\nnow = db_get(\"visits\")\nprint(f\"visits: {visits} -> {now}, owner: {owner}\")\nsend_email(\"ops@example.com\", subject=\"visit count\", body=f\"now {now}\")\n"
+    "code": "# Writes run in the order you wrote them. The second\n# db_get(\"visits\") waits for the write to that key. db_get(\"owner\")\n# reads a different key, so it doesn't wait for the write to finish.\nvisits = db_get(\"visits\")\ndb_put(\"visits\", visits + 1)\nowner = db_get(\"owner\")\nnow = db_get(\"visits\")\nprint(f\"visits: {visits} -> {now}, owner: {owner}\")\nsend_email(\"ops@example.com\", subject=\"visit count\", body=f\"now {now}\")\n"
   },
   {
     "id": "check",
-    "name": "Failing check",
-    "blurb": "Typos, bad arguments and wrong result keys are caught before any tool runs.",
+    "name": "Broken script",
+    "blurb": "Typos, bad arguments and wrong result keys, caught before anything runs.",
     "expect": "check",
-    "code": "# This script never runs. The pre-run check reads every call against the\n# declared tools and stops it before a single tool call goes out.\nw = wether(\"Paris\")\nhits = search(\"weave\", limt=3)\nbugs = gh_issues(\"AtharvRaotole/weave\", state=\"opened\")\nsend_email(\"team@example.com\", body=\"done\")\ntokyo = weather(\"Tokyo\")\nprint(w, hits, bugs, tokyo[\"temp\"])\n"
+    "code": "# This one never runs. The check reads every call against the tools\n# and stops the script before a single call goes out.\nw = wether(\"Paris\")\nhits = search(\"weave\", limt=3)\nbugs = gh_issues(\"AtharvRaotole/weave\", state=\"opened\")\nsend_email(\"team@example.com\", body=\"done\")\ntokyo = weather(\"Tokyo\")\nprint(w, hits, bugs, tokyo[\"temp\"])\n"
   },
   {
     "id": "errors",
-    "name": "Catch a tool error",
+    "name": "Catch an error",
     "blurb": "A failed call is an exception you can catch.",
     "expect": "ok",
-    "code": "# A tool failure is an exception you can catch, so one bad city does not\n# sink the whole batch. The other calls still run in parallel.\ntemps = {}\nfor city in [\"Berlin\", \"Atlantis\", \"Pune\"]:\n    try:\n        temps[city] = weather(city)[\"temp_c\"]\n    except Exception as e:\n        temps[city] = None\n\nprint(temps)\nok = [c for c in temps if temps[c] is not None]\nprint(\"got\", len(ok), \"of\", len(temps))\n"
+    "code": "# A failed call is just an exception, so one bad city doesn't sink\n# the batch. The other lookups still run in parallel.\ntemps = {}\nfor city in [\"Berlin\", \"Atlantis\", \"Pune\"]:\n    try:\n        temps[city] = weather(city)[\"temp_c\"]\n    except Exception as e:\n        temps[city] = None\n\nprint(temps)\nok = [c for c in temps if temps[c] is not None]\nprint(\"got\", len(ok), \"of\", len(temps))\n"
   }
 ];
