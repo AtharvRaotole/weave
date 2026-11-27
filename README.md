@@ -42,6 +42,12 @@ The whole script is checked before the first call runs: unknown tools, a misspel
 literal that doesn't match the tool's JSON schema. So a typo on the last line stops the script before
 the first line's write happens. [What the check covers](https://github.com/AtharvRaotole/weave/blob/main/docs/reference.md#what-the-check-catches-before-anything-runs).
 
+Declare what a tool returns (`weave.declare(returns='{"temp_c": int, "sky": str}')`) and the check follows its
+results too: `get_weather("Paris")["temp"]` gets "did you mean 'temp_c'?" before any call goes out. Replaying the
+6,653 scripts from our recorded BFCL runs, it flagged 50: 45 had really failed at run time on that line (29 after an
+earlier call had already run), and 3 were false alarms from a learned shape that missed a variant.
+[How it works and what it skips](https://github.com/AtharvRaotole/weave/blob/main/docs/reference.md#declared-results-wrong-keys-caught-before-anything-runs).
+
 ## See the plan before anything runs
 
 Because the script is plain data flow over declared tools, Weave can tell you what it will do without running
@@ -127,7 +133,7 @@ What's different is where the code runs and what you know before it does.
 | [Anthropic programmatic tool calling](https://www.anthropic.com/research/advanced-tool-use) | Python | Anthropic's code execution container | if the code uses async | the code |
 | [OpenAI programmatic tool calling](https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling) | JavaScript | OpenAI's hosted V8 | if the code uses promises | the code (their docs suggest direct calls for writes) |
 | [Cloudflare Code Mode](https://blog.cloudflare.com/code-mode/) | TypeScript | a V8 isolate on Workers | if the code uses promises | the code |
-| **Weave** | a Python subset | a Rust runtime in your process | automatic, from data flow and declared effects | tool names, arguments and schemas checked, plus a plan of every call and write you can approve |
+| **Weave** | a Python subset | a Rust runtime in your process | automatic, from data flow and declared effects | tool names, arguments, schemas and declared result keys checked, plus a plan of every call and write you can approve |
 
 When to pick something else: the hosted options need no runtime on your side, and full Python can import
 libraries, which Weave's subset can't. And if a small model has to think after every single result, plain

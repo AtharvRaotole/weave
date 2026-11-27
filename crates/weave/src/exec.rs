@@ -558,6 +558,7 @@ impl Engine {
             Ok(parsed) => {
                 let mut diags = parsed.errors;
                 diags.extend(check_program(&parsed.stmts, &self.tools));
+                diags.extend(crate::returns::check_returns(&parsed.stmts, &self.tools));
                 diags
             }
             Err(err) => err.diagnostics,
@@ -812,7 +813,8 @@ impl Session {
             }
         };
         let mut defined = self.defined.clone();
-        let diags = check_block(&stmts, &self.tools, &mut defined);
+        let mut diags = check_block(&stmts, &self.tools, &mut defined);
+        diags.extend(crate::returns::check_returns(&stmts, &self.tools));
         if !diags.is_empty() {
             let err = WeaveError::new(diags);
             self.failed = Some(err.clone());
@@ -840,7 +842,8 @@ impl Session {
             let rest = std::mem::take(&mut self.buffer);
             let stmts = parse_program_with(&rest, self.line_offset, &mut self.lower)?;
             let mut defined = self.defined.clone();
-            let diags = check_block(&stmts, &self.tools, &mut defined);
+            let mut diags = check_block(&stmts, &self.tools, &mut defined);
+        diags.extend(crate::returns::check_returns(&stmts, &self.tools));
             if !diags.is_empty() {
                 return Err(WeaveError::new(diags));
             }

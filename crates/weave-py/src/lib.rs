@@ -100,7 +100,13 @@ impl PyEngine {
     /// `reads` / `writes` name the resources the tool touches (a list of
     /// strings, or `"*"`). They default to every resource, so any write drops
     /// every speculated read. Narrow them to keep unrelated cached reads.
-    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true))]
+    ///
+    /// `returns` declares the result: a JSON Schema dict or a shape string
+    /// like `'{"id": str, "items": list[{"sku": str}], "note": str?}'`.
+    /// Lookups on the result that can't work under it (a missing key on a
+    /// closed object, a string key on a list) are rejected before the script
+    /// runs.
+    #[pyo3(signature = (name, func, effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true, returns=None))]
     #[allow(clippy::too_many_arguments)]
     fn tool(
         &mut self,
@@ -116,6 +122,7 @@ impl PyEngine {
         writes: Option<Vec<String>>,
     retry_safe: bool,
         check_args: bool,
+        returns: Option<Bound<'_, PyAny>>,
     ) -> PyResult<()> {
         let effect = match effect.as_deref() {
             None => Effect::Irreversible,
@@ -131,6 +138,9 @@ impl PyEngine {
             if let Some(params) = signature_params(py, &func) {
                 spec = spec.with_params(params);
             }
+        }
+        if let Some(schema) = returns_schema(py, returns.as_ref())? {
+            spec = spec.with_returns(schema);
         }
         if let Some(reads) = reads {
             spec = spec.with_reads(footprint_from(py, &func, reads));
@@ -292,7 +302,7 @@ impl PyEngine {
     }
 
     /// Decorator that registers the function on this engine.
-    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true))]
+    #[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true, returns=None))]
     #[allow(clippy::too_many_arguments)]
     fn declare(
         slf: Bound<'_, Self>,
@@ -306,6 +316,7 @@ impl PyEngine {
         writes: Option<Vec<String>>,
     retry_safe: bool,
         check_args: bool,
+        returns: Option<Py<PyAny>>,
     ) -> PyResult<Py<EngineDecl>> {
         Py::new(
             py,
@@ -320,6 +331,7 @@ impl PyEngine {
                 writes,
                 retry_safe,
                 check_args,
+                returns,
             },
         )
     }
@@ -496,6 +508,7 @@ struct EngineDecl {
     writes: Option<Vec<String>>,
     retry_safe: bool,
     check_args: bool,
+    returns: Option<Py<PyAny>>,
 }
 
 #[pymethods]
@@ -515,13 +528,18 @@ impl EngineDecl {
             self.writes.clone(),
             self.retry_safe,
             self.check_args,
+            self.returns.as_ref().map(|r| r.bind(py).clone()),
         )?;
+        if let Some(r) = &self.returns {
+            set_display_returns(py, &func, r)?;
+        }
         Ok(func)
     }
 }
 
 #[pyclass]
 struct MarkDecl {
+    returns: Option<Py<PyAny>>,
     effect: Option<String>,
     arity: Option<usize>,
     timeout_ms: Option<u64>,
@@ -546,13 +564,19 @@ impl MarkDecl {
         meta.set_item("writes", self.writes.clone())?;
         meta.set_item("retry_safe", self.retry_safe)?;
         meta.set_item("check_args", self.check_args)?;
+        meta.set_item("returns", self.returns.as_ref().map(|r| r.clone_ref(py)))?;
+        if let Some(r) = &self.returns {
+            // Fail at decoration time, not at install time.
+            returns_schema(py, Some(r.bind(py)))?;
+            set_display_returns(py, &func, r)?;
+        }
         func.setattr(py, "__weave__", meta)?;
         Ok(func)
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true))]
+#[pyo3(signature = (effect=None, arity=None, timeout_ms=None, retries=None, hard_deadline=None, reads=None, writes=None, retry_safe=false, check_args=true, returns=None))]
 #[allow(clippy::too_many_arguments)]
 fn declare(
     effect: Option<String>,
@@ -564,8 +588,10 @@ fn declare(
     writes: Option<Vec<String>>,
     retry_safe: bool,
     check_args: bool,
+    returns: Option<Py<PyAny>>,
 ) -> MarkDecl {
     MarkDecl {
+        returns,
         effect,
         arity,
         timeout_ms,
@@ -601,7 +627,38 @@ fn install_marked(engine: &mut PyEngine, py: Python<'_>, func: &Bound<'_, PyAny>
             Some(value) if !value.is_none() => value.extract()?,
             _ => true,
         },
+        meta.get_item("returns")?.filter(|v| !v.is_none()),
     )
+}
+
+/// `returns=`: a JSON Schema (a dict) or a shape string such as
+/// `{"id": str, "items": list[{"price": float}]}`.
+fn returns_schema(py: Python<'_>, returns: Option<&Bound<'_, PyAny>>) -> PyResult<Option<serde_json::Value>> {
+    let Some(value) = returns.filter(|v| !v.is_none()) else { return Ok(None) };
+    if let Ok(text) = value.extract::<String>() {
+        return weave_core::schema_from_shape(&text).map(Some).ok_or_else(|| {
+            PyValueError::new_err(format!(
+                "returns={text:?} is not a shape like '{{\"id\": str, \"tags\": list[str], \"note\": str?}}'; pass a JSON Schema dict instead"
+            ))
+        });
+    }
+    if value.cast::<PyDict>().is_ok() {
+        let text: String = py.import("json")?.call_method1("dumps", (value,))?.extract()?;
+        let schema: serde_json::Value = serde_json::from_str(&text)
+            .map_err(|e| PyValueError::new_err(format!("returns= is not JSON: {e}")))?;
+        return Ok(Some(schema));
+    }
+    Err(PyValueError::new_err("returns= must be a JSON Schema dict or a shape string"))
+}
+
+/// Show the declared return type in tool listings, unless the function
+/// already sets its own `__weave_returns__`.
+fn set_display_returns(py: Python<'_>, func: &Py<PyAny>, returns: &Py<PyAny>) -> PyResult<()> {
+    let f = func.bind(py);
+    if f.getattr("__weave_returns__").map(|v| v.is_none()).unwrap_or(true) {
+        f.setattr("__weave_returns__", returns.clone_ref(py))?;
+    }
+    Ok(())
 }
 
 fn dict_opt_strings(meta: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<Vec<String>>> {

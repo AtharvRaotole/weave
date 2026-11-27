@@ -92,6 +92,11 @@ pub struct ToolSpec {
     /// keywords, missing required arguments, extra positional arguments and
     /// literal arguments that do not match a parameter's schema.
     pub params: Option<crate::params::Params>,
+    /// Declared return type, as a JSON Schema. When set, the static check
+    /// rejects lookups on the result that the declaration says can never
+    /// work, such as a key a closed object does not have. See
+    /// [`crate::schema_from_shape`] for the short shape notation.
+    pub returns: Option<serde_json::Value>,
 }
 
 /// A set of named resources a tool touches.
@@ -168,6 +173,7 @@ impl Default for ToolSpec {
             reads: Footprint::All,
             writes: Footprint::All,
             params: None,
+            returns: None,
         }
     }
 }
@@ -213,6 +219,13 @@ impl ToolSpec {
     /// they decide which keywords the tool takes, instead of `accepts_kwargs`.
     pub fn with_params(mut self, params: crate::params::Params) -> Self {
         self.params = Some(params);
+        self
+    }
+
+    /// Declare the tool's return type (a JSON Schema). Lookups on the result
+    /// are checked against it before a script runs.
+    pub fn with_returns(mut self, schema: serde_json::Value) -> Self {
+        self.returns = Some(schema);
         self
     }
 

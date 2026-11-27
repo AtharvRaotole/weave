@@ -3,6 +3,6 @@
   {"id": "chain", "name": "Search, then summarize", "blurb": "Each call waits only for the values it uses.", "expect": "ok"},
   {"id": "triage", "name": "Triage and post", "blurb": "Reads in parallel, one irreversible post at the end.", "expect": "ok"},
   {"id": "writes", "name": "Writes in order", "blurb": "Writes keep program order. Reads of other keys don't wait for them.", "expect": "ok"},
-  {"id": "check", "name": "Failing check", "blurb": "Typos and bad arguments are caught before any tool runs.", "expect": "check"},
+  {"id": "check", "name": "Failing check", "blurb": "Typos, bad arguments and wrong result keys are caught before any tool runs.", "expect": "check"},
   {"id": "errors", "name": "Catch a tool error", "blurb": "A failed call is an exception you can catch.", "expect": "ok"}
 ]

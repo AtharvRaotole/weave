@@ -143,6 +143,8 @@ from weave.agent_tool import shape_of_samples
 
 # Tell the model what each lookup returns. Without output schemas, derive it from a few real results:
 get_order.__weave_returns__ = shape_of_samples([get_order(o) for o in some_order_ids])
+# Or declare it with weave.declare(returns=...) so the check also rejects wrong keys before anything runs
+# (see the reference, "Declared results").
 
 tool = weave.WeaveTool([find_user, get_user, get_order, cancel_order],
                        conversational=True,      # fetch everything the next reply needs in one script;

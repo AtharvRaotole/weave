@@ -16,6 +16,8 @@ struct MockTool {
     latency_ms: u64,
     reads: Option<&'static str>,
     writes: Option<&'static str>,
+    /// Declared return type, in Weave's shape notation.
+    returns: Option<&'static str>,
     about: &'static str,
 }
 
@@ -27,6 +29,7 @@ const TOOLS: &[MockTool] = &[
         latency_ms: 120,
         reads: None,
         writes: None,
+        returns: Some(r#"{"city": str, "temp_c": int, "sky": str}"#),
         about: "Current weather for a city. Latency is 120 to 210 ms depending on the city name.",
     },
     MockTool {
@@ -36,6 +39,7 @@ const TOOLS: &[MockTool] = &[
         latency_ms: 250,
         reads: None,
         writes: None,
+        returns: Some(r#"list[{"title": str, "url": str}]"#),
         about: "Web search. Returns a list of {title, url} dicts (fake example.com results).",
     },
     MockTool {
@@ -48,6 +52,7 @@ const TOOLS: &[MockTool] = &[
         latency_ms: 180,
         reads: None,
         writes: None,
+        returns: Some(r#"list[{"repo": str, "number": int, "title": str, "label": str, "state": str}]"#),
         about: "Issues of a GitHub repo (fake data). state is \"open\" or \"closed\".",
     },
     MockTool {
@@ -57,6 +62,7 @@ const TOOLS: &[MockTool] = &[
         latency_ms: 60,
         reads: Some("db:{0|key}"),
         writes: None,
+        returns: None,
         about: "Read a key from an in-memory store. Returns None when missing.",
     },
     MockTool {
@@ -66,6 +72,7 @@ const TOOLS: &[MockTool] = &[
         latency_ms: 90,
         reads: None,
         writes: Some("db:{0|key}"),
+        returns: Some("bool"),
         about: "Write a key. Reversible: runs once earlier conflicting work is done.",
     },
     MockTool {
@@ -75,6 +82,7 @@ const TOOLS: &[MockTool] = &[
         latency_ms: 40,
         reads: None,
         writes: None,
+        returns: Some("str"),
         about: "Keep the first max_words words (default 12). Pure.",
     },
     MockTool {
@@ -84,6 +92,7 @@ const TOOLS: &[MockTool] = &[
         latency_ms: 50,
         reads: None,
         writes: None,
+        returns: Some(r#"{"ok": bool, "channel": str}"#),
         about: "Post a message (nothing is sent anywhere). Irreversible: runs in program order after earlier work.",
     },
     MockTool {
@@ -97,6 +106,7 @@ const TOOLS: &[MockTool] = &[
         latency_ms: 70,
         reads: None,
         writes: None,
+        returns: Some(r#"{"queued": bool, "to": str}"#),
         about: "Send an email (nothing is sent anywhere). Irreversible.",
     },
 ];
@@ -304,6 +314,9 @@ fn engine(calls: &Calls, store: &Store) -> Engine {
         if let Some(w) = tool.writes {
             spec = spec.with_writes(Footprint::only([w]));
         }
+        if let Some(r) = tool.returns {
+            spec = spec.with_returns(weave::schema_from_shape(r).expect("mock return shape"));
+        }
         let (calls, store) = (calls.clone(), store.clone());
         engine.register_async(tool.name, spec, move |args, kwargs, _token| {
             let (calls, store) = (calls.clone(), store.clone());
@@ -357,6 +370,7 @@ pub fn tools_json() -> String {
                 "latency_ms": t.latency_ms,
                 "reads": t.reads,
                 "writes": t.writes,
+                "returns": t.returns,
                 "about": t.about,
             })
         })
@@ -538,6 +552,18 @@ mod tests {
         assert!(plan["text"].as_str().unwrap().starts_with("plan: 4 tool calls"), "{plan}");
         let bad: Json = serde_json::from_str(&check_json("nope(1)\n")).unwrap();
         assert!(bad["plan"].is_null());
+    }
+
+    #[test]
+    fn declared_results_are_checked() {
+        let out: Json = serde_json::from_str(&check_json("t = weather(\"Tokyo\")\nprint(t[\"temp\"])\n")).unwrap();
+        assert_eq!(out["ok"], false, "{out}");
+        let d = &out["diagnostics"][0];
+        assert_eq!((d["line"].as_u64(), d["col"].as_u64()), (Some(2), Some(7)), "{out}");
+        assert!(d["message"].as_str().unwrap().contains("weather() has no key 'temp'"), "{out}");
+        assert_eq!(d["hint"], "did you mean 'temp_c'?");
+        let tools: Json = serde_json::from_str(&tools_json()).unwrap();
+        assert_eq!(tools[0]["returns"], r#"{"city": str, "temp_c": int, "sky": str}"#);
     }
 
     #[test]
