@@ -1,0 +1,69 @@
+{
+ "rep0": {
+  "weave": 51,
+  "native": 39,
+  "weave_only": 23,
+  "native_only": 11,
+  "mcnemar_p": 0.05761267291381955,
+  "diff": 0.12,
+  "ci": [
+   0.01,
+   0.23
+  ]
+ },
+ "rep1": {
+  "weave": 52,
+  "native": 44,
+  "weave_only": 21,
+  "native_only": 13,
+  "mcnemar_p": 0.22948101302608848,
+  "diff": 0.08,
+  "ci": [
+   -0.03,
+   0.2
+  ]
+ },
+ "never_run_live_47": {
+  "tasks": 47,
+  "weave_pass": 56,
+  "native_pass": 40,
+  "trials": 94,
+  "diff": 0.1702127659574468,
+  "ci": [
+   0.02127659574468085,
+   0.32978723404255317
+  ]
+ },
+ "run_before_53": {
+  "tasks": 53,
+  "weave_pass": 47,
+  "native_pass": 43,
+  "trials": 106,
+  "diff": 0.03773584905660377,
+  "ci": [
+   -0.07547169811320754,
+   0.1509433962264151
+  ]
+ },
+ "outcomes": {
+  "native/empty_turn_model_response": 11,
+  "native/execution_response_mismatch": 26,
+  "native/instance_state_mismatch": 80,
+  "native/pass": 83,
+  "weave/empty_turn_model_response": 21,
+  "weave/execution_response_mismatch": 27,
+  "weave/instance_state_mismatch": 49,
+  "weave/pass": 103
+ },
+ "drop_empty_turn_pairs": {
+  "tasks": 91,
+  "diff": 0.12087912087912088,
+  "ci": [
+   0.02197802197802198,
+   0.21978021978021978
+  ]
+ },
+ "tasks_weave_better": 32,
+ "tasks_native_better": 19,
+ "task_sign_test_p": 0.09191454981585423
+}
