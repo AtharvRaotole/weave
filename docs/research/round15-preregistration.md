@@ -98,7 +98,7 @@ Recorded 2026-11-27, before any evidence trial (details in Addendum 15 of `docs/
    long-context requests hanging until the client's default 600 s timeout, several times. From run B on, both arms'
    client uses a 120 s request timeout (still 2 retries). Run A keeps the default. This changes transport only, not
    the arms or the tasks; wall times in run A include these stalls and are reported with that caveat.
-6. **Run A stopped and completed (2026-11-27, about 7:50 PM ET).** Run A hung again for over 40 minutes on stalled
+6. **Run A stopped and completed (2026-11-27, 7:36 PM ET).** Run A stalled repeatedly (no new row for 10 to 25 minutes at a time) on hung
    requests and was stopped with 178 rows: 89 complete pairs, no single-arm rows. Both arms of the other 11 tasks
    (`lc11r15a`: 20, 24, 52, 87, 109, 132, 133, 140, 149, 155, 159; manifest hash `c2723ce794503622`) run as repeat 0
    in a separate invocation with the 120 s timeout (seed 2026, cap $0.50), before run B. No result of run A was
