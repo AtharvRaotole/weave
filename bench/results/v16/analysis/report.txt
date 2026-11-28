@@ -1,0 +1,4 @@
+primary_all_fresh: 163 tasks, 326 pairs; weave 0.319 native 0.282 diff +0.037 CI -0.025..+0.098; rep0 {'pairs': 163, 'weave_pass': 49, 'native_pass': 45, 'weave_only': 27, 'native_only': 23, 'mcnemar_p': 0.6718110337653656}
+multi_turn_long_context: 39 tasks, 78 pairs; weave 0.333 native 0.269 diff +0.064 CI -0.038..+0.167; rep0 {'pairs': 39, 'weave_pass': 13, 'native_pass': 11, 'weave_only': 5, 'native_only': 3, 'mcnemar_p': 0.7265625}
+multi_turn_miss_func: 67 tasks, 134 pairs; weave 0.306 native 0.209 diff +0.097 CI +0.022..+0.179; rep0 {'pairs': 67, 'weave_pass': 18, 'native_pass': 14, 'weave_only': 11, 'native_only': 7, 'mcnemar_p': 0.480682373046875}
+multi_turn_miss_param: 57 tasks, 114 pairs; weave 0.325 native 0.377 diff -0.053 CI -0.184..+0.070; rep0 {'pairs': 57, 'weave_pass': 18, 'native_pass': 20, 'weave_only': 11, 'native_only': 13, 'mcnemar_p': 0.8388197422027588}
