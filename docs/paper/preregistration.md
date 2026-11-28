@@ -707,3 +707,10 @@ fixes the details the runners need.
   tasks (`lc11r15a`, hash `c2723ce794503622`) run both arms as repeat 0 in a separate invocation. From run B on, a
   120 s request timeout. See deviations 5 and 6 in `docs/research/round15-preregistration.md`.
 
+## Addendum 16 (2026-11-27): round 16, confirmation on fresh (category, id) pairs (written and committed before any round 16 model call)
+
+Full plan: `docs/research/round16-preregistration.md`. Same arms, model, endpoint and Weave config as round 15; headline
+rule unchanged (primary difference at least +0.10, CI excludes 0). Manifests:
+`lc39r16` (multi_turn_long_context, 39 ids): hash `7d46d0df070170a4`; `mp57r16` (multi_turn_miss_param, 57 ids):
+hash `f03bda7d42ad255e`; `mf67r16` (multi_turn_miss_func, 67 ids): hash `8aff726f5bb3e2b2`. Analysis:
+`bench/bfcl/report_r16.py`. Cumulative cap with round 15: $25, no new invocation at $20 or more.

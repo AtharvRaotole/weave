@@ -72,3 +72,15 @@ SUBSETS["smokelc15"] = ("dev", [[i for i in range(200) if i not in R15_LC and i 
 # Round 15 deviation 6: completing run A. Both arms of the 11 lc100r15 tasks run A had not finished when it was
 # stopped (Azure stalls), same seed rules, with the 120 s timeout.
 SUBSETS["lc11r15a"] = ("evidence", [20, 24, 52, 87, 109, 132, 133, 140, 149, 155, 159])
+
+# Round 16 (docs/research/round16-preregistration.md): confirmation on (category, id) pairs no earlier round ran live.
+# Every scenario id was run live in some category before, so freshness is per category: the long-context ids not in
+# lc100r15, not in R9_EVIDENCE (read for the round 15 diagnosis) and not the round 15 smoke id 10; and the
+# miss_param / miss_func ids that no results file in bench/results holds a row for (any model).
+_R16_NO_LC = set(R15_LC) | set(R9_EVIDENCE) | {10}
+R16_LC = [i for i in range(200) if i not in _R16_NO_LC]
+R16_MP = [4, 5, 6, 13, 14, 17, 20, 21, 24, 25, 28, 39, 41, 43, 45, 46, 49, 57, 61, 67, 70, 73, 80, 87, 88, 93, 95, 96, 100, 102, 103, 105, 107, 108, 111, 114, 116, 118, 119, 122, 126, 135, 136, 140, 145, 158, 159, 163, 177, 181, 182, 187, 188, 192, 196, 198, 199]
+R16_MF = [4, 6, 8, 13, 14, 17, 18, 20, 21, 25, 28, 29, 30, 34, 36, 37, 39, 41, 45, 46, 49, 52, 54, 57, 61, 67, 70, 73, 80, 87, 88, 93, 95, 100, 102, 103, 108, 111, 116, 118, 119, 120, 121, 122, 126, 131, 133, 135, 136, 139, 140, 143, 145, 151, 158, 161, 163, 173, 181, 182, 187, 188, 192, 194, 196, 198, 199]
+SUBSETS["lc39r16"] = ("evidence", R16_LC)
+SUBSETS["mp57r16"] = ("evidence", R16_MP)
+SUBSETS["mf67r16"] = ("evidence", R16_MF)
