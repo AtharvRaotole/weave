@@ -1,0 +1,3 @@
+lc100r15: 100 tasks, 200 pairs; pass weave 0.515 native 0.415 diff +0.100 CI +0.005..+0.200; rep0 {'pairs': 100, 'weave_pass': 51, 'native_pass': 39, 'weave_only': 23, 'native_only': 11, 'mcnemar_p': 0.05761267291381955}
+mtb60r9: 60 tasks, 120 pairs; pass weave 0.450 native 0.408 diff +0.042 CI -0.058..+0.142; rep0 {'pairs': 60, 'weave_pass': 26, 'native_pass': 26, 'weave_only': 9, 'native_only': 9, 'mcnemar_p': 1.0}
+live_v2: 24 tasks, 72 pairs; pass diff +0.000 CI [0.0, 0.0]; unsafe weave 9 native 9

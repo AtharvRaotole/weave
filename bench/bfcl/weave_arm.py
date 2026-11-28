@@ -97,7 +97,7 @@ def learned_reads() -> list:
 
 def make_functions(entry: dict, instance_name: str, step_calls: List[dict], stats: Dict[str, int],
                    shapes: str = "learned", typed_args_doc: bool = True, trace: list | None = None,
-                   check_types: bool = False):
+                   check_types: bool = False, error_key: str | None = None):
     """One Python function per BFCL function doc. Each call runs `execute_multi_turn_func_call` on this arm's
     instances and is appended to `step_calls` as `{name: json_args}`, exactly what the native handler records."""
     import weave
@@ -163,9 +163,15 @@ def make_functions(entry: dict, instance_name: str, step_calls: List[dict], stat
         # BFCL's backends are stateful in-memory objects (a file system with a current directory, an account, ...):
         # every call may read or change that state, so every call is declared a (reversible) write and Weave keeps
         # them in program order.
-        functions.append(weave.declare(effect="reversible")(fn))
+        # `errkey` (round 15): the backends report failures as {"error": str} (train executions), so declare that
+        # convention and a failed call raises at the call, as a raising tool does.
+        functions.append(weave.declare(effect="reversible", error_key=error_key)(fn))
     return functions
 
+
+RECOVER = ("If a call fails, fix the cause (look up what is missing or meet the precondition) and run the script again "
+           "before you answer. Pass only values the user gave or a call returned. Never make up credentials or "
+           "placeholders.")
 
 DEFAULT_CONFIG = "doc"  # round 8: full rules, doc response schemas, no reply()
 
@@ -185,7 +191,8 @@ def inference_multi_turn_weave(handler, entry: dict, instance_name: str, create,
     trace: list = []
     def build_tool(shown=None):
         t = weave.WeaveTool(make_functions(entry, instance_name, step_calls, stats, shapes, "compact" not in opts,
-                                           trace if "trace" in opts else None, "typecheck" in opts),
+                                           trace if "trace" in opts else None, "typecheck" in opts,
+                                           "error" if "errkey" in opts else None),
                             max_wall_time_ms=60_000,
                             compact="compact" in opts or "hybrid" in opts, reply="reply" in opts,
                             listing="hybrid" not in opts,
@@ -195,8 +202,14 @@ def inference_multi_turn_weave(handler, entry: dict, instance_name: str, create,
             t.gate._shown = shown
         return t
 
+    def chat_tools(t):
+        spec = t.chat_tool()
+        if "recover" in opts:  # round 15, pre-registered wording
+            spec["function"]["description"] = spec["function"]["description"].rstrip() + " " + RECOVER
+        return [spec]
+
     tool = build_tool()
-    tools = [tool.chat_tool()]
+    tools = chat_tools(tool)
     if "hybrid" in opts:
         # Adaptive routing: BFCL's own native schemas (as the native arm sends them) plus run_weave for chains.
         from bfcl_eval.constants.enums import ModelStyle
@@ -216,7 +229,7 @@ def inference_multi_turn_weave(handler, entry: dict, instance_name: str, create,
         if str(turn_idx) in holdout:
             entry["function"].extend(holdout[str(turn_idx)])
             tool = build_tool(tool.gate._shown if tool.gate is not None else None)
-            tools = [tool.chat_tool()]
+            tools = chat_tools(tool)
         messages.extend(turn)
         for m in turn:  # the write gate counts what the user said as seen
             tool.note_shown(m.get("content", "") if isinstance(m, dict) else "")

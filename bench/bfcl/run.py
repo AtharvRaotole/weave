@@ -57,7 +57,7 @@ def endpoint_client(args):
     key = os.environ.get(args.api_key_env)
     if not key:
         raise SystemExit(f"--base-url needs ${args.api_key_env}")
-    return OpenAI(base_url=args.base_url, api_key=key, max_retries=2)
+    return OpenAI(base_url=args.base_url, api_key=key, max_retries=2, timeout=120)  # round 15: a stalled socket fails after 2 min, not 10
 
 
 def metered(handler, meter, effort, cache_key=None, deployment=None):
@@ -218,11 +218,12 @@ def main(argv=None):
     rows_f, traces_f = (out / "rows.jsonl").open("a"), (out / "traces.jsonl").open("a")
     room = threading.Condition()
     spent, in_flight, done, skipped = [0.0], [0], [0], []
+    recent, stopped = [], []  # provider errors in the last 20 trials; the stop reason, once set
 
     def go(arm, i, r):
         with room:
-            while spent[0] + (in_flight[0] + 1) * args.reserve_usd > args.usd_budget:
-                if in_flight[0] == 0:
+            while stopped or spent[0] + (in_flight[0] + 1) * args.reserve_usd > args.usd_budget:
+                if in_flight[0] == 0 or stopped:
                     skipped.append((arm, i, r))
                     return
                 room.wait()
@@ -236,6 +237,11 @@ def main(argv=None):
         with room:
             spent[0] += row["usd"]
             done[0] += 1
+            recent.append(bool(row["error"]))
+            del recent[:-20]
+            if len(recent) >= 10 and sum(recent) / len(recent) > 0.10 and not stopped:
+                stopped.append("provider error rate above 10% in the last 20 trials")
+                print("STOP: " + stopped[0], flush=True)
             rows_f.write(json.dumps(row, sort_keys=True, default=str) + "\n")
             rows_f.flush()
             traces_f.write(json.dumps({"id": row["id"], "arm": arm, "repeat": r, **trace}, default=str) + "\n")
@@ -249,7 +255,9 @@ def main(argv=None):
             f.result()
     rows_f.close()
     traces_f.close()
-    if skipped:
+    if stopped:
+        meta["stopped"] = stopped[0]
+    if skipped or stopped:
         meta["not_run_budget"] = [{"arm": a, "task_index": i, "repeat": r} for a, i, r in skipped]
         (out / "run.json").write_text(json.dumps(meta, indent=2) + "\n")
     print(f"results: {out} (spent ${spent[0]:.4f}; {len(skipped)} trials not run for budget)")

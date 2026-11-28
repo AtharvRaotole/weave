@@ -113,6 +113,10 @@ Pre-registered, on fresh tasks, against native function calling with the same mo
 - **BFCL miss_param / miss_func with the write gate** (round 10, `write_gate="choice"`): GPT-5.4 mini **30/105 vs
   24/105** (not significant) at **equal cost**; GPT-4.1 **3/16 vs 5/16, a loss** (5/20 vs 7/20 with the pairs
   completed on Azure).
+- **BFCL multi-turn long context, held out** (round 15, pre-registered, GPT-5.4 mini on Azure, 100 tasks x 2 repeats):
+  **0.515 vs 0.415** passed, difference +0.10 (95% CI +0.005 to +0.20), at about 0.77x the cost. It meets our headline
+  rule only barely, one repeat is not significant alone, and the round 9 loss above still stands.
+  [Full write-up](https://github.com/AtharvRaotole/weave/blob/main/docs/research/round15-results.md).
 - **tau-bench retail** (a conversation, one confirmation per write): a draw.
 
 Round 9 used `WeaveTool(compact=True)`; rounds 10–11 added `write_gate="choice"`. Both ship in 1.1.0. The chart shows round 9.

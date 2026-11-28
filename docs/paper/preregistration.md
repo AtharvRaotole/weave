@@ -666,3 +666,44 @@ $1.30, miss_param $1.60, miss_func $1.60 (reserve $0.03); GPT-4.1 base $4.50, mi
 
 **Release rule** (owner's brief): Weave ≥ native on success and ≤ native on cost on BFCL, or clear wins elsewhere with
 no hidden losses. This addendum only reports whether it is met; the owner decides.
+
+## Addendum 15 (2026-11-27): round 15, error convention and recovery wording (written and committed before any evidence trial on `lc100r15`, `mtb60r9` or `live-v2`)
+
+Full plan: `docs/research/round15-preregistration.md` (pushed 2026-11-27 6:20 PM ET, commit `6b0fb8f`). This addendum
+fixes the details the runners need.
+
+- **Arms.** native = BFCL's handler, unchanged. Weave = `compact,learned,trace,typecheck,gatechoice,errkey,recover`:
+  round 11's config plus `error_key="error"` on every BFCL function (merged in PR #65, `facc052`, after its tests
+  passed) and the two pre-registered sentences appended to the `run_weave` description (`weave_arm.RECOVER`).
+- **Endpoint.** Azure AI Foundry `atharvraotole-4504-resource.services.ai.azure.com`, `/openai/v1`, deployment
+  `gpt-5.4-mini`; a smoke run served `gpt-5.4-mini-2026-03-17`. Effort `none`, `prompt_cache_key` in both arms.
+  Round 9 ran on the OpenAI API, so `mtb60r9` here is a different provider from round 9.
+- **Manifests.** `lc100r15` (multi_turn_long_context, the 100 ids in the plan): hash `c67ab8708811a550`.
+  `mtb60r9` (multi_turn_base): hash `dd3384a5132d2183` (unchanged from Addendum 9). `live-v2` (24 tasks,
+  `bench/protocol_v3/live_tasks_v2.py`): manifest hash `72c7174a545b3621796326804b72685eb2ab9ab3e7b6f6bb60ee4cbe0a097bae`.
+- **Disclosure: how held out `lc100r15` is.** No round has run the long-context category, and the round 15 changes
+  came only from the round 9 evidence traces, which `lc100r15` excludes. But all 100 ids are base-category train
+  scenarios: the learned return shapes and read/write classes include their base ground truth (API-level metadata),
+  and 53 of them were run live in other categories in earlier rounds, where round 11's config was chosen. The 47 never
+  run live (`R15_LC_NEVER_RUN`) are reported separately, descriptively; they are not a new endpoint.
+- **Invocations, in order** (`bench/bfcl/run.py`, workers 4, reserve $0.05 per trial in flight):
+  (A) `lc100r15` repeat 0, seed 2026, cap $4.00; (B) `mtb60r9` repeat 0, seed 2026, cap $1.50; (C) `lc100r15`
+  repeat 1, seed 2027, cap $4.00; (D) `mtb60r9` repeat 1, seed 2027, cap $1.50. Each invocation interleaves the arms
+  per task in a seeded random order. The runner stops starting trials when provider or harness errors exceed 10 % of
+  the last 20 trials. Then `live-v2` (`bench/protocol_v3/live_cc.py`): 3 repeats (144 trials), seed 2026, cap
+  $1.00. Caps total $12.00; with the $0.03 spent on smoke runs the round cannot pass $18.
+- **Live A/B arms.** The same model, endpoint and Weave options, over the protocol-v3 fixture (fs/git/memory behind
+  the real `weave-mcp`). Its tools raise opaque errors and never return error values, so `error_key` has no effect
+  there. Unsafe writes: write attempts outside the task's expected writes, plus write attempts after a failed call.
+- **Analysis.** `bench/bfcl/report_r15.py`, committed with this addendum, exactly as in the plan: complete pairs
+  only; per-task means over repeats; paired bootstrap 95 % CI (10,000 resamples of tasks, seed 2026); exact
+  McNemar on repeat 0. "State-changing calls after a failed call" are counted per model step for both arms by
+  executing the recorded calls again on fresh BFCL backends (no model calls). The live set uses the same bootstrap.
+- **Smoke runs before evidence ($0.0289):** one long-context task outside both sets (id 10, `smokelc15`, both arms
+  failed) for cost, and a harness check of `live_cc.py` on 2 `live-v2` tasks (`copy_missing`, `publish_if_match`;
+  both arms passed both). Nothing was changed after them.
+- **Headline rule** unchanged: the primary difference is at least +0.10 and its CI excludes 0.
+- **Deviation (2026-11-27, before run B):** run A stopped on provider stalls with 89 complete pairs; the other 11
+  tasks (`lc11r15a`, hash `c2723ce794503622`) run both arms as repeat 0 in a separate invocation. From run B on, a
+  120 s request timeout. See deviations 5 and 6 in `docs/research/round15-preregistration.md`.
+
