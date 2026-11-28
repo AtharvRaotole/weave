@@ -84,3 +84,6 @@ R16_MF = [4, 6, 8, 13, 14, 17, 18, 20, 21, 25, 28, 29, 30, 34, 36, 37, 39, 41, 4
 SUBSETS["lc39r16"] = ("evidence", R16_LC)
 SUBSETS["mp57r16"] = ("evidence", R16_MP)
 SUBSETS["mf67r16"] = ("evidence", R16_MF)
+# Round 16 deviation 3: completing mf rep1. Both arms of the 27 mf67r16 tasks that had no complete pair
+# when the runner was stopped after three ~7200 s stalls. Same seed 2027, 2 workers.
+SUBSETS["mf27r16resume"] = ("evidence", [6, 14, 28, 29, 34, 41, 45, 46, 49, 52, 54, 67, 116, 118, 119, 120, 121, 122, 131, 140, 143, 151, 161, 173, 181, 182, 198])

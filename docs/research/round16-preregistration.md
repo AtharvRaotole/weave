@@ -89,4 +89,19 @@ data and reproduces its +0.100 (CI +0.005 to +0.200).
 
 ## Deviations
 
-(none yet)
+1. **2026-11-27, first chain start.** The first start used a new worktree that did not have the built `weave._native`
+   extension. The weave arm errored on every trial. The process was killed after 10 rows; the native rows that had
+   already made model calls cost about $0.067. That directory is kept as
+   `...-ABORTED-no-native-module`, is never analysed, and is still counted in spend. The `.so` was copied from the
+   round 15 worktree (same Rust sources: `git diff` over `crates/python` was empty). The chain then restarted from
+   step 1 with fresh result directories.
+
+2. **2026-11-27, chain wrapper.** The notes copy of the chain script at `/workspace/weave-notes/r16-logs/chain.sh`
+   adds `cd $W || exit 1` at the top. The committed `bench/bfcl/r16_chain.sh` does not.
+
+3. **2026-11-28, during mf rep1.** The second miss_func repeat stalled on three trials with wall times of about
+   7200 s (weave id 103, both arms of id 30). The runner was stopped at 81 of 134 trials: 40 complete pairs, plus
+   weave only on id 131. The remaining 27 ids (`mf27r16resume`, hash `7ca5b193ef97258c`) run both arms as repeat 1
+   in a separate invocation, 2 workers, with the 120 s request timeout already in the runner. This is a resume of
+   the pre-registered `mf67r16` set, not a new sample. Ids: 6, 14, 28, 29, 34, 41, 45, 46, 49, 52, 54, 67, 116,
+   118, 119, 120, 121, 122, 131, 140, 143, 151, 161, 173, 181, 182, 198.

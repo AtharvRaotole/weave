@@ -714,3 +714,9 @@ rule unchanged (primary difference at least +0.10, CI excludes 0). Manifests:
 `lc39r16` (multi_turn_long_context, 39 ids): hash `7d46d0df070170a4`; `mp57r16` (multi_turn_miss_param, 57 ids):
 hash `f03bda7d42ad255e`; `mf67r16` (multi_turn_miss_func, 67 ids): hash `8aff726f5bb3e2b2`. Analysis:
 `bench/bfcl/report_r16.py`. Cumulative cap with round 15: $25, no new invocation at $20 or more.
+- **Deviation (2026-11-28, during mf rep1):** the second miss_func repeat stalled on three trials with wall times of
+  about 7200 s. The runner was stopped at 81 of 134 trials (40 complete pairs, plus weave only on id 131). The
+  remaining 27 ids (`mf27r16resume`, hash `7ca5b193ef97258c`) run both arms as repeat 1 in a separate invocation, 2
+  workers, 120 s request timeout already in the runner. This is a resume of the pre-registered `mf67r16` set, not a
+  new sample. Two earlier deviations (missing `weave._native` on the first chain start, and a `cd $W` in the notes
+  chain wrapper) are listed in `docs/research/round16-preregistration.md`.
