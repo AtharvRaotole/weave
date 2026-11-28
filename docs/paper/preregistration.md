@@ -703,3 +703,7 @@ fixes the details the runners need.
   failed) for cost, and a harness check of `live_cc.py` on 2 `live-v2` tasks (`copy_missing`, `publish_if_match`;
   both arms passed both). Nothing was changed after them.
 - **Headline rule** unchanged: the primary difference is at least +0.10 and its CI excludes 0.
+- **Deviation (2026-11-27, before run B):** run A stopped on provider stalls with 89 complete pairs; the other 11
+  tasks (`lc11r15a`, hash `c2723ce794503622`) run both arms as repeat 0 in a separate invocation. From run B on, a
+  120 s request timeout. See deviations 5 and 6 in `docs/research/round15-preregistration.md`.
+

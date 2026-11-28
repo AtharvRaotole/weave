@@ -69,3 +69,6 @@ SUBSETS["lc100r15"] = ("evidence", R15_LC)
 R15_LC_NEVER_RUN = [i for i in R15_LC if i not in _USED]  # 47 ids: reported descriptively, not a new endpoint
 # Round 15 cost smoke (dev split, not evidence): one long-context id outside lc100r15 and R9_EVIDENCE.
 SUBSETS["smokelc15"] = ("dev", [[i for i in range(200) if i not in R15_LC and i not in R9_EVIDENCE][0]])
+# Round 15 deviation 6: completing run A. Both arms of the 11 lc100r15 tasks run A had not finished when it was
+# stopped (Azure stalls), same seed rules, with the 120 s timeout.
+SUBSETS["lc11r15a"] = ("evidence", [20, 24, 52, 87, 109, 132, 133, 140, 149, 155, 159])
