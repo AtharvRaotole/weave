@@ -57,7 +57,7 @@ def endpoint_client(args):
     key = os.environ.get(args.api_key_env)
     if not key:
         raise SystemExit(f"--base-url needs ${args.api_key_env}")
-    return OpenAI(base_url=args.base_url, api_key=key, max_retries=2)
+    return OpenAI(base_url=args.base_url, api_key=key, max_retries=2, timeout=120)  # round 15: a stalled socket fails after 2 min, not 10
 
 
 def metered(handler, meter, effort, cache_key=None, deployment=None):

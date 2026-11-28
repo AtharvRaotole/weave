@@ -94,3 +94,8 @@ Recorded 2026-11-27, before any evidence trial (details in Addendum 15 of `docs/
    on the same fixture and grader. The fixture's tools raise and never return error values, so `error_key` does not
    apply there. Repeats: 3.
 4. **Smoke runs ($0.0289)** on a long-context id outside both sets, and on 2 `live-v2` tasks (both arms passed).
+5. **Request timeout (2026-11-27 7:35 PM ET, during run A, before runs B, C, D and live-v2).** Azure left some
+   long-context requests hanging until the client's default 600 s timeout, several times. From run B on, both arms'
+   client uses a 120 s request timeout (still 2 retries). Run A keeps the default. This changes transport only, not
+   the arms or the tasks; wall times in run A include these stalls and are reported with that caveat.
+

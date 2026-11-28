@@ -192,7 +192,7 @@ def main(argv=None):
         if man["manifest_hash"][:16] not in (ROOT / "docs/paper/preregistration.md").read_text():
             raise SystemExit("refusing: live-v2 manifest is not pre-registered")
     from openai import OpenAI
-    client = OpenAI(base_url=args.base_url, api_key=key, max_retries=2)
+    client = OpenAI(base_url=args.base_url, api_key=key, max_retries=2, timeout=120)
     tasks = [t for t in LIVE_V2 if not args.tasks or t.id in args.tasks.split(",")]
     rng = random.Random(args.seed)
     units = [(t, r) for r in range(args.repeats) for t in tasks]
