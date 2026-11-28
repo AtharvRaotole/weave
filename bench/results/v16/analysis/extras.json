@@ -1,0 +1,169 @@
+{
+ "tuned_id_count_in_sets": 59,
+ "never_tuned_id_count_in_sets": 32,
+ "never_tuned_task_pairs_present": 56,
+ "tuned_task_pairs_present": 107,
+ "never_tuned_56": {
+  "tasks_with_pairs": 56,
+  "trial_pairs": 112,
+  "pass": {
+   "weave_mean": 0.33035714285714285,
+   "native_mean": 0.2767857142857143,
+   "diff": 0.05357142857142857,
+   "diff_ci95": [
+    -0.044642857142857144,
+    0.15178571428571427
+   ],
+   "weave_total": 37.0,
+   "native_total": 31.0
+  },
+  "calls": {
+   "weave_mean": 9.526785714285714,
+   "native_mean": 9.901785714285714,
+   "diff": -0.375,
+   "diff_ci95": [
+    -0.8660714285714286,
+    0.11607142857142858
+   ],
+   "weave_total": 1067,
+   "native_total": 1109
+  },
+  "tokens": {
+   "weave_mean": 34949.83928571428,
+   "native_mean": 46926.46428571428,
+   "diff": -11976.625,
+   "diff_ci95": [
+    -21003.66964285714,
+    -5205.366071428572
+   ],
+   "weave_total": 3914382,
+   "native_total": 5255764
+  },
+  "usd": {
+   "weave_mean": 0.00940382142857143,
+   "native_mean": 0.010234043303571428,
+   "diff": -0.0008302218750000001,
+   "diff_ci95": [
+    -0.0025313316964285714,
+    0.00037298571428571407
+   ],
+   "weave_total": 1.053228,
+   "native_total": 1.14621285
+  },
+  "wall": {
+   "weave_mean": 76.8728394231626,
+   "native_mean": 13.865550228527614,
+   "diff": 63.007289194634986,
+   "diff_ci95": [
+    -2.0725885310343335,
+    191.98319057907378
+   ],
+   "weave_total": 8609.75801539421,
+   "native_total": 1552.9416255950928
+  },
+  "repeat0": {
+   "pairs": 56,
+   "weave_pass": 19,
+   "native_pass": 16,
+   "weave_only": 9,
+   "native_only": 6,
+   "mcnemar_p": 0.60723876953125
+  },
+  "repeat1": {
+   "pairs": 56,
+   "weave_pass": 18,
+   "native_pass": 15,
+   "weave_only": 9,
+   "native_only": 6,
+   "mcnemar_p": 0.60723876953125
+  }
+ },
+ "tuned_rest": {
+  "tasks_with_pairs": 107,
+  "trial_pairs": 214,
+  "pass": {
+   "weave_mean": 0.3130841121495327,
+   "native_mean": 0.2850467289719626,
+   "diff": 0.028037383177570093,
+   "diff_ci95": [
+    -0.0514018691588785,
+    0.10747663551401869
+   ],
+   "weave_total": 67.0,
+   "native_total": 61.0
+  },
+  "calls": {
+   "weave_mean": 9.897196261682243,
+   "native_mean": 10.616822429906541,
+   "diff": -0.719626168224299,
+   "diff_ci95": [
+    -1.1355140186915889,
+    -0.32242990654205606
+   ],
+   "weave_total": 2118,
+   "native_total": 2272
+  },
+  "tokens": {
+   "weave_mean": 29687.23831775701,
+   "native_mean": 36570.168224299065,
+   "diff": -6882.929906542056,
+   "diff_ci95": [
+    -10002.35046728972,
+    -4312.2663551401865
+   ],
+   "weave_total": 6353069,
+   "native_total": 7826016
+  },
+  "usd": {
+   "weave_mean": 0.008648770794392522,
+   "native_mean": 0.008974720093457945,
+   "diff": -0.0003259492990654205,
+   "diff_ci95": [
+    -0.0009009525700934578,
+    0.00015874976635514023
+   ],
+   "weave_total": 1.85083695,
+   "native_total": 1.9205901
+  },
+  "wall": {
+   "weave_mean": 46.61739797012828,
+   "native_mean": 47.923937502308426,
+   "diff": -1.3065395321801445,
+   "diff_ci95": [
+    -2.2012022533149365,
+    -0.44918658243161497
+   ],
+   "weave_total": 9976.123165607452,
+   "native_total": 10255.722625494003
+  },
+  "repeat0": {
+   "pairs": 107,
+   "weave_pass": 30,
+   "native_pass": 29,
+   "weave_only": 18,
+   "native_only": 17,
+   "mcnemar_p": 1.0
+  },
+  "repeat1": {
+   "pairs": 107,
+   "weave_pass": 37,
+   "native_pass": 32,
+   "weave_only": 16,
+   "native_only": 11,
+   "mcnemar_p": 0.44206833839416504
+  }
+ },
+ "unique_ids": 91,
+ "unique_ids_never_tuned": 32,
+ "unique_ids_tuned": 59,
+ "outcomes": {
+  "native/empty_turn_model_response": 84,
+  "native/execution_response_mismatch": 52,
+  "native/instance_state_mismatch": 98,
+  "native/pass": 92,
+  "weave/empty_turn_model_response": 98,
+  "weave/execution_response_mismatch": 39,
+  "weave/instance_state_mismatch": 85,
+  "weave/pass": 104
+ }
+}

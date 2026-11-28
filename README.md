@@ -92,7 +92,7 @@ details in the [reference](https://github.com/AtharvRaotole/weave/blob/main/docs
 Does it help? On a pre-registered fan-out suite against real services it passed 40/40 tasks vs 27/40 for plain
 function calling, at about half the cost. It's not a win everywhere though: on BFCL multi-turn it was a small,
 not significant gain in one round (159/378 vs 140/378), a clear loss with GPT-5.4 mini in another (18/60 vs 27/60),
-and a draw on tau-bench. Details below.
+a barely-met long-context result that a later confirmation run did not confirm, and a draw on tau-bench. Details below.
 
 Try it, break it, and tell us what went wrong. Issues and PRs are very welcome.
 
@@ -117,6 +117,10 @@ Pre-registered, on fresh tasks, against native function calling with the same mo
   **0.515 vs 0.415** passed, difference +0.10 (95% CI +0.005 to +0.20), at about 0.77x the cost. It meets our headline
   rule only barely, one repeat is not significant alone, and the round 9 loss above still stands.
   [Full write-up](https://github.com/AtharvRaotole/weave/blob/main/docs/research/round15-results.md).
+- **BFCL fresh confirmation across leftover categories** (round 16, pre-registered, GPT-5.4 mini on Azure, 163 tasks x 2 repeats):
+  **0.319 vs 0.282** passed, difference +0.037 (95% CI -0.025 to +0.098). The headline rule (at least +0.10 and CI excludes 0)
+  is not met, so the round 15 long-context result is not confirmed. The round 9 loss above still stands.
+  [Full write-up](https://github.com/AtharvRaotole/weave/blob/main/docs/research/round16-results.md).
 - **tau-bench retail** (a conversation, one confirmation per write): a draw.
 
 Round 9 used `WeaveTool(compact=True)`; rounds 10–11 added `write_gate="choice"`. Both ship in 1.1.0. The chart shows round 9.
